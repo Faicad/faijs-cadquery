@@ -5,7 +5,7 @@
 // rotate=True rotates each rect about its own centre by the same angle.
 // Upstream asserts the >Y and >Z vertex is (3.0334936490538906,
 // -1.7099364905389036, 1.0) — i.e. the 60° rect's rotated corner.
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let c = cq.center(cq.Workplane('XY'), 2, -4)
 let pa = cq.polarArray(c, 2, 10, 50, 3)
 let rp = cq.rect(pa, 1.0, 0.5)

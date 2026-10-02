@@ -2,7 +2,7 @@
 // for i in range(15): t = Workplane("XY").center(10.0*i, 0).rect(0.5,0.5).extrude(5.0)
 // Final t = the i=14 iteration: box centred (140, 0), z 0..5.
 // ref (cadquery 2.8.0): Solid, vol 1.25
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let s = cq.Workplane('XY')
 let c = cq.center(s, 140, 0)
 let r = cq.rect(c, 0.5, 0.5)

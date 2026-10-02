@@ -3,7 +3,7 @@
 // Two pending wires in ONE extrusion: the circle is a hole in the rect face
 // (7 faces). vol = 2*2*0.5 - pi*0.25^2*0.5 = 1.9018252295753189
 // ref (cadquery 2.8.0): Solid, vol 1.9018252295753189
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let s = cq.Workplane('XY')
 let p = cq.rect(s, 2, 2)
 let c = cq.circle(p, 0.25)

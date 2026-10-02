@@ -6,7 +6,7 @@
 // it, so the multisection sweep equals a smooth loft through the three circles
 // (ref vol reproduced exactly by as-is loft).
 // ref (cadquery 2.8.0): vol 117.28612488370534
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let w0 = cq.Workplane('YZ')
 let w1 = await cq.workplane(w0, { offset: -10 })
 let w2 = cq.circle(w1, 2)

@@ -16,7 +16,7 @@ let runtime: ReturnType<typeof createRuntime>
 beforeAll(async () => {
   await registerOcctBrepEngine()
   runtime = createRuntime(createNodePorts(), 'brep')
-  runtime.registerLib('cq', cq as never, { packageName: '@faicad/cq-compat' } as never)
+  runtime.registerLib('cq', cq as never, { packageName: '@faicad/faijs-cadquery' } as never)
   // warm up
   const warm = await runtime.execute('let a = cad.box(1, 1, 1, { centered: true })')
   expect(warm.failedAt).toBeUndefined()
@@ -25,7 +25,7 @@ beforeAll(async () => {
 describe('cq-compat Workplane basic ops', () => {
   it('box + faces + workplane + hole produces a brep shape', async () => {
     const code = [
-      "import * as cq from '@faicad/cq-compat'",
+      "import * as cq from '@faicad/faijs-cadquery'",
       "let wp = cq.Workplane('XY')",
       'let wp1 = cq.box(wp, 100, 80, 10)',
       "let wp2 = cq.faces(wp1, '>Z')",
@@ -42,7 +42,7 @@ describe('cq-compat Workplane basic ops', () => {
 
   it('rect+extrude pattern via box + cutBlind', async () => {
     const code = [
-      "import * as cq from '@faicad/cq-compat'",
+      "import * as cq from '@faicad/faijs-cadquery'",
       "let wp = cq.Workplane('XY')",
       'let wp1 = cq.box(wp, 60, 40, 8)',
       "let wp2 = cq.faces(wp1, '>Z')",
@@ -59,7 +59,7 @@ describe('cq-compat Workplane basic ops', () => {
 
   it('pushPoints + hole (multiple holes)', async () => {
     const code = [
-      "import * as cq from '@faicad/cq-compat'",
+      "import * as cq from '@faicad/faijs-cadquery'",
       "let wp = cq.Workplane('XY')",
       'let wp1 = cq.box(wp, 60, 40, 8)',
       "let wp2 = cq.faces(wp1, '>Z')",
@@ -77,7 +77,7 @@ describe('cq-compat Workplane basic ops', () => {
 
   it('translate + union', async () => {
     const code = [
-      "import * as cq from '@faicad/cq-compat'",
+      "import * as cq from '@faicad/faijs-cadquery'",
       "let wp = cq.Workplane('XY')",
       'let wp1 = cq.box(wp, 30, 30, 10)',
       'let wp2 = cq.box(wp, 15, 15, 10)',
@@ -106,7 +106,7 @@ function shapeMetrics(shape: Shape): { volume: number; solidCount: number } {
 describe('cq-compat workplane stack (pushPoints) semantics — regression 2026-09-08', () => {
   it('cutBlind cuts at EVERY pushPoints point (2 side slots, not 1 center slot)', async () => {
     const code = [
-      "import * as cq from '@faicad/cq-compat'",
+      "import * as cq from '@faicad/faijs-cadquery'",
       "let wp = cq.Workplane('XY')",
       'let wp1 = cq.box(wp, 60, 40, 8)',
       "let wp2 = cq.faces(wp1, '>Z')",
@@ -127,7 +127,7 @@ describe('cq-compat workplane stack (pushPoints) semantics — regression 2026-0
 
   it('cboreHole drills the counterbore at EVERY pushPoints point (not only center)', async () => {
     const code = [
-      "import * as cq from '@faicad/cq-compat'",
+      "import * as cq from '@faicad/faijs-cadquery'",
       "let wp = cq.Workplane('XY')",
       'let wp1 = cq.box(wp, 60, 40, 8)',
       "let wp2 = cq.faces(wp1, '>Z')",
@@ -150,7 +150,7 @@ describe('cq-compat workplane stack (pushPoints) semantics — regression 2026-0
 
   it('boss extrude unions a boss at EVERY pushPoints point (1 fused solid)', async () => {
     const code = [
-      "import * as cq from '@faicad/cq-compat'",
+      "import * as cq from '@faicad/faijs-cadquery'",
       "let wp = cq.Workplane('XY')",
       'let wp1 = cq.box(wp, 60, 40, 8)',
       "let wp2 = cq.faces(wp1, '>Z')",
@@ -181,7 +181,7 @@ describe('cq-compat workplane stack (pushPoints) semantics — regression 2026-0
     // (plate + boss side) and workplane() would raise "must be co-planar" —
     // CadQuery's direction selector semantics; use the extreme selector ">Y".
     const code = [
-      "import * as cq from '@faicad/cq-compat'",
+      "import * as cq from '@faicad/faijs-cadquery'",
       "let wp = cq.Workplane('XY')",
       'let base = cq.box(wp, 60, 40, 8)',
       "let bwp = cq.workplane(cq.faces(base, '>Z'))",

@@ -6,7 +6,7 @@
 // circle moved by (0,10,10) — vol pi*1.5^2*10 = 70.6858, exactly a ruled loft
 // between the two end circles.
 // ref (cadquery 2.8.0): vol 966.907092, bbox [-0,-1.5,-0]..[10,11.5,10]
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let box = await cq.box(cq.Workplane(), 10, 10, 10, { centered: false })
 let p0 = cq.Workplane('XY')
 let p1 = await cq.transformed(p0, { offset: [10, 0, 0] })

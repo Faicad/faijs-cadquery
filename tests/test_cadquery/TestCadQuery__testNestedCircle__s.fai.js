@@ -6,7 +6,7 @@
 // NOTE: written multi-statement on purpose. Nesting two cq.circle() calls inside
 // one argument list loses the OUTER radius (pendingWires records radius=undefined),
 // leaving the plain base box (vol 8000). See docs/plans/2026-09-08-cq-compat-parity-phase2.md §7.8.
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let base = await cq.box(cq.Workplane('XY'), 40, 40, 5)
 let p = cq.pushPoints(base, [[10, 0], [0, 10]])
 let c1 = cq.circle(p, 4)

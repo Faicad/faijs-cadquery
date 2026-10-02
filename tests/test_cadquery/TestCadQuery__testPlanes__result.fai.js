@@ -7,7 +7,7 @@
 // reproduces the observable ref geometry (extrude only).
 // ref (cadquery 2.8.0): Compound, vol 4.0, 6 PLANE faces,
 //   bbox [-1,-0.5,-2]..[1,0,2]
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let s = cq.rect(cq.Workplane('bottom'), 2, 4)
 let e = await cq.extrude(s, 0.5)
 let result = cq.val(e)

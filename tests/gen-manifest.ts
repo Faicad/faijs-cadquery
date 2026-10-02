@@ -12,7 +12,7 @@
  * the presence of the mirror file, and NEVER removes existing hand-written
  * status annotations (status/blockedBy are preserved when already present).
  *
- * Usage: npx tsx packages/cq-compat/tests/gen-manifest.ts
+ * Usage: npx tsx packages/faijs-cadquery/tests/gen-manifest.ts
  */
 
 import { readFileSync, writeFileSync, existsSync, readdirSync, statSync } from 'node:fs'

@@ -8,7 +8,7 @@ answer to "移植哪些测试". This script produces that answer by static analy
      (Workplane / Assembly / Sketch / Shape public methods) -> the op universe
   2. AST-scan every case body that the ref harness actually exported to STEP
      (`out/ref/manifest.json`) -> the ops each case really touches
-  3. subtract what `@faicad/cq-compat` implements -> portable vs blocked, with the
+  3. subtract what `@faicad/faijs-cadquery` implements -> portable vs blocked, with the
      first missing op per case (`blockedBy`)
 
 Only stdlib is needed. Uses the same CadQuery tag snapshot as `run-ref.py`.

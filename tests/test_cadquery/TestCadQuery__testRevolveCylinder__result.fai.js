@@ -7,7 +7,7 @@
 // case (rect centered on the axis, 360 deg) crosses the revolve axis and is
 // rejected by the vendored occt-wasm kernel (REVOLVE_FAILED) where full OCCT
 // accepts it — documented in src/revolve.test.ts (KNOWN KERNEL LIMIT).
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let wp1 = cq.rect(cq.Workplane('XY'), 10, 10)
 let wp2 = await cq.revolve(wp1, 270, [-5, -5], [-5, 5], false)
 let result = cq.val(wp2)

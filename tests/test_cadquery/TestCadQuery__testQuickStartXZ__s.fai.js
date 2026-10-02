@@ -1,7 +1,7 @@
 // source: test_cadquery.py::TestCadQuery::testQuickStartXZ (var s)
 // s = Workplane(Plane.XZ()).box(2,4,0.5).faces(">Y").workplane()
 //       .rect(1.5,3.5,forConstruction=True).vertices().cskHole(0.125,0.25,82,depth=None)
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let base = await cq.box(cq.Workplane('XZ'), 2, 4, 0.5)
 let topFace = await cq.faces(base, '>Y')
 let wp = await cq.workplane(topFace)

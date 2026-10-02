@@ -8,7 +8,7 @@
 // `p.faces(">Z").shell(0.3)` statements are DISCARDED upstream (Workplane is
 // immutable and their results are never bound), so `p` is the plain extrusion.
 // ref (probed): vol 6042.66058397, bbox x[-10,10] y[-6,6] z[0,30], f6/e12/v8.
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let s = cq.Workplane('XY')
 let c = cq.center(s, -10, 0)
 let e1 = await cq.vLine(c, 3)

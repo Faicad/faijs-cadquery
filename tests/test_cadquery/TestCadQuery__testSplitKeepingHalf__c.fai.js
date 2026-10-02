@@ -2,7 +2,7 @@
 // c = CQ(makeUnitCube()).faces(">Z").workplane().circle(0.25).cutThruAll()
 // makeUnitCube = 1x1x1 XY-centred, Z spanning [0,1]; the through-all hole
 // yields 7 faces (ref harness exports val() = the holed cube).
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 
 let w0 = cq.Workplane('XY')
 let cube = await cq.box(w0, 1, 1, 1, { centered: [true, true, false] })

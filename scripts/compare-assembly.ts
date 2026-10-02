@@ -3,7 +3,7 @@
  * CLI for comparing two assembly STEP files.
  *
  * Usage:
- *   npx tsx packages/cq-compat/scripts/compare-assembly.ts <ref.step> <cand.step> [options]
+ *   npx tsx packages/faijs-cadquery/scripts/compare-assembly.ts <ref.step> <cand.step> [options]
  *
  * Options:
  *   --linear-tol <n>      Linear tolerance in mm (default: 1e-3)

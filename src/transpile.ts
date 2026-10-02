@@ -100,7 +100,7 @@ export function transpile(ast: AstNode, config: ReturnType<typeof extractConfig>
   }
 
   const lines: string[] = []
-  lines.push("import * as cq from '@faicad/cq-compat'")
+  lines.push("import * as cq from '@faicad/faijs-cadquery'")
   lines.push('')
 
   // Inline config constants

@@ -7,7 +7,7 @@
 //   vol 5 bbox x[-0.5,0.5] y[-0.5,0.5] z[-2.5,2.5]
 //   vol 6 bbox x[-0.5,0.5] y[-0.5,0.5] z[2.5,8.5]
 // Solved through the CadQuery grammar (cq-compat-assembly solve()/toCompound()).
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 import * as cqa from '@faicad/cq-compat-assembly'
 let box2 = await cq.box(cq.Workplane('XY'), 1, 1, 5)
 let box3 = await cq.box(cq.Workplane('XY'), 1, 1, 6)

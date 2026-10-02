@@ -5,7 +5,7 @@
 // box2 = box.moved(loc)                       -> (2,2,2)
 // box.move(loc)                               -> box becomes (2,2,2)
 // Final exported box center = (2,2,2).
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let base = await cq.box(cq.Workplane('XY'), 1, 1, 1)
 let box = await cq.moved(base, cq.Location([1, 1, 1]))
 box = await cq.moved(box, cq.Location([1, 1, 1]))

@@ -20,7 +20,7 @@ import { asPartName } from '@faicad/faijs/identity'
 import type { Shape } from '@faicad/faijs/mesh/types'
 import type { AssemblyConstraint } from '@faicad/faijs/api/assembly/types'
 import type { AssemblyTransform } from '@faicad/faijs/runtime-state'
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 import { buildAssembly, constraintEx } from './assembly/index'
 
 let runtime: ReturnType<typeof createRuntime>
@@ -33,11 +33,11 @@ let cylB: Shape
 beforeAll(async () => {
   await registerOcctBrepEngine()
   runtime = createRuntime(createNodePorts(), 'brep')
-  runtime.registerLib('cq', cq as never, { packageName: '@faicad/cq-compat' } as never)
+  runtime.registerLib('cq', cq as never, { packageName: '@faicad/faijs-cadquery' } as never)
 
   // 复用 P2 已验证的「先赋异步结果给变量、再 cq.val」模式
   const res = await runtime.execute([
-    "import * as cq from '@faicad/cq-compat'",
+    "import * as cq from '@faicad/faijs-cadquery'",
     'let bA = cq.box(cq.Workplane("XY"), 100, 80, 10)',
     'let bB = cq.box(cq.Workplane("XY"), 60, 60, 12)',
     'let bC = cq.box(cq.Workplane("XY"), 60, 60, 12)',

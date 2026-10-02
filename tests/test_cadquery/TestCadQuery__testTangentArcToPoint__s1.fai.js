@@ -7,7 +7,7 @@
 // above/below the y=2 line), 8 faces.
 // Requires chaining the END TANGENT of each tangent arc (analytic: the sweep
 // side comes from which side of the travel direction the circle center sits).
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let w0 = await cq.vLine(cq.Workplane('XY'), 2)
 let w1 = await cq.tangentArcPoint(w0, [1, 0])
 let w2 = await cq.tangentArcPoint(w1, [1, 0])

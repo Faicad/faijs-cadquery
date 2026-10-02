@@ -22,7 +22,7 @@ import * as cq from './index'
 let runtime: ReturnType<typeof createRuntime>
 
 async function runShape(lines: string[]): Promise<Shape> {
-  const code = ["import * as cq from '@faicad/cq-compat'", ...lines, 'let result = cq.val(wp_out)'].join('\n')
+  const code = ["import * as cq from '@faicad/faijs-cadquery'", ...lines, 'let result = cq.val(wp_out)'].join('\n')
   const res = await runtime.execute(code)
   expect(res.failedAt).toBeUndefined()
   const shape = res.outputs.get(asPartName('result')) as Shape | undefined
@@ -51,7 +51,7 @@ function center(shape: Shape): [number, number, number] {
 beforeAll(async () => {
   await registerOcctBrepEngine()
   runtime = createRuntime(createNodePorts(), 'brep')
-  runtime.registerLib('cq', cq as never, { packageName: '@faicad/cq-compat' } as never)
+  runtime.registerLib('cq', cq as never, { packageName: '@faicad/faijs-cadquery' } as never)
   const warm = await runtime.execute('let a = cad.box(1, 1, 1, { centered: true })')
   expect(warm.failedAt).toBeUndefined()
 }, 120000)
@@ -164,7 +164,7 @@ describe('cq-compat P4 batch-1 ops', () => {
 
   it('chamfer length2 (asymmetric) throws — occt-wasm uniform distance only', async () => {
     const code = [
-      "import * as cq from '@faicad/cq-compat'",
+      "import * as cq from '@faicad/faijs-cadquery'",
       "let wp0 = await cq.box(cq.Workplane('XY'), 1, 1, 1)",
       "let wp1 = cq.faces(wp0, '>Z')",
       'let wp_out = await cq.chamfer(wp1, 0.1, 0.2)',
@@ -188,7 +188,7 @@ describe('cq-compat P4 batch-1 ops', () => {
 
   it('cutThruAll without a pending profile throws', async () => {
     const code = [
-      "import * as cq from '@faicad/cq-compat'",
+      "import * as cq from '@faicad/faijs-cadquery'",
       "let wp0 = await cq.box(cq.Workplane('XY'), 1, 1, 1)",
       'let wp_out = await cq.cutThruAll(wp0)',
       'let result = cq.val(wp_out)',

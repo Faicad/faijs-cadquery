@@ -5,7 +5,7 @@
 // `add` pushes both objects on the stack, so the two faces are the sections.
 // ref (cadquery 2.8.0): Solid vol 1.980742, 5 BSPLINE side faces + 2 caps
 //   (PLANE 1.0 + PLANE pi)
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let w1r = await cq.rect(cq.Workplane('XY'), 1, 1)
 let f1 = await cq.face(w1r)
 let w2c = await cq.circle(cq.Workplane('XY'), 1)

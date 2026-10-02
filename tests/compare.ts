@@ -14,7 +14,7 @@
  * Cases present in ref but with no candidate STEP count as BLOCKED (they are
  * listed from ref/manifest.json so the parity denominator stays honest).
  *
- * Usage: npx tsx packages/cq-compat/tests/compare.ts [--only <substring>]
+ * Usage: npx tsx packages/faijs-cadquery/tests/compare.ts [--only <substring>]
  *
  * `--only` filters the ref STEP files by name so a freshly written mirror can
  * be graded without re-running the whole ~700-case suite. It does NOT change

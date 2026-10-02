@@ -6,7 +6,7 @@
 // fused compound, vol 2, x [-1.5,1.5], 12 faces).
 // rarray(2,2,2,1): xSpacing=2 ySpacing=2 xCount=2 yCount=1 -> centers (-1,0),(1,0)
 // boxes are fully centered (upstream default centered=True, z [-0.5,0.5])
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let b1 = await cq.box(cq.Workplane('XY'), 1, 1, 1)
 let t1 = await cq.translate(b1, [-1, 0, 0])
 let b2 = await cq.box(cq.Workplane('XY'), 1, 1, 1)

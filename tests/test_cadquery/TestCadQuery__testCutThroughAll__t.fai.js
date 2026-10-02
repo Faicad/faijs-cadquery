@@ -1,6 +1,6 @@
 // source: test_cadquery.py::TestCadQuery::testCutThroughAll (var t, final)
 // t = r + center Ø1 thru hole + side Ø0.25 thru hole along Y at CenterOfMass
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let p0 = await cq.extrude(cq.rect(cq.Workplane('XY'), 2.0, 2.0), 0.5)
 let p1 = await cq.workplane(cq.faces(p0, '>Z'))
 let p2 = cq.pushPoints(p1, [[0.65, 0.65], [0.65, -0.65], [-0.65, 0.65], [-0.65, -0.65]])

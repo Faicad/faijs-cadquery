@@ -4,7 +4,7 @@
 //             at loc (0,4,0) under SECOND -> centres (-2,8,0) and (2,8,0)
 // (the traverse/count asserts are non-geometry; only the compound is compared)
 // ref anchor: vol=3, com (0,4,0), topo f24/e48/v32/s4
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let p1 = await cq.box(cq.Workplane(), 1, 1, 1)
 let b2 = await cq.translate(cq.Workplane(), [0, 4, 0])
 let p2 = await cq.box(b2, 1, 1, 1)

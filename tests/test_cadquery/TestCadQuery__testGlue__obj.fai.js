@@ -4,7 +4,7 @@
 // moveTo(0, 2) moves the CURRENT POINT, and upstream rect() is an eachpoint op:
 // the second rect is built at (0, 2), not at the workplane origin. cq-compat
 // mirrors that via eachPoints() (pushPoints > currentPoint > plane origin).
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let w1 = cq.rect(cq.Workplane('XY'), 1, 1)
 let w2 = await cq.extrude(w1, 2)
 let w3 = await cq.moveTo(w2, 0, 2)

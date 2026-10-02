@@ -10,7 +10,7 @@
 // therefore folds (l3,l4) with (l1,l2) via composeLocations and applies the four
 // composed locations to the single-solid box in one moved() call.
 //
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let wp0 = cq.Workplane('XY')
 // func.box(1,1,1) is xy-centred and sits on z=0 (z 0..1) - cq.box is centred on
 // the workplane origin, so lift it by half the height to match.

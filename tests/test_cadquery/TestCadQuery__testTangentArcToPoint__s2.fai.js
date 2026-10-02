@@ -7,7 +7,7 @@
 // unit-circle segment exactly back to the spline start (0,1), so close() adds
 // no segment). The end tangent is captured from the kernel edge at spline-op
 // time and reused at wire-assembly time.
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let pts = [
   [0.0, 1.0],
   [0.45399049973954675, 0.8910065241883679],

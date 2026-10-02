@@ -1,6 +1,6 @@
 // source: test_cadquery.py::TestCadQuery::testTextAlignment (var left_bottom)
 // left_bottom = Workplane().text("I", 10, 0, halign="left", valign="bottom", fontPath=testFont)
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let left_bottom = await cq.text(cq.Workplane('XY'), 'I', 10, 0, 'cut', {
   halign: 'left',
   valign: 'bottom',

@@ -5,7 +5,7 @@
 // ref (probed): vol 104.8348167191279, 4 faces.
 // U16: cq-compat Workplane() ignores the origin kwarg — offset applied with
 // translate() on the empty workplane (moves wp.origin).
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let p = await cq.translate(cq.Workplane('XY'), [0, 0, -1.5])
 let w0 = await cq.moveTo(p, 5, 0)
 let w1 = await cq.threePointArc(w0, [0, 2.5], [-5, 0])

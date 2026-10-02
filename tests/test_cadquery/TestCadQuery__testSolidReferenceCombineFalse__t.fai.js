@@ -3,7 +3,7 @@
 // combine=False: the result holds ONLY the new boss (ref exports the lone boss,
 // NOT plate+boss) — hence extrude's third argument false.
 // ref (cadquery 2.8.0): Compound, vol 0.03125
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let s = cq.Workplane('XY')
 let r = await cq.extrude(cq.rect(s, 2, 2), 0.5)
 let w = await cq.workplane(cq.faces(r, '>Z'))

@@ -9,7 +9,7 @@
 // equivalent vector form mirror(shape, normal, basePoint, union=True).
 // Mirroring the triangle across that plane yields (1,1),(1,0),(0,1) — union
 // with the original fills the unit square (vol 0.5 + 0.5 = 1).
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let w1 = cq.line(cq.Workplane('XY'), 0, 1)
 let w2 = await cq.line(w1, 1, -1)
 let w3 = await cq.close(w2)

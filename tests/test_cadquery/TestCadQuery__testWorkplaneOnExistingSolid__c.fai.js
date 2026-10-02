@@ -1,7 +1,7 @@
 // source: test_cadquery.py::TestCadQuery::testWorkplaneOnExistingSolid (var c)
 // c = CQ(makeUnitCube()).faces(">Z").workplane().circle(0.25).circle(0.125)
 //     .extrude(0.25) — 0.25-high annular boss on the cube top (10 faces).
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let w0 = cq.Workplane('XY')
 let cube = await cq.box(w0, 1, 1, 1, { centered: [true, true, false] })
 let topSel = cq.faces(cube, '>Z')

@@ -9,7 +9,7 @@
 // normal -> the y=0 (XZ) plane with normal +Y. keepBottom keeps the -normal
 // side (y<0), i.e. the half-cube minus half the hole (8 faces).
 // ref (probed): z∈[0,1], y∈[-0.5,0], vol 0.401825222...
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 
 let w0 = cq.Workplane('XY')
 let cube = await cq.box(w0, 1, 1, 1, { centered: [true, true, false] })

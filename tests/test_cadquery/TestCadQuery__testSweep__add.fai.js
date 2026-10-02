@@ -4,7 +4,7 @@
 // Same oblique-cylinder pipe as the cut case (horizontal r1.5 circle translated
 // by (0,10,10) = ruled loft between the end circles), fused with the box.
 // ref (cadquery 2.8.0): vol 1037.592928, bbox [-0,-1.5,-0]..[11.5,11.5,10]
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let box = await cq.box(cq.Workplane(), 10, 10, 10, { centered: false })
 let p0 = cq.Workplane('XY')
 let p1 = await cq.transformed(p0, { offset: [10, 0, 0] })

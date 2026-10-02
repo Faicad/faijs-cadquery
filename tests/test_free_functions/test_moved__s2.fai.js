@@ -5,7 +5,7 @@
 // `b.vertices()` via Shape.toLocs() (face uv-centre + frame, edge midpoint +
 // frame, else Center()). cq-compat has no sub-shape enumeration yet, so the
 // centres measured in cadquery 2.8.0 are inlined verbatim.
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let wp0 = cq.Workplane('XY')
 // func.box(1,1,1) is xy-centred and sits on z=0 (z 0..1) - cq.box is centred on
 // the workplane origin, so lift it by half the height to match.

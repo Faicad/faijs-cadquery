@@ -5,7 +5,7 @@
 // Tapered rectangular pocket into a 2x2x2 block; pocket opening 1x1 at the
 // top face, narrowing 5 deg to depth 1 (vol 8 - 0.835 = 7.165... ref 7.2).
 // ref (probed): Solid, vol 7.2, 11 faces.
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let w0 = await cq.rect(cq.Workplane('XY'), 2.0, 2.0)
 let b0 = await cq.extrude(w0, 2.0)
 let f0 = await cq.faces(b0, '>Z')

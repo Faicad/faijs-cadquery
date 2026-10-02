@@ -3,7 +3,7 @@
 //      .close().extrude(10, clean=False).clean())
 // The polygon is (0,0)->(5,0)->(10,0)->(10,10)->(0,10)->close: a 10x10 square,
 // extruded 10 -> vol 1000, 6 faces.
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let wp = cq.moveTo(cq.Workplane('XY'), 0, 0)
 wp = cq.line(wp, 5, 0)
 wp = cq.line(wp, 5, 0)

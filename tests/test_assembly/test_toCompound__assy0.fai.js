@@ -5,7 +5,7 @@
 // ref (cadquery 2.8.0 probe, 2 solids):
 //   vol 3 bbox x[-0.5,0.5] y[-0.5,0.5] z[0,3]
 //   vol 4 bbox x[-0.5,0.5] y[-0.5,0.5] z[-2,2]
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let box0 = await cq.box(cq.Workplane('XY'), 1, 1, 3, { centered: [true, true, false] })
 let box1 = await cq.box(cq.Workplane('XY'), 1, 1, 4)
 let assy0 = cq.compound(cq.val(box0), cq.val(box1))

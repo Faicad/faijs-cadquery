@@ -9,7 +9,7 @@
 // resolveFaceSelector had no named-view entry and silently fell back to the
 // whole-shape bbox centre (z=0.5) instead of the face plane (z=1), which cost
 // exactly half a hole in volume (0.0245 mm3).
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let cube = await cq.extrude(cq.rect(cq.Workplane('XY'), 1, 1), 1)
 let front = await cq.faces(cube, 'front')
 let wp1 = await cq.workplane(front)

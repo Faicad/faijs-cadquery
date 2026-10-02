@@ -9,6 +9,6 @@
 // font="Arial", resolved through OCC's system font manager, while cq-compat
 // falls back to the engine's bundled face when no font is named. Naming it is
 // what makes the two agree.
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let r1 = await cq.text(cq.Workplane('XY'), 'CQ', 10, 0, false, { font: 'Arial' })
 let result = cq.val(r1)

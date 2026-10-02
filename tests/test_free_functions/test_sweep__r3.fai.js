@@ -4,7 +4,7 @@
 // Reproduced with a ruled loft between the two end sections: for a linear
 // path a capped sweep is geometrically identical to a ruled loft.
 // ref (cadquery 2.8.0): Solid, vol 1.0, 6 PLANE faces
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let w0 = cq.rect(cq.Workplane('XY'), 1, 1)
 let w1 = await cq.workplane(w0, { offset: 1 })
 let w2 = cq.rect(w1, 1, 1)

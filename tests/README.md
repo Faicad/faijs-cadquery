@@ -1,8 +1,8 @@
-# cq-compat parity tests
+# faijs-cadquery parity tests
 
 English | [中文](README.zh.md)
 
-Geometry-equivalence verification between CadQuery and cq-compat. The AST-injection capture harness for upstream test geometry is designed in the `2026-09-08-cq-compat-cadquery-parity-harness` decision note under `.agents/notes/proposed/testing/`.
+Geometry-equivalence verification between CadQuery and faijs-cadquery. The AST-injection capture harness for upstream test geometry is designed in the `2026-09-08-cq-compat-cadquery-parity-harness` decision note under `.agents/notes/proposed/testing/`.
 
 Taking over this package? Start with the handover document — [`docs/handover/2026-09-10-cq-compat-handover.md`](../../../docs/handover/2026-09-10-cq-compat-handover.md) — environment and paths, the parity pipeline, known pitfalls and red lines, the blocked inventory, the current baseline, and the acceptance checklist.
 
@@ -34,7 +34,7 @@ C:/Users/ylt/cadquery-env/Scripts/python.exe tests/ref-harness/analyze-coverage.
 # 3. 生成/刷新三态清单（消费 coverage.json；人工标注优先于机器默认值）
 npx tsx tests/gen-manifest.ts
 
-# 4. 导出候选（全部镜像用例；改了 src/ 后先 npm run build -w @faicad/cq-compat —— CLI 走 dist）
+# 4. 导出候选（全部镜像用例；改了 src/ 后先 npm run build -w @faicad/faijs-cadquery —— CLI 走 dist）
 npx tsx tests/run-cand.ts
 
 # 5. 比对出报告

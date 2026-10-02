@@ -3,7 +3,7 @@
 //   add = box.faces(">Z").workplane().circle(2)
 //         .workplane(offset=12).rect(3, 2).loft(combine=True)
 //   sections: circle r2 at z=5, rect 3x2 at z=17 (offset along +Z)
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let box = await cq.box(cq.Workplane(), 10, 10, 10)
 let f = cq.faces(box, '>Z')
 let w1 = await cq.workplane(f)

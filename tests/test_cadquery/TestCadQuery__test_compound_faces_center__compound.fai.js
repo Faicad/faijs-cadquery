@@ -4,7 +4,7 @@
 // compound = Compound.makeCompound([face1, face2])
 // (the CombinedCenter assert is non-geometry; only the compound is compared)
 // ref anchor: vol=0 (two planar faces), bbox x[-25,125] y[-25,25], topo f2/e8/v8
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let w1 = await cq.rect(cq.Workplane(), 50, 50)
 let f1 = await cq.face(w1)
 let f2 = await cq.translate(f1, [100, 0, 0])

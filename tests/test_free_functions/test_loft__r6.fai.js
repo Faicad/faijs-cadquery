@@ -10,7 +10,7 @@
 // ops (verified on cadquery 2.8.0: r6 vol 3.047991271384902 / 16 faces vs
 // decomposed equiv vol 3.0479912713849013 / 16 faces).
 // ref (cadquery 2.8.0): 1 solid, 16 faces, vol 3.047991, bbox x +-1.5 y +-1 z 0..1
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 // outer: rect(2, 1) @z=0 -> rect(3, 2) @z=1
 let a0 = await cq.rect(cq.Workplane('XY'), 2, 1)
 let pa1 = await cq.transformed(cq.Workplane('XY'), { offset: [0, 0, 1] })

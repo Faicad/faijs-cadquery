@@ -13,7 +13,7 @@
 // test_history_bool__res2; intermediate Shape lets consumed by the compound do
 // not become CLI terminals, so the export stays a single .step file).
 // ref (cadquery 2.8.0): Compound, vol 8952.625, bbox [-15,-10,-15]..[15,10,15]
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let box1 = await cq.box(cq.Workplane('XY'), 10, 20, 30)
 let box2 = await cq.box(cq.Workplane('YZ'), 10, 20, 30)
 let t0 = await cq.box(cq.Workplane('XY'), 15, 15, 15)

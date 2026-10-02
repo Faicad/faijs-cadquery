@@ -1,10 +1,10 @@
 /**
- * @faicad/cq-compat/assembly — CadQuery-compatible assembly layer (node entry).
+ * @faicad/faijs-cadquery/assembly — CadQuery-compatible assembly layer (node entry).
  *
  * CadQuery grammar surface (merged into the main package 2026-10-02, from the
  * former @faicad/cq-compat-assembly standalone package):
- *   import * as cq from '@faicad/cq-compat'            // workplane（主包根入口）
- *   import * as asm from '@faicad/cq-compat/assembly'  // 装配（本子路径）
+ *   import * as cq from '@faicad/faijs-cadquery'            // workplane（主包根入口）
+ *   import * as asm from '@faicad/faijs-cadquery/assembly'  // 装配（本子路径）
  *
  *   let c = await asm.constraintEx('a','>Z',shapeA,'b','<Z',shapeB,'Plane')
  *   let a = asm.buildAssembly('name', [{name:'a',shape:shapeA},...], [c[0]])

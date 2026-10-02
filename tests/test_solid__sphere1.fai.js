@@ -4,7 +4,7 @@
 // GOTCHA: the ref sphere has RADIUS 0.05, i.e. the upstream free sphere(0.1)
 // produced a 0.1-DIAMETER sphere (cq_warehouse semantics differ from
 // cadquery.Workplane.sphere(radius)); mirror matches the ref geometry.
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let moved = await cq.translate(cq.Workplane(), [0, 0, 0.5])
 let sphere1 = await cq.sphere(moved, 0.05)
 let result = cq.val(sphere1)

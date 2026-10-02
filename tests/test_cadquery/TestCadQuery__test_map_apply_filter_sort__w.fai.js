@@ -6,7 +6,7 @@
 // carrier keeps a single shape, so the mirror reproduces the exported solid:
 // solids() passes the single box through and val() is that solid.
 // ref (probed): vol 1.0.
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let b = await cq.box(cq.Workplane(), 1, 1, 1)
 let w = cq.solids(b)
 let result = cq.val(w)

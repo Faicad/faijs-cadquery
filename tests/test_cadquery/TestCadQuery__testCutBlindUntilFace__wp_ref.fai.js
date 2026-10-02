@@ -3,7 +3,7 @@
 // WORKAROUND: cq-compat pushPoints() is 2-D only, so the z=5 offset is realised
 // with translate()+union(); the fused result is geometrically identical.
 // (tracked as op:pushPoints.3d)
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let base = await cq.box(cq.Workplane('XY'), 40, 10, 2)
 let b1 = await cq.box(cq.Workplane('XY'), 10, 10, 10)
 let t1 = await cq.translate(b1, [-20, 0, 5])

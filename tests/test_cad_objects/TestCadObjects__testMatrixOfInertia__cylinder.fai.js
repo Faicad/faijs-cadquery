@@ -5,6 +5,6 @@
 // NOTE: this differs from Workplane().cylinder(h, r, centered=False), which
 // shifts x/y by +radius as well (verified vs cadquery 2.8.0) — so the mirror
 // must pass [true, true, false], not plain false.
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let cylinder = await cq.cylinder(cq.Workplane('XY'), 2.0, 1.0, { centered: [true, true, false] })
 let result = cq.val(cylinder)

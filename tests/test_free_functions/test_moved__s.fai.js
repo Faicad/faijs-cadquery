@@ -5,7 +5,7 @@
 // NOTE: the ref STEP records the variable's FINAL state, so the mirror
 // applies that trailing move directly.
 //
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let wp0 = cq.Workplane('XY')
 // func.box(1,1,1) is xy-centred and sits on z=0 (z 0..1) - cq.box is centred on
 // the workplane origin, so lift it by half the height to match.

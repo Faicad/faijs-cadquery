@@ -4,7 +4,7 @@
 // z in [-0.5,0.5].
 // b3 = b1.moved(Location(0, 0, 1e-4))              (almost b1)
 // ref (cadquery 2.8.0): Solid, vol 1
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let wp0 = cq.Workplane('XY')
 let b0 = await cq.box(wp0, 1, 1, 1)
 let boxFree = await cq.translate(b0, [0, 0, 0.5])

@@ -7,7 +7,7 @@
 // anyway, and MakeFace/MakePrism tolerate the gap: solid with 6 faces,
 // vol 1.5054720953140648. The mirror reproduces the same chain.
 // ref (probed): vol 1.5054720953140648.
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let sPnts = [[2.75, 1.5], [2.5, 1.75], [2.0, 1.5], [1.5, 1.0], [1.0, 1.25], [0.5, 1.0], [0, 1.0]]
 let w0 = await cq.lineTo(cq.Workplane('XY'), 3, 0)
 let w1 = await cq.lineTo(w0, 3, 1)

@@ -3,6 +3,6 @@
 // The wire/face/shell/compound constructions in this test are not exported;
 // the harness snapshots only the final b.
 // ref (cadquery 2.8.0): Solid, vol 1
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let b = await cq.box(cq.Workplane(), 1, 1, 1, { centered: [true, true, false] })
 let result = cq.val(b)

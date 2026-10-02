@@ -3,7 +3,7 @@
 //   .circle(5).cutThruAll().workplane().transformed(rotate=(90,0,0)).circle(5)
 //   .cutThruAll().workplane().transformed(rotate=(0,90,0)).circle(5).cutThruAll()
 // -> 3 mutually perpendicular Ø10 holes, 7 faces.
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let s0 = await cq.sphere(cq.Workplane(), 10)
 let w1 = await cq.workplane(s0)
 let h1 = await cq.cutThruAll(cq.circle(w1, 5))

@@ -4,7 +4,7 @@
 // of b1 and b2 (touching solids, ref probe: vol 2, 12 faces, x [-0.5,1.5]).
 // History bookkeeping is not STEP-observable; bundle replicated with the
 // module-level compound() free function.
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let b1 = await cq.box(cq.Workplane('XY'), 1, 1, 1, { centered: [true, true, false] })
 let b2 = await cq.moved(b1, cq.Location([1, 0, 0]))
 let bundle = cq.compound(cq.val(b1), cq.val(b2))

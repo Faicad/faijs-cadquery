@@ -8,7 +8,7 @@
 // ref (cadquery 2.8.0 probe, 4 solids, vol 18, zlen 18):
 //   x/y all [-0.5,0.5]; z bands [0,3] [3,7] [7,12] [12,18]
 // Solved through the CadQuery grammar (cq-compat-assembly solve()/toCompound()).
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 import * as cqa from '@faicad/cq-compat-assembly'
 let box0 = await cq.box(cq.Workplane('XY'), 1, 1, 3, { centered: [true, true, false] })
 let box1 = await cq.box(cq.Workplane('XY'), 1, 1, 4)

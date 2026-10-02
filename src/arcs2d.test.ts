@@ -39,7 +39,7 @@ import * as cq from './index'
 let runtime: ReturnType<typeof createRuntime>
 
 async function runVol(lines: string[]): Promise<{ vol: number; faces: number }> {
-  const code = ["import * as cq from '@faicad/cq-compat'", ...lines, 'let result = cq.val(wp_out)'].join('\n')
+  const code = ["import * as cq from '@faicad/faijs-cadquery'", ...lines, 'let result = cq.val(wp_out)'].join('\n')
   const res = await runtime.execute(code)
   if (res.failedAt) {
     console.log('execute failed at', JSON.stringify(res.failedAt))
@@ -56,7 +56,7 @@ async function runVol(lines: string[]): Promise<{ vol: number; faces: number }> 
 beforeAll(async () => {
   await registerOcctBrepEngine()
   runtime = createRuntime(createNodePorts(), 'brep')
-  runtime.registerLib('cq', cq as never, { packageName: '@faicad/cq-compat' } as never)
+  runtime.registerLib('cq', cq as never, { packageName: '@faicad/faijs-cadquery' } as never)
   const warm = await runtime.execute('let a = cad.box(1, 1, 1, { centered: true })')
   expect(warm.failedAt).toBeUndefined()
 }, 120000)
@@ -146,7 +146,7 @@ describe('arc drafting ops (phase I)', () => {
 
   it('radiusArc throws when the radius cannot reach the endpoint', async () => {
     const code = [
-      "import * as cq from '@faicad/cq-compat'",
+      "import * as cq from '@faicad/faijs-cadquery'",
       "let wp0 = await cq.moveTo(cq.Workplane('XY'), 0, 0)",
       "let wp1 = await cq.radiusArc(wp0, [10, 0], 2)",
       'let result = cq.val(wp1)',

@@ -4,7 +4,7 @@
 // along +Z -> 1x1x1 box, z in [0,1]. rect+extrude on the workplane carrier
 // produces the identical solid.
 // ref (cadquery 2.8.0): Solid, vol 1
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let wp0 = cq.Workplane('XY')
 let w = await cq.rect(wp0, 1, 1)
 let r4 = await cq.extrude(w, 1)

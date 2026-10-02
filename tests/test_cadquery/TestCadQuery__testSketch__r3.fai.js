@@ -2,7 +2,7 @@
 // r3 = Workplane().pushPoints((Location(Vector(1,1,0)),))
 //        .sketch().circle(2).wires().offset(-0.1, "s").finalize().extrude(1)
 // ref anchor: vol=1.22522113490, com (1,1,0.5), bbox x[-1,3] y[-1,3] z[0,1]
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let wp0 = await cq.pushPoints(cq.Workplane(), [[1, 1]])
 let sk0 = cq.sketch(wp0)
 let sk1 = cq.sketchCircle(sk0, 2)

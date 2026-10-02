@@ -14,7 +14,7 @@ import { hasBrep, brepOf } from '@faicad/faijs/shape'
 import { asPartName } from '@faicad/faijs/identity'
 import type { Shape } from '@faicad/faijs/mesh/types'
 import type { AssemblyConstraint } from '@faicad/faijs/api/assembly/types'
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 import { pointRef, axisRef, constraintEx, constraint } from './assembly/index'
 
 let runtime: ReturnType<typeof createRuntime>
@@ -24,10 +24,10 @@ let cylShape: Shape
 beforeAll(async () => {
   await registerOcctBrepEngine()
   runtime = createRuntime(createNodePorts(), 'brep')
-  runtime.registerLib('cq', cq as never, { packageName: '@faicad/cq-compat' } as never)
+  runtime.registerLib('cq', cq as never, { packageName: '@faicad/faijs-cadquery' } as never)
 
   const boxRes = await runtime.execute([
-    "import * as cq from '@faicad/cq-compat'",
+    "import * as cq from '@faicad/faijs-cadquery'",
     "let wp = cq.Workplane('XY')",
     'let b = cq.box(wp, 100, 80, 10)',
     'let boxShape = cq.val(b)',
@@ -38,7 +38,7 @@ beforeAll(async () => {
   expect(hasBrep(boxShape)).toBe(true)
 
   const cylRes = await runtime.execute([
-    "import * as cq from '@faicad/cq-compat'",
+    "import * as cq from '@faicad/faijs-cadquery'",
     'let cyl = cq.cylinder(cq.Workplane("XY"), 30, 10)',
     'let cylShape = cq.val(cyl)',
   ].join('\n'))

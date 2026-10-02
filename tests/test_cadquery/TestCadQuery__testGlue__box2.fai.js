@@ -4,7 +4,7 @@
 // U16: cq-compat Workplane() ignores the origin kwarg (upstream accepts it), so
 // the offset is applied with translate() on the empty workplane — that moves
 // wp.origin, which is where rect()/extrude() then build the solid.
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let p = await cq.translate(cq.Workplane('XY'), [0, 1, 0])
 let w1 = cq.rect(p, 1, 1)
 let box2 = await cq.extrude(w1, 1)

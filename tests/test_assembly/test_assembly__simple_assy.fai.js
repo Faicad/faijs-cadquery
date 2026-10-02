@@ -4,7 +4,7 @@
 //          b3 = pushPoints([(0,0),(-2,-5)]).box(1,1,3) at loc (2,3,0) -> (4,-2,0) and (2,-7,0)
 // (the traverse/count asserts are non-geometry; only the compound is compared)
 // ref anchor: vol=9, com (2.9444,-4.3889,0.05556), topo f24/e48/v32/s4
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let b1 = await cq.translate(cq.Workplane(), [2.5, -4.5, 0.5])
 let p1 = await cq.box(b1, 1, 1, 1)
 let b2 = await cq.translate(cq.Workplane(), [3, -4, 0])

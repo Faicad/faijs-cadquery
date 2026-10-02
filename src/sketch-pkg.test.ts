@@ -1,5 +1,5 @@
 /**
- * Package-surface smoke tests: `@faicad/cq-compat/sketch (merged 2026-10-02, ex standalone package)` re-exports the
+ * Package-surface smoke tests: `@faicad/faijs-cadquery/sketch (merged 2026-10-02, ex standalone package)` re-exports the
  * sketch container with unprefixed CadQuery grammar names and the extrude
  * outlet works end to end.
  */

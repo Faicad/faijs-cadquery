@@ -7,7 +7,7 @@
 // terminal and the CLI would split the export into two STEP files, which the
 // comparator cannot pair up. The two faces are therefore passed to `loft`
 // directly (upstream free-function varargs form), which is geometry-identical.
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let w1r = await cq.rect(cq.Workplane('XY'), 1, 1)
 let f1 = await cq.face(w1r)
 let w2c = await cq.circle(cq.Workplane('XY'), 1)

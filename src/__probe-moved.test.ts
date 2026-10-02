@@ -9,7 +9,7 @@ let runtime: ReturnType<typeof createRuntime>
 beforeAll(async () => {
   await registerOcctBrepEngine()
   runtime = createRuntime(createNodePorts(), 'brep')
-  runtime.registerLib('cq', cq as never, { packageName: '@faicad/cq-compat' } as never)
+  runtime.registerLib('cq', cq as never, { packageName: '@faicad/faijs-cadquery' } as never)
   const warm = await runtime.execute('let a = cad.box(1, 1, 1, { centered: true })')
   expect(warm.failedAt).toBeUndefined()
 }, 120000)
@@ -18,7 +18,7 @@ describe('probe moved', () => {
   it('single loc twice', async () => {
     const res = await runtime.execute(
       [
-        "import * as cq from '@faicad/cq-compat'",
+        "import * as cq from '@faicad/faijs-cadquery'",
         'let wp0 = cq.Workplane("XY")',
         'let b = await cq.box(wp0, 1, 1, 1)',
         'let m1 = await cq.moved(b, [1, 0, 0])',
@@ -36,7 +36,7 @@ describe('probe moved', () => {
     ]) {
       const res = await runtime.execute(
         [
-          "import * as cq from '@faicad/cq-compat'",
+          "import * as cq from '@faicad/faijs-cadquery'",
           'let wp0 = cq.Workplane("XY")',
           'let b = await cq.box(wp0, 1, 1, 1)',
           'let c1 = await cq.moved(b, cq.Location([-1, 0, 0]), cq.Location([1, 0, 0]))',
@@ -51,7 +51,7 @@ describe('probe moved', () => {
   it('compound then move', async () => {
     const res = await runtime.execute(
       [
-        "import * as cq from '@faicad/cq-compat'",
+        "import * as cq from '@faicad/faijs-cadquery'",
         'let wp0 = cq.Workplane("XY")',
         'let b = await cq.box(wp0, 1, 1, 1)',
         'let c1 = await cq.moved(b, cq.Location([-1, 0, 0]), cq.Location([1, 0, 0]))',

@@ -3,7 +3,7 @@
 //   s2 = Workplane("XY").polygon(8, 20.0).workplane(offset=-4.0)
 //        .transformed(rotate=Vector(0, 0, 15.0)).polygon(8, 20).loft()
 //   (second loft extends downward: offset=-4)
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let w1 = cq.polygon(cq.Workplane('XY'), 8, 20)
 let w2 = await cq.workplane(w1, { offset: -4 })
 let w3 = await cq.transformed(w2, { rotate: [0, 0, 15] })

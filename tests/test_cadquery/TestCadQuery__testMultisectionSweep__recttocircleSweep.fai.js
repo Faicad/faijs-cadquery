@@ -5,7 +5,7 @@
 // Straight spine along X; sections at x=-10,-2,2,10 as-is, so the multisection
 // sweep equals a smooth loft through them.
 // ref (cadquery 2.8.0): vol 68.21873503586079
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let w0 = cq.Workplane('YZ')
 let w1 = await cq.workplane(w0, { offset: -10 })
 let w2 = cq.rect(w1, 2, 2)

@@ -9,7 +9,7 @@
 // "null function or function signature mismatch"), so the mirror folds them with
 // composeLocations and applies the net location in a single moved() call.
 //
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let wp0 = cq.Workplane('XY')
 // func.box(1,1,1) is xy-centred and sits on z=0 (z 0..1) - cq.box is centred on
 // the workplane origin, so lift it by half the height to match.

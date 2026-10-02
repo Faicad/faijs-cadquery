@@ -1,6 +1,6 @@
 // source: test_shapes.py::test_siblings (var level_3)
 // level_3 = face("<X").siblings(stacked_box, "Vertex", 3).
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let simple_box = await cq.box(cq.Workplane('XY'), 1, 1, 1, { centered: [true, true, false] })
 let b1 = cq.moved(simple_box, cq.Location([1, 0, 0]))
 let b2 = cq.moved(simple_box, cq.Location([2, 0, 0]))

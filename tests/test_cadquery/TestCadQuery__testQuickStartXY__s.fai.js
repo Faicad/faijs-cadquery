@@ -2,7 +2,7 @@
 // s = Workplane(Plane.XY()).box(2,4,0.5).faces(">Z").workplane()
 //       .rect(1.5,3.5,forConstruction=True).vertices().cskHole(0.125,0.25,82,depth=None)
 // depth=None -> through hole (cq-compat cskHole has no depth arg; through is the default).
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let base = await cq.box(cq.Workplane('XY'), 2, 4, 0.5)
 let topFace = await cq.faces(base, '>Z')
 let wp = await cq.workplane(topFace)

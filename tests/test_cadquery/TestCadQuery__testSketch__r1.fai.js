@@ -2,7 +2,7 @@
 // r1 = Workplane().box(10,10,1).faces(">Z").sketch()
 //        .slot(2,1).slot(2,1,angle=90).clean().finalize().extrude(1)
 // ref anchor: bbox z[-0.5,1.5], topo f19/e48/v32 (crossing slots on the top face)
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let base = await cq.box(cq.Workplane(), 10, 10, 1)
 let fz = await cq.faces(base, '>Z')
 let topWp = await cq.workplane(fz)

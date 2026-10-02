@@ -2,7 +2,7 @@
 // r2 = r1.faces("+Z").workplane(centerOption="CenterOfMass")
 //        .circle(0.08).cutThruAll()
 // ref (probed): vol 0.109170, com (0.342, 0.342, 0.125), 9 faces.
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let w1 = cq.lineTo(cq.Workplane('XY'), 1, 0)
 let w2 = await cq.lineTo(w1, 0, 1)
 let w3 = await cq.close(w2)

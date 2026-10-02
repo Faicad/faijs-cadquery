@@ -2,7 +2,7 @@
 // s = box(4,4,0.5).faces(">Z").workplane().rect(3,3,forConstruction=True)
 //       .vertices().box(0.25,0.25,0.25,combine=True)
 // -> one fused solid, 26 faces (6 for the base + 4x5 for the corner cubes)
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let base = await cq.box(cq.Workplane('XY'), 4, 4, 0.5)
 let topFace = await cq.faces(base, '>Z')
 let wp1 = await cq.workplane(topFace)

@@ -8,13 +8,13 @@
  * compound wrongly passed). All STEP comparisons must use the assembly
  * consistency comparison:
  *
- *   npx tsx packages/cq-compat/scripts/compare-assembly.ts <a.step> <b.step>
+ *   npx tsx packages/faijs-cadquery/scripts/compare-assembly.ts <a.step> <b.step>
  *
  * This script is kept only to demonstrate the limitation of compareStepFiles
  * (regression diagnostics).
  *
  * Usage:
- *   npx tsx packages/cq-compat/scripts/compare-step.ts <a.step> <b.step> [options]
+ *   npx tsx packages/faijs-cadquery/scripts/compare-step.ts <a.step> <b.step> [options]
  *
  * Options:
  *   --linear-tol <n>       Linear tolerance in mm (default: 1e-4)

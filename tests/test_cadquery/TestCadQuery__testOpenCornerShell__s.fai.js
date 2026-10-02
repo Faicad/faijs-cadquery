@@ -5,6 +5,6 @@
 // vol 0.698 / 13 faces, so the harness captured `s`, not the shell result.
 // Mirror reproduces the ref geometry (the base box).
 // ref (cadquery 2.8.0): Solid, vol 1.0, 6 PLANE faces
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let s = await cq.box(cq.Workplane('XY'), 1, 1, 1)
 let result = cq.val(s)

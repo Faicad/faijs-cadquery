@@ -1,5 +1,5 @@
 /**
- * @faicad/cq-compat — CadQuery API compatibility layer for faijs.
+ * @faicad/faijs-cadquery — CadQuery API compatibility layer for faijs.
  *
  * Implements a Workplane carrier (geometry hidden in .shape) and
  * CadQuery-style methods. All methods are async and return a new Workplane

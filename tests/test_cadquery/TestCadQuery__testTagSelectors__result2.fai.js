@@ -4,7 +4,7 @@
 // NOTE: compounds(tag=...)==0 is Python-side; the exported shape is the
 // compound of the four per-vertex boxes. faijs rect defaults to
 // forConstruction=false, so pass it explicitly (upstream default true).
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let wp0 = cq.Workplane('XY')
 let wp1 = await cq.rect(wp0, 4, 4, { forConstruction: true })
 let wp2 = await cq.vertices(wp1)

@@ -1,11 +1,11 @@
 /**
- * @faicad/cq-compat/sketch (merged 2026-10-02, ex standalone package) — CadQuery Sketch.py-compatible 2D sketch container
+ * @faicad/faijs-cadquery/sketch (merged 2026-10-02, ex standalone package) — CadQuery Sketch.py-compatible 2D sketch container
  * for faijs.
  *
  * CadQuery grammar surface (unprefixed names; the cq-compat main package
  * exposes the same functions with a `sketch` prefix):
  *   import { sketch, rect, circle, polygon, faces, wires, extrude } from
- *     '@faicad/cq-compat/sketch (merged 2026-10-02, ex standalone package)'
+ *     '@faicad/faijs-cadquery/sketch (merged 2026-10-02, ex standalone package)'
  *
  *   let s = sketch()
  *   s = rect(s, 2, 2)

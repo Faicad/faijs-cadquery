@@ -29,7 +29,7 @@ beforeAll(async () => {
   await registerOcctBrepEngine()
   // createNodePorts() installs the fs FontLoader (node-host) that text needs.
   runtime = createRuntime(createNodePorts(), 'brep')
-  runtime.registerLib('cq', cq as never, { packageName: '@faicad/cq-compat' } as never)
+  runtime.registerLib('cq', cq as never, { packageName: '@faicad/faijs-cadquery' } as never)
 }, 120000)
 
 function bboxOf(wp: cq.WorkplaneType) {
@@ -44,7 +44,7 @@ function volumeOf(wp: cq.WorkplaneType): number {
 describe('cq-compat Workplane.text (self-contained)', () => {
   it('renders a brep text solid via the cq namespace', async () => {
     const code = [
-      "import * as cq from '@faicad/cq-compat'",
+      "import * as cq from '@faicad/faijs-cadquery'",
       "let wp = cq.Workplane('XY')",
       "let t = cq.text(wp, 'A', 10, 3)",
       'let result = cq.val(t)',

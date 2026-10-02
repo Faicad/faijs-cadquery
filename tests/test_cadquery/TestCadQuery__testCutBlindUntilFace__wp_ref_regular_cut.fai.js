@@ -8,7 +8,7 @@
 // cut through the face plane at x=-15 going -10 into -x direction traverses
 // the whole box — reproduced exactly with an explicit cut prism.
 // ref (cadquery 2.8.0 probe): vol 3560, com (0.224719, 0, 4.123596), 22 faces
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let base = await cq.box(cq.Workplane('XY'), 40, 10, 2)
 let b1 = await cq.box(cq.Workplane('XY'), 10, 10, 10)
 let t1 = await cq.translate(b1, [-20, 0, 5])

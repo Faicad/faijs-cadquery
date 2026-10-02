@@ -6,7 +6,7 @@
 //   1x1x2 bbox x[2.5,3.5]  y[-4.5,-3.5] z[-1,1]
 //   1x1x3 bbox x[3.5,4.5]  y[-2.5,-1.5] z[-1.5,1.5]
 //   1x1x3 bbox x[1.5,2.5]  y[-7.5,-6.5] z[-1.5,1.5]
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let bA = await cq.box(cq.Workplane('XY'), 1, 1, 1, { centered: false })
 let bAt = await cq.translate(bA, [2, -5, 0])
 let bB = await cq.box(cq.Workplane('XY'), 1, 1, 2)

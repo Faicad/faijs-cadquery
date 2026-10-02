@@ -29,7 +29,7 @@ import { asPartName } from '@faicad/faijs/identity'
 import type { Shape } from '@faicad/faijs/mesh/types'
 import type { CompoundShape } from '@faicad/faijs/shape'
 import type { AssemblyConstraint } from '@faicad/faijs/api/assembly/types'
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 import { asBrepShape, resolveFaceSelector } from './workplane'
 import { buildAssembly, constraint, constraintEx } from './assembly/index'
 
@@ -42,13 +42,13 @@ let boxB: Shape
 beforeAll(async () => {
   await registerOcctBrepEngine()
   runtime = createRuntime(createNodePorts(), 'brep')
-  runtime.registerLib('cq', cq as never, { packageName: '@faicad/cq-compat' } as never)
+  runtime.registerLib('cq', cq as never, { packageName: '@faicad/faijs-cadquery' } as never)
 
   // 经 runtime 执行（brep 链）产出带 BREP 槽的真实 Shape —— 与真实装配
   // parts 产物同形态。100×100×50 中心在原点 → 顶面 [0,0,25]/法向 +Z。
   const res = await runtime.execute(
     [
-      "import * as cq from '@faicad/cq-compat'",
+      "import * as cq from '@faicad/faijs-cadquery'",
       "let wpA = cq.Workplane('XY')",
       'let bA = cq.box(wpA, 100, 100, 50)',
       "let wpB = cq.Workplane('XY')",

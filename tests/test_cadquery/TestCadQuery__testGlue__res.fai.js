@@ -6,7 +6,7 @@
 // ref (probed): vol 5.000000, com (0, 1, 0.9), bbox y in [-0.5, 2.5], z in [0,2],
 // 10 faces. glue=True only affects face merging, not geometry — cq-compat has
 // no glue mode, plain union reproduces the same solid.
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let w1 = cq.rect(cq.Workplane('XY'), 1, 1)
 let w2 = await cq.extrude(w1, 2)
 let w3 = await cq.moveTo(w2, 0, 2)

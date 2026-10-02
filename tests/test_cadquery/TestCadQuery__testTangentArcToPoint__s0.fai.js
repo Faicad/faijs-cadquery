@@ -5,7 +5,7 @@
 // ref (probed): vol 1.785398 (= 1 + pi/4), com (0.5, 0.5, 0.5), 6 faces.
 // tangentArcPoint continues the tangent of the LAST drafted edge; the two
 // arcs here are quarter circles.
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let w0 = await cq.hLine(cq.Workplane('XY'), 1)
 let w1 = await cq.tangentArcPoint(w0, [1, 1], false, false)
 let w2 = await cq.hLineTo(w1, 0)

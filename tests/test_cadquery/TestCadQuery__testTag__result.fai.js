@@ -4,7 +4,7 @@
 // tagged boxes (union fusion is a Python-side objects assertion; the reference
 // STEP is the standalone box1). faijs val() returns the whole compound, so the
 // mirror takes the first solid via solids().
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let wp0 = cq.Workplane('XY')
 let wp1 = await cq.pushPoints(wp0, [[-2, 0], [2, 0]])
 let wp2 = await cq.box(wp1, 1, 1, 1, { combine: false })

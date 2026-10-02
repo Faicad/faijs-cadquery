@@ -7,7 +7,7 @@
 // passing f1 there silently drops it from the sew (3 faces, vol √2/18);
 // all four faces go in the faces array (probed 2026-10-01).
 // ref anchor: vol=0.117851130198 (= √2/12), bbox ±√2/4, topo f4/e6/v4/s1
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let c0 = Math.sqrt(2) / 4
 let v0 = [c0, -c0, c0]
 let v1 = [c0, c0, -c0]

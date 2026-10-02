@@ -5,6 +5,6 @@
 // sub-shape matching the requested type — here the 1x1x1 box. The exported
 // value is therefore exactly that box.
 // ref (cadquery 2.8.0): Solid, vol 1
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let r4 = await cq.box(cq.Workplane(), 1, 1, 1, { centered: [true, true, false] })
 let result = cq.val(r4)

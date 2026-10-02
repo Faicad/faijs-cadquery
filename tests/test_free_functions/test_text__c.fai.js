@@ -6,7 +6,7 @@
 // `Workplane.cylinder(height, radius)` — so the transliteration is radius 5,
 // height 10. Base circle on z=0, axis +Z, then a 180° turn about Z (a no-op for
 // a cylinder, but kept for faithfulness).
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let cylinder0 = await cq.cylinder(cq.Workplane('XY'), 10, 5, { centered: [true, true, false] })
 let c = await cq.rotate(cylinder0, [0, 0, 1], 180)
 let result = cq.val(c)

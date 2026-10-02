@@ -8,7 +8,7 @@ never touches the working tree), and runs the modeling test suite through the
     out/ref/<module>__<Class>__<test>__<var>.step
     out/ref/manifest.json
 
-Usage (from packages/cq-compat):
+Usage (from packages/faijs-cadquery):
     python tests/ref-harness/run-ref.py [--modules test_cadquery,...] [--force]
 
 See docs/plans/2026-09-08-cq-compat-cadquery-parity.md §4–§5.
@@ -21,7 +21,7 @@ import subprocess
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-PKG = os.path.abspath(os.path.join(HERE, "..", ".."))  # packages/cq-compat
+PKG = os.path.abspath(os.path.join(HERE, "..", ".."))  # packages/faijs-cadquery
 BASELINE = os.path.join(PKG, "tests", "baseline.json")
 
 

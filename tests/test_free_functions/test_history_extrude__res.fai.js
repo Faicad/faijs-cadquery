@@ -4,6 +4,6 @@
 // (The History/subshape introspection in the upstream test is NOT mirrored;
 //  only the resulting solid `res` is parity-checked.)
 // ref (cadquery 2.8.0): Solid, vol 1, 6 faces.
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let res = await cq.box(cq.Workplane('XY'), 1, 1, 1, { centered: [true, true, false] })
 let result = cq.val(res)

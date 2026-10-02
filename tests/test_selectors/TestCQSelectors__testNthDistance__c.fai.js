@@ -9,7 +9,7 @@
 // base x[0,1] y±2 z[0,1]; mid on the <Z face plane (center (0.5,0,0)) ->
 // x[-0.5,1.5] y±1 z[0,2]; top on the >Z face plane (center (0.5,0,2)) ->
 // x[0,1] y±0.5 z[2,3].
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let base = await cq.box(cq.Workplane('XY'), 1, 4, 1, { centered: [false, true, false] })
 let mid0 = await cq.box(cq.Workplane('XY'), 2, 2, 2, { centered: [true, true, false] })
 let mid = await cq.translate(mid0, [0.5, 0, 0])

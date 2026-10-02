@@ -2,7 +2,7 @@
 // solid = model.val() on the LAST model (box100 - box10); upstream val() is
 // objects[0], so solid is the very same shape as `model`.
 // ref (probed): vol 999000.000000, bbox [-50,50]^3, 12 faces.
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let voidBox = await cq.box(cq.Workplane('XY'), 10, 10, 10)
 let outer = await cq.box(cq.Workplane('XY'), 100, 100, 100)
 let model = await cq.cut(outer, voidBox)

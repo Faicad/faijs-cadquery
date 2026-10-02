@@ -3,7 +3,7 @@
 //   cut = box.faces(">Z").workplane().circle(2)
 //         .workplane(invert=True, offset=12).rect(3, 2).loft(combine="cut")
 //   sections: circle r2 at z=5 (top face), rect 3x2 at z=-7 (inverted plane)
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let box = await cq.box(cq.Workplane(), 10, 10, 10)
 let f = cq.faces(box, '>Z')
 let w1 = await cq.workplane(f)

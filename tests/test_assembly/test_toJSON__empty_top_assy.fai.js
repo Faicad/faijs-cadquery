@@ -3,6 +3,6 @@
 // toJSON bookkeeping is not STEP-observable; the harness exports the assembly
 // compound = the single centered box.
 // ref (cadquery 2.8.0 probe): vol 1, bbox ±0.5, 6 faces
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let b = await cq.box(cq.Workplane('XY'), 1, 1, 1)
 let result = cq.val(b)

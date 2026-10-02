@@ -1,7 +1,7 @@
 /**
  * CLI: transpile a CadQuery .py file to .fai.js.
  *
- * Usage: npx tsx packages/cq-compat/scripts/transpile-file.ts <input.py> <output.fai.js> [partName]
+ * Usage: npx tsx packages/faijs-cadquery/scripts/transpile-file.ts <input.py> <output.fai.js> [partName]
  */
 
 import { execFileSync } from 'node:child_process'

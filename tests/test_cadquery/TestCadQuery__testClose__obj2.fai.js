@@ -5,7 +5,7 @@
 // ref (probed): vol 104.83481671912787 — upstream asserts obj1.vol == obj2.vol.
 // U16: origin kwarg applied via translate(); moveTo/sagittaArc stay in the
 // workplane-LOCAL coordinates exactly as upstream (YZ: xDir=+Y, yDir=+Z).
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let p = await cq.translate(cq.Workplane('YZ'), [8.0, -19.5, -1.5])
 let w0 = await cq.moveTo(p, 13.0, -19.5)
 let w1 = await cq.sagittaArc(w0, [3.0, -19.5], 2.5)

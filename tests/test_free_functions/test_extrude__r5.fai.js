@@ -4,7 +4,7 @@
 // Built as two unit extrusions (up from z=0, up from z=-1) fused — the union
 // is the same solid.
 // ref (cadquery 2.8.0): Solid, vol 2
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let wUp = await cq.rect(cq.Workplane('XY'), 1, 1)
 let up = await cq.extrude(wUp, 1)
 // Upstream both=True: prism(el.moved(-d), 2d) -> the face is shifted by -d and

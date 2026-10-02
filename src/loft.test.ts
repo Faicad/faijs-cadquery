@@ -24,7 +24,7 @@ import * as cq from './index'
 let runtime: ReturnType<typeof createRuntime>
 
 async function runShape(lines: string[]): Promise<Shape> {
-  const code = ["import * as cq from '@faicad/cq-compat'", ...lines, 'let result = cq.val(wp_out)'].join('\n')
+  const code = ["import * as cq from '@faicad/faijs-cadquery'", ...lines, 'let result = cq.val(wp_out)'].join('\n')
   const res = await runtime.execute(code)
   expect(res.failedAt).toBeUndefined()
   const shape = res.outputs.get(asPartName('result')) as Shape | undefined
@@ -43,7 +43,7 @@ function volume(shape: Shape): number {
 beforeAll(async () => {
   await registerOcctBrepEngine()
   runtime = createRuntime(createNodePorts(), 'brep')
-  runtime.registerLib('cq', cq as never, { packageName: '@faicad/cq-compat' } as never)
+  runtime.registerLib('cq', cq as never, { packageName: '@faicad/faijs-cadquery' } as never)
   const warm = await runtime.execute('let a = cad.box(1, 1, 1, { centered: true })')
   expect(warm.failedAt).toBeUndefined()
 }, 120000)
@@ -157,7 +157,7 @@ describe('cq-compat ellipse orientation', () => {
   // fails loudly instead of emitting an approximated ellipse.
   it('ellipse with y_radius > x_radius fails loudly (kernel limitation)', async () => {
     const code = [
-      "import * as cq from '@faicad/cq-compat'",
+      "import * as cq from '@faicad/faijs-cadquery'",
       "let w1 = cq.ellipse(cq.Workplane('XY'), 3, 4)",
       'let wp_out = await cq.extrude(w1, 1)',
       'let result = cq.val(wp_out)',

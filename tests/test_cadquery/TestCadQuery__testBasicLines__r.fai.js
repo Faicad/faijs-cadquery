@@ -5,7 +5,7 @@
 // pending edges) — upstream `wire()` returns self when no free edges remain.
 // r1/r2 (same test) are mirrored separately — faces("+XY") is the Direction
 // Selector form (normal-parallel filter, selectors.py:234), now supported.
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let w1 = cq.lineTo(cq.Workplane('XY'), 1, 0)
 let w2 = await cq.lineTo(w1, 0, 1)
 let w3 = await cq.close(w2)

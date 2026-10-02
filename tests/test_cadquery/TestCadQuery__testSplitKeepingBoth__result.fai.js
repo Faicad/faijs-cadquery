@@ -7,7 +7,7 @@
 // half. So the mirror reproduces objects[0] (keepTop) to stay aligned with the
 // ref STEP — its geometry equals testSplitKeepingHalf__result by construction.
 // makeUnitCube = 1×1×1 with XY centred, Z spanning [0,1].
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 
 let w0 = cq.Workplane('XY')
 let cube = await cq.box(w0, 1, 1, 1, { centered: [true, true, false] })

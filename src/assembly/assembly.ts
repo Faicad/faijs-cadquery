@@ -1,5 +1,5 @@
 /**
- * @faicad/cq-compat/assembly — CadQuery-compatible assembly layer for faijs.
+ * @faicad/faijs-cadquery/assembly — CadQuery-compatible assembly layer for faijs.
  *
  * Maps CadQuery Assembly.constrain DSL ("part@faces@>Z[-2]", "Plane"/"Axis") to
  * faijs AssemblyConstraint objects with EntityRef geometry snapshots, and wraps

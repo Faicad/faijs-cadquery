@@ -4,7 +4,7 @@
 // Equivalent here: Workplane.shell(-0.1) (cut of the kernel inward-offset
 // body); volume matches exactly (1 − 0.8^3 = 0.488).
 // ref (probed): Solid, vol 0.488, 12 faces.
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let b0 = await cq.box(cq.Workplane(), 1, 1, 1, { centered: [true, true, false] })
 let res1 = await cq.shell(b0, -0.1)
 let result = cq.val(res1)

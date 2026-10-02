@@ -4,7 +4,7 @@
 //       .workplane(offset=3.0).rect(0.75,0.5).loft(combine=True)
 //   ("front" == XY in cadquery Plane.named; sections: circle r1.5 at z=0.125,
 //    rect 0.75x0.5 at z=3.125)
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let box = await cq.box(cq.Workplane('front'), 4, 4, 0.25)
 let f = cq.faces(box, '>Z')
 let w1 = await cq.workplane(f)

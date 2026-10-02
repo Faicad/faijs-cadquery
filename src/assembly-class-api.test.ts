@@ -12,7 +12,7 @@ import { createRuntime, registerOcctBrepEngine } from '@faicad/faijs'
 import { createNodePorts } from '@faicad/faijs/node'
 import { asPartName } from '@faicad/faijs/identity'
 import type { Shape } from '@faicad/faijs/mesh/types'
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 import * as asmPkg from './assembly/index'
 import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
@@ -27,11 +27,11 @@ let boxB: Shape
 beforeAll(async () => {
   await registerOcctBrepEngine()
   runtime = createRuntime(createNodePorts(), 'brep')
-  runtime.registerLib('cq', cq as never, { packageName: '@faicad/cq-compat' } as never)
+  runtime.registerLib('cq', cq as never, { packageName: '@faicad/faijs-cadquery' } as never)
   runtime.registerLib('asm', asmPkg as never, { packageName: '@faicad/cq-compat-assembly' } as never)
   const res = await runtime.execute(
     [
-      "import * as cq from '@faicad/cq-compat'",
+      "import * as cq from '@faicad/faijs-cadquery'",
       "let wa = cq.Workplane('XY')",
       'let a = cq.box(wa, 10, 10, 10)',
       'let boxA = cq.val(a)',
@@ -126,8 +126,8 @@ describe('CqAssembly.add 在 .fai.js 脚本面可用（Q4 探针）', () => {
   it('let asm1 = asm0.add(...) 语句模型放行', async () => {
     const res = await runtime.execute(
       [
-        "import * as cq from '@faicad/cq-compat'",
-        "import * as asm from '@faicad/cq-compat/assembly'",
+        "import * as cq from '@faicad/faijs-cadquery'",
+        "import * as asm from '@faicad/faijs-cadquery/assembly'",
         "let wp = cq.Workplane('XY')",
         'let s = cq.val(cq.box(wp, 10, 10, 10))',
         "let asm0 = asm.buildAssembly('root', [{ name: 'a', shape: s }], [])",

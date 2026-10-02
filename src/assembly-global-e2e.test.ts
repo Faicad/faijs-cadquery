@@ -19,7 +19,7 @@ import { asPartName } from '@faicad/faijs/identity'
 import type { Shape } from '@faicad/faijs/mesh/types'
 import type { AssemblyConstraint, MateConstraint } from '@faicad/faijs/api/assembly/types'
 import type { AssemblyTransform } from '@faicad/faijs/runtime-state'
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 import { buildAssembly, constraintEx } from './assembly/index'
 
 let runtime: ReturnType<typeof createRuntime>
@@ -29,10 +29,10 @@ let boxB: Shape
 beforeAll(async () => {
   await registerOcctBrepEngine()
   runtime = createRuntime(createNodePorts(), 'brep')
-  runtime.registerLib('cq', cq as never, { packageName: '@faicad/cq-compat' } as never)
+  runtime.registerLib('cq', cq as never, { packageName: '@faicad/faijs-cadquery' } as never)
 
   const res = await runtime.execute([
-    "import * as cq from '@faicad/cq-compat'",
+    "import * as cq from '@faicad/faijs-cadquery'",
     'let b = cq.box(cq.Workplane("XY"), 100, 80, 10)',
     'let boxA = cq.val(b)',
     'let boxB = cq.val(b)',

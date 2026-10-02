@@ -2,7 +2,7 @@
 // result = Workplane("XY").box(10,10,1,centered=(True,True,False)).faces(">Z").workplane().tag("base")
 //   .center(3,0).rect(2,2).extrude(4).faces(">Z").workplane().circle(1).extrude(6)
 //   .workplaneFromTagged("base").center(-3,0).circle(1).extrude(11)
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let wp0 = cq.Workplane('XY')
 let wp1 = await cq.box(wp0, 10, 10, 1, { centered: [true, true, false] })
 let wp2 = cq.faces(wp1, '>Z')

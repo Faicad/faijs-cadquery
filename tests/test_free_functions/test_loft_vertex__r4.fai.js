@@ -4,7 +4,7 @@
 // asserts r4.Volume() == r3.Volume() -- "inner features are ignored" -- and both
 // have 4 faces, so the holed section collapses to the same solid geometry.
 // ref (cadquery 2.8.0): Solid, vol 1.066667, 4 faces
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let w0 = await cq.rect(cq.Workplane('XY'), 1, 1)
 let r4 = await cq.loft(w0, { startPoint: [0, 0, -1], endPoint: [0, 0, 1] })
 let result = cq.val(r4)

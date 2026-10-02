@@ -5,7 +5,7 @@
 // Default revolve axis = local +Y (axisStart (0,0) -> axisEnd (0,1)).
 // NOTE: unlike `rect(...).revolve()` this profile only TOUCHES the axis (the
 // (0,0)-(0,10) edge lies on it) and the vendored kernel accepts it.
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let w1 = cq.lineTo(cq.Workplane('XY'), 0, 10)
 let w2 = await cq.lineTo(w1, 5, 0)
 let w3 = await cq.close(w2)

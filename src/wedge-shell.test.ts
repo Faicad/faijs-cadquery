@@ -27,7 +27,7 @@ import * as cq from './index'
 let runtime: ReturnType<typeof createRuntime>
 
 async function runVol(lines: string[]): Promise<{ vol: number; faces: number }> {
-  const code = ["import * as cq from '@faicad/cq-compat'", ...lines, 'let result = cq.val(wp_out)'].join('\n')
+  const code = ["import * as cq from '@faicad/faijs-cadquery'", ...lines, 'let result = cq.val(wp_out)'].join('\n')
   const res = await runtime.execute(code)
   if (res.failedAt) {
     console.log('execute failed at', JSON.stringify(res.failedAt))
@@ -44,7 +44,7 @@ async function runVol(lines: string[]): Promise<{ vol: number; faces: number }> 
 beforeAll(async () => {
   await registerOcctBrepEngine()
   runtime = createRuntime(createNodePorts(), 'brep')
-  runtime.registerLib('cq', cq as never, { packageName: '@faicad/cq-compat' } as never)
+  runtime.registerLib('cq', cq as never, { packageName: '@faicad/faijs-cadquery' } as never)
   const warm = await runtime.execute('let a = cad.box(1, 1, 1, { centered: true })')
   if (warm.failedAt) throw new Error(`runtime warmup failed: ${JSON.stringify(warm.failedAt)}`)
 })
@@ -99,7 +99,7 @@ describe('shell / hollow', () => {
 describe('solids selector', () => {
   it('single solid passes through; compound first solid is adopted', async () => {
     const code = [
-      "import * as cq from '@faicad/cq-compat'",
+      "import * as cq from '@faicad/faijs-cadquery'",
       'let b = await cq.box(cq.Workplane(), 1, 1, 1)',
       'let w = cq.solids(b)',
       'let result = cq.val(w)',

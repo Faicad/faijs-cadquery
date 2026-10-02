@@ -3,7 +3,7 @@
 // ref (cadquery 2.8.0): Solid, vol 1 — union=False mirrors REPLACE the shape,
 // and the box is centered on the origin so every mirror leaves it unchanged.
 // Unrolled (no loop construct in the .fai.js subset).
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let b2 = await cq.box(cq.Workplane(), 1, 1, 1)
 b2 = await cq.mirror(b2, 'XY')
 b2 = await cq.mirror(b2, 'YX')

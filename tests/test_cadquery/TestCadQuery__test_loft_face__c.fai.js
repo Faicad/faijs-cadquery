@@ -3,7 +3,7 @@
 // Compound of the two loft input faces: a 1x1 square at z=0 and a r=1 disc at
 // z=1. No boolean is involved (upstream `compound` just bundles shapes).
 // ref (cadquery 2.8.0): Compound, 2 PLANE faces (area 1.0 + pi)
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let w1r = await cq.rect(cq.Workplane('XY'), 1, 1)
 let f1 = await cq.face(w1r)
 let w2c = await cq.circle(cq.Workplane('XY'), 1)

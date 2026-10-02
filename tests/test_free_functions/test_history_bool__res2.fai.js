@@ -4,7 +4,7 @@
 // the module-level compound() free function — History/imprint bookkeeping is
 // not exported by the mirror harness.
 // ref (cadquery 2.8.0): Compound (2 solids), vol 1
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let b0 = await cq.box(cq.Workplane('XY'), 1, 1, 1)
 let b1 = await cq.translate(b0, [0, 0, 0.5])
 let t0 = await cq.box(cq.Workplane('XY'), 1, 0.5, 0.1)

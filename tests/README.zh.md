@@ -1,8 +1,8 @@
-# cq-compat 对等测试
+# faijs-cadquery 对等测试
 
 [English](README.md) | 中文
 
-CadQuery ⇄ cq-compat 几何等价验证（抓取上游测试几何的 AST 注入 harness 见 `.agents/notes/proposed/testing/` 下的 `2026-09-08-cq-compat-cadquery-parity-harness` 决策记录）。
+CadQuery ⇄ faijs-cadquery 几何等价验证（抓取上游测试几何的 AST 注入 harness 见 `.agents/notes/proposed/testing/` 下的 `2026-09-08-cq-compat-cadquery-parity-harness` 决策记录）。
 
 接手本包？先读交接文档 —— [`docs/handover/2026-09-10-cq-compat-handover.md`](../../../docs/handover/2026-09-10-cq-compat-handover.md) —— 覆盖环境与路径、parity 链路、已知坑与红线、blocked 清单、当前基线与验收清单。
 
@@ -34,7 +34,7 @@ C:/Users/ylt/cadquery-env/Scripts/python.exe tests/ref-harness/analyze-coverage.
 # 3. 生成/刷新三态清单（消费 coverage.json；人工标注优先于机器默认值）
 npx tsx tests/gen-manifest.ts
 
-# 4. 导出候选（全部镜像用例；改了 src/ 后先 npm run build -w @faicad/cq-compat —— CLI 走 dist）
+# 4. 导出候选（全部镜像用例；改了 src/ 后先 npm run build -w @faicad/faijs-cadquery —— CLI 走 dist）
 npx tsx tests/run-cand.ts
 
 # 5. 比对出报告

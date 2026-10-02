@@ -1,6 +1,6 @@
 // source: test_cadquery.py::TestCadQuery::testCombineSolidsInLoop (var s, final)
 // s = union of 15 boxes 0.5x0.5x5 at x = 0,10,...,140 (first box coincides with i=0)
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let s = await cq.extrude(cq.rect(cq.Workplane('XY'), 0.5, 0.5), 5.0)
 let t1 = await cq.extrude(cq.rect(cq.center(cq.Workplane('XY'), 10.0, 0), 0.5, 0.5), 5.0)
 let s1 = await cq.union(s, t1)

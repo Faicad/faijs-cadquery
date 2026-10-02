@@ -1,8 +1,8 @@
 /**
- * @faicad/cq-compat — CadQuery API compatibility layer for faijs.
+ * @faicad/faijs-cadquery — CadQuery API compatibility layer for faijs.
  *
  * Usage in .fai.js:
- *   import * as cq from '@faicad/cq-compat'
+ *   import * as cq from '@faicad/faijs-cadquery'
  *   let wp = cq.Workplane('XY')
  *   let wp1 = await cq.box(wp, 100, 80, 10)
  *   let wp2 = await cq.faces(wp1, '>Z')

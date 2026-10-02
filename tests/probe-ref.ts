@@ -8,8 +8,8 @@
  * measured values.
  *
  * Usage:
- *   npx tsx packages/cq-compat/tests/probe-ref.ts <refBase> [refBase...]
- *   npx tsx packages/cq-compat/tests/probe-ref.ts --substr testSection
+ *   npx tsx packages/faijs-cadquery/tests/probe-ref.ts <refBase> [refBase...]
+ *   npx tsx packages/faijs-cadquery/tests/probe-ref.ts --substr testSection
  *
  * <refBase> is the out/ref file stem, e.g.
  *   tests.test_cadquery__TestCadQuery__testSection__s1

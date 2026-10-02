@@ -7,7 +7,7 @@
 // every stack item — empirically identical to pushPoints([(5,0)]) (verified in
 // cadquery 2.8.0: both chains give vol 914.159265). Axis endpoints are LOCAL
 // coords of the rotated plane: (0,0,0)->(0,1,0) local == world +Z axis.
-import * as cq from '@faicad/cq-compat'
+import * as cq from '@faicad/faijs-cadquery'
 let box = await cq.box(cq.Workplane(), 10, 10, 10)
 let t = await cq.transformed(box, { rotate: [90, 0, 0] })
 let p = cq.pushPoints(t, [[5, 0]])

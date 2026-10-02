@@ -1,15 +1,15 @@
 /**
  * run-cand.ts — export candidate STEP files for mirrored cq-compat test cases.
  *
- * Walks `packages/cq-compat/tests/<module>/<Case>__<test>__<var>.fai.js` files
+ * Walks `packages/faijs-cadquery/tests/<module>/<Case>__<test>__<var>.fai.js` files
  * (case IDs mirror the reference STEP naming from ref-harness/cq_step_plugin)
  * and runs each through the faijs CLI in brep mode, writing
- * `packages/cq-compat/out/cand/<same-name>.step`.
+ * `packages/faijs-cadquery/out/cand/<same-name>.step`.
  *
  * A case that fails to run keeps its `blocked` status in tests/manifest.json —
  * never silently dropped (stderr-zero / honesty rules apply).
  *
- * Usage: npx tsx packages/cq-compat/tests/run-cand.ts [--module test_cadquery] [--only <substring>]
+ * Usage: npx tsx packages/faijs-cadquery/tests/run-cand.ts [--module test_cadquery] [--only <substring>]
  */
 
 import { readdirSync, mkdirSync, statSync } from 'node:fs'
@@ -18,7 +18,7 @@ import { fileURLToPath } from 'node:url'
 import { execFileSync } from 'node:child_process'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
-const PKG = join(HERE, '..') // packages/cq-compat
+const PKG = join(HERE, '..') // packages/faijs-cadquery
 const REPO = join(PKG, '..', '..')
 const OUT_CAND = join(PKG, 'out', 'cand')
 
