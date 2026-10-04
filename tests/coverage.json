@@ -186,8 +186,8 @@
     ]
   ],
   "dimensionCases": {
-    "value-producing": 125,
     "geometry-producing": 276,
+    "value-producing": 125,
     "plumbing": 15
   },
   "valueBlindSpotCases": 44,

@@ -1,0 +1,20 @@
+// source: test_assembly.py::test_colors_fused_assy (var assy)
+// ref resolved to fixture chassis0_assy (vol 160221.22533307946 matches exactly):
+//   4 wheels cylinder(len 20, r 25, axis X) @ (-50,±50,0) and (50,±50,0)
+//   2 axles cylinder(len 80, r 2.5, axis X) @ (0,50,0) and (0,-50,0)
+// (the fused-CAF colour asserts are not STEP-observable; only the compound is compared)
+// ref anchor: vol=160221.22533307946
+import * as cq from '@faicad/faijs-cadquery'
+let w1 = await cq.translate(cq.Workplane('YZ'), [-50, 50, 0])
+let wheel1 = await cq.cylinder(w1, 20, 25)
+let w2 = await cq.translate(cq.Workplane('YZ'), [50, 50, 0])
+let wheel2 = await cq.cylinder(w2, 20, 25)
+let w3 = await cq.translate(cq.Workplane('YZ'), [-50, -50, 0])
+let wheel3 = await cq.cylinder(w3, 20, 25)
+let w4 = await cq.translate(cq.Workplane('YZ'), [50, -50, 0])
+let wheel4 = await cq.cylinder(w4, 20, 25)
+let a1 = await cq.translate(cq.Workplane('YZ'), [0, 50, 0])
+let axle1 = await cq.cylinder(a1, 80, 2.5)
+let a2 = await cq.translate(cq.Workplane('YZ'), [0, -50, 0])
+let axle2 = await cq.cylinder(a2, 80, 2.5)
+let result = cq.compound(cq.val(wheel1), cq.val(wheel2), cq.val(wheel3), cq.val(wheel4), cq.val(axle1), cq.val(axle2))

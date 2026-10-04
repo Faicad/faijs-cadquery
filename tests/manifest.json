@@ -2909,9 +2909,9 @@
     "blockedBy": null
   },
   "tests.test_assembly:::test_assy_root_name__assy": {
-    "status": "blocked",
+    "status": "ported",
     "source": "tests.test_assembly:::test_assy_root_name",
-    "blockedBy": "getfixturevalue"
+    "blockedBy": null
   },
   "tests.test_assembly:::test_step_export__nested_assy": {
     "status": "ported",
@@ -3144,9 +3144,9 @@
     "blockedBy": null
   },
   "tests.test_assembly:::test_step_export_loc__assy": {
-    "status": "blocked",
+    "status": "ported",
     "source": "tests.test_assembly:::test_step_export_loc",
-    "blockedBy": "getfixturevalue"
+    "blockedBy": null
   },
   "tests.test_assembly:::test_step_export_loc__o": {
     "status": "blocked",
@@ -3184,14 +3184,14 @@
     "blockedBy": null
   },
   "tests.test_assembly:::test_save__nested_assy": {
-    "status": "blocked",
+    "status": "ported",
     "source": "tests.test_assembly:::test_save",
-    "blockedBy": "parametrize"
+    "blockedBy": null
   },
   "tests.test_assembly:::test_export__nested_assy": {
-    "status": "blocked",
+    "status": "ported",
     "source": "tests.test_assembly:::test_export",
-    "blockedBy": "parametrize"
+    "blockedBy": null
   },
   "tests.test_assembly:::test_export_vtkjs__nested_assy": {
     "status": "skipped",
@@ -3240,20 +3240,19 @@
     "reason": "out-of-scope: VTK.js visualization exporter (roadmap §2.3). Explicitly unsupported — faijs UI preview uses lightweight ghost/overlay rendering, not exported geometry."
   },
   "tests.test_assembly:::test_save_raises__nested_assy": {
-    "status": "blocked",
+    "status": "ported",
     "source": "tests.test_assembly:::test_save_raises",
-    "blockedBy": "raises",
-    "manual": true
+    "blockedBy": null
   },
   "tests.test_assembly:::test_leaf_node_count__assy": {
-    "status": "blocked",
+    "status": "ported",
     "source": "tests.test_assembly:::test_leaf_node_count",
-    "blockedBy": "getfixturevalue"
+    "blockedBy": null
   },
   "tests.test_assembly:::test_colors_assy0__assy": {
-    "status": "blocked",
+    "status": "ported",
     "source": "tests.test_assembly:::test_colors_assy0",
-    "blockedBy": "getfixturevalue"
+    "blockedBy": null
   },
   "tests.test_assembly:::test_colors_assy0__assy_i": {
     "status": "blocked",
@@ -3261,9 +3260,9 @@
     "blockedBy": "getfixturevalue"
   },
   "tests.test_assembly:::test_colors_assy1__assy": {
-    "status": "blocked",
+    "status": "ported",
     "source": "tests.test_assembly:::test_colors_assy1",
-    "blockedBy": "getfixturevalue"
+    "blockedBy": null
   },
   "tests.test_assembly:::test_colors_assy1__assy_i": {
     "status": "blocked",
@@ -3291,9 +3290,9 @@
     "blockedBy": null
   },
   "tests.test_assembly:::test_colors_fused_assy__assy": {
-    "status": "blocked",
+    "status": "ported",
     "source": "tests.test_assembly:::test_colors_fused_assy",
-    "blockedBy": "getfixturevalue"
+    "blockedBy": null
   },
   "tests.test_assembly:::test_constrain__simple_assy": {
     "status": "blocked",
@@ -3341,16 +3340,14 @@
     "manual": true
   },
   "tests.test_assembly:::test_duplicate_name__nested_assy": {
-    "status": "blocked",
+    "status": "ported",
     "source": "tests.test_assembly:::test_duplicate_name",
-    "blockedBy": "raises",
-    "manual": true
+    "blockedBy": null
   },
   "tests.test_assembly:::test_empty_solve__nested_assy": {
-    "status": "blocked",
+    "status": "ported",
     "source": "tests.test_assembly:::test_empty_solve",
-    "blockedBy": "raises",
-    "manual": true
+    "blockedBy": null
   },
   "tests.test_assembly:::test_expression_grammar__nested_assy": {
     "status": "blocked",
@@ -3378,7 +3375,8 @@
   "tests.test_assembly:::test_PointInPlane_param__box_and_vertex": {
     "status": "blocked",
     "source": "tests.test_assembly:::test_PointInPlane_param",
-    "blockedBy": "parametrize"
+    "blockedBy": "op:vertex-shape",
+    "manual": true
   },
   "tests.test_assembly:::test_toCompound__simple_assy": {
     "status": "ported",
@@ -3479,16 +3477,14 @@
     "blockedBy": null
   },
   "tests.test_assembly:::test_constraint_validation__simple_assy2": {
-    "status": "blocked",
+    "status": "ported",
     "source": "tests.test_assembly:::test_constraint_validation",
-    "blockedBy": "raises",
-    "manual": true
+    "blockedBy": null
   },
   "tests.test_assembly:::test_single_unary_constraint__simple_assy2": {
-    "status": "blocked",
+    "status": "ported",
     "source": "tests.test_assembly:::test_single_unary_constraint",
-    "blockedBy": "raises",
-    "manual": true
+    "blockedBy": null
   },
   "tests.test_assembly:::test_point_on_line__simple_assy2": {
     "status": "blocked",
@@ -3627,14 +3623,14 @@
     "blockedBy": null
   },
   "tests.test_assembly:::test_special_methods__subshape_assy": {
-    "status": "blocked",
+    "status": "ported",
     "source": "tests.test_assembly:::test_special_methods",
-    "blockedBy": "__dir__"
+    "blockedBy": null
   },
   "tests.test_assembly:::test_subshape_access__subshape_assy": {
-    "status": "blocked",
+    "status": "ported",
     "source": "tests.test_assembly:::test_subshape_access",
-    "blockedBy": "__dir__"
+    "blockedBy": null
   },
   "tests.test_assembly:::test_name_geometries__assy": {
     "status": "blocked",
