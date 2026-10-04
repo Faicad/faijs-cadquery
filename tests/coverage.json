@@ -2,9 +2,9 @@
   "totalCasesInRefManifest": 305,
   "casesWithStep": 297,
   "casesWithoutStep": 8,
-  "portableNow": 211,
+  "portableNow": 214,
   "portableWithStub": 41,
-  "blocked": 45,
+  "blocked": 42,
   "blockedByTop": [
     [
       "getfixturevalue",
@@ -16,10 +16,6 @@
     ],
     [
       "interpPlate",
-      3
-    ],
-    [
-      "hollow",
       3
     ],
     [
@@ -117,10 +113,6 @@
       3
     ],
     [
-      "hollow",
-      3
-    ],
-    [
       "parametrize",
       3
     ],
@@ -145,11 +137,11 @@
       1
     ],
     [
-      "CompSolids",
+      "Shells",
       1
     ],
     [
-      "Shells",
+      "CompSolids",
       1
     ],
     [
@@ -198,11 +190,11 @@
     "geometry-producing": 276,
     "plumbing": 15
   },
-  "valueBlindSpotCases": 43,
+  "valueBlindSpotCases": 44,
   "valueBlindSpotOpTop": [
     [
       "val",
-      17
+      18
     ],
     [
       "vals",
@@ -509,8 +501,8 @@
     },
     "tests.test_cadquery::TestCadQuery::testClosedShell": {
       "status": "exported",
-      "category": "BLOCKED",
-      "blockedBy": "hollow",
+      "category": "PORTABLE",
+      "blockedBy": null,
       "ops": [
         "shell",
         "box",
@@ -3323,8 +3315,8 @@
     },
     "tests.test_free_functions:::test_hollow": {
       "status": "exported",
-      "category": "BLOCKED",
-      "blockedBy": "hollow",
+      "category": "PORTABLE",
+      "blockedBy": null,
       "ops": [
         "hollow"
       ],
@@ -3338,8 +3330,8 @@
     },
     "tests.test_free_functions:::test_hollow_open": {
       "status": "exported",
-      "category": "BLOCKED",
-      "blockedBy": "hollow",
+      "category": "PORTABLE",
+      "blockedBy": null,
       "ops": [
         "hollow"
       ],
@@ -5275,6 +5267,29 @@
       ],
       "fellBack": false,
       "unverifiedValueOps": []
+    },
+    {
+      "case": "tests.test_cadquery::TestCadQuery::testClosedShell",
+      "ops": [
+        "shell",
+        "box",
+        "extrude",
+        "close",
+        "polyline",
+        "hollow"
+      ],
+      "vars": [
+        "s1",
+        "s2",
+        "s3",
+        "s4_shape",
+        "s4_shell_1",
+        "s4_shell_2"
+      ],
+      "fellBack": false,
+      "unverifiedValueOps": [
+        "val"
+      ]
     },
     {
       "case": "tests.test_cadquery::TestCadQuery::testCombine",
@@ -7291,6 +7306,32 @@
       "unverifiedValueOps": []
     },
     {
+      "case": "tests.test_free_functions:::test_hollow",
+      "ops": [
+        "hollow"
+      ],
+      "vars": [
+        "box_shape",
+        "res1",
+        "res2"
+      ],
+      "fellBack": false,
+      "unverifiedValueOps": []
+    },
+    {
+      "case": "tests.test_free_functions:::test_hollow_open",
+      "ops": [
+        "hollow"
+      ],
+      "vars": [
+        "box_shape",
+        "res1",
+        "res2"
+      ],
+      "fellBack": false,
+      "unverifiedValueOps": []
+    },
+    {
       "case": "tests.test_free_functions:::test_clean",
       "ops": [
         "box",
@@ -8941,14 +8982,6 @@
       "deps": []
     },
     {
-      "case": "tests.test_cadquery::TestCadQuery::testClosedShell",
-      "blockedBy": "hollow",
-      "missing": [
-        "hollow"
-      ],
-      "deps": []
-    },
-    {
       "case": "tests.test_cadquery::TestCadQuery::testCompSolid",
       "blockedBy": "cast",
       "missing": [
@@ -9049,22 +9082,6 @@
       "blockedBy": "faceOn",
       "missing": [
         "faceOn"
-      ],
-      "deps": []
-    },
-    {
-      "case": "tests.test_free_functions:::test_hollow",
-      "blockedBy": "hollow",
-      "missing": [
-        "hollow"
-      ],
-      "deps": []
-    },
-    {
-      "case": "tests.test_free_functions:::test_hollow_open",
-      "blockedBy": "hollow",
-      "missing": [
-        "hollow"
       ],
       "deps": []
     },

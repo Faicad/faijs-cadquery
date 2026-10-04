@@ -87,6 +87,7 @@ export {
   fillet,
   chamfer,
   shell,
+  shell as hollow,
   val,
   vals,
   all,
