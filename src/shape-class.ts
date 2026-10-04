@@ -12,6 +12,7 @@
 
 import { getKernel } from '@faicad/faijs/occt-kernel/occtKernel'
 import type { OcctKernel, ShapeHandle, Vec3 } from 'occt-wasm'
+import type { Shape } from '@faicad/faijs/mesh/types'
 
 /** A 3D point (mirrors geom-types Vec3 shape without importing it). */
 export interface Pt3 {
@@ -80,6 +81,105 @@ export function disposeShape(s: CqShape): void {
 }
 
 // ---------------------------------------------------------------------------
+// Shape surgery (CadQuery Shape.replace / Shape.split parity)
+// ---------------------------------------------------------------------------
+// The mirror `.fai.js` world is mesh-first: `cq.val`/`cq.faces` hand back mesh
+// `Shape`s that carry their OCCT handle in the runtime slot (verified — `faces`
+// registers each selected face via `fromHandle(h)`). These two helpers work on
+// those mesh `Shape`s, resolve the OCCT handle, run the BOP, and bridge the
+// result back to a mesh `Shape` (so the CLI can export it to STEP).
+
+import { brepOf, isShape } from '@faicad/faijs/shape'
+import { fromHandle } from '@faicad/faijs/sdk'
+
+/** Resolve an OCCT handle from any accepted input. */
+function brepH(x: unknown): ShapeHandle {
+  if (typeof x === 'number') return x as unknown as ShapeHandle
+  if (x && typeof x === 'object') {
+    if ('handle' in x && typeof (x as { handle: unknown }).handle === 'number') {
+      return (x as { handle: ShapeHandle }).handle
+    }
+    if (isShape(x)) {
+      const h = brepOf(x as never)
+      if (h !== undefined) return h as unknown as ShapeHandle
+    }
+  }
+  throw new Error('splitShapeBy/replaceFacesOnSolid: cannot resolve a brep handle')
+}
+
+/** Expand a (possibly compound) shape into its face handles. */
+function faceHandlesOf(k: OcctKernel, h: ShapeHandle): ShapeHandle[] {
+  return k.getSubShapes(h, 'face') as unknown as ShapeHandle[]
+}
+
+/**
+ * splitShapeBy — CadQuery `Shape.split(tool)` / the `face / tool` operator:
+ * divide `source` by the geometry of `tool`. For a face split the fragments are
+ * faces. Backed by BOPAlgo_Splitter (the same kernel entry used by splitFace).
+ * Returns a single mesh `Shape` (compound of the split fragments).
+ *
+ * @param source - mesh `Shape` (or brep handle) to split
+ * @param tool - splitting shape (mesh `Shape` or brep handle), e.g. a face
+ * @returns a mesh `Shape` of the split result
+ */
+export function splitShapeBy(
+  source: unknown,
+  tool: unknown,
+): Shape {
+  const k = kernel()
+  const kk = k as unknown as {
+    split: (shape: ShapeHandle, tools: ShapeHandle[]) => ShapeHandle
+  }
+  const compound = kk.split(brepH(source), [brepH(tool)])
+  return fromHandle(compound) as Shape
+}
+
+/**
+ * replaceFacesOnSolid — CadQuery `Solid.replace(oldFaces, newFaces)`:
+ * drop `oldFaces` from `solid` (matched by identity through `kernel.isSame`)
+ * and re-sew `newFaces` into the shell, solidifying the result. Used by
+ * `test_replace` where the top face is swapped for its split version.
+ *
+ * @param solid - source solid (mesh `Shape` or brep handle)
+ * @param oldFaces - face(s) to remove (must be actual sub-shapes of `solid`)
+ * @param newFaces - face(s) to add in their place (compounds are expanded)
+ * @returns the re-sewn solid as a mesh `Shape`
+ */
+export function replaceFacesOnSolid(
+  solid: unknown,
+  oldFaces: unknown | unknown[],
+  newFaces: unknown | unknown[],
+): Shape {
+  const oldList = Array.isArray(oldFaces) ? oldFaces : [oldFaces]
+  const newList = Array.isArray(newFaces) ? newFaces : [newFaces]
+  const k = kernel()
+  const all = faceHandlesOf(k, brepH(solid))
+  const oldHs = oldList.map(brepH)
+  const remaining = all.filter((f) => !oldHs.some((o) => k.isSame(f, o)))
+  const added: ShapeHandle[] = []
+  for (const nf of newList) added.push(...faceHandlesOf(k, brepH(nf)))
+  const out = k.sewAndSolidify([...remaining, ...added], 1e-3) as ShapeHandle
+  return fromHandle(out) as Shape
+}
+
+/**
+ * edgesOfFace — CadQuery `op.generated(face.edges())` parity: return the
+ * boundary wire (compound of the face's edges) as a mesh `Shape`. Used by
+ * `test_history_offset`, where the exported `sides` variable is exactly the set
+ * of edges generated from the original face's boundary by an offset op.
+ *
+ * @param face - a face (mesh `Shape` or brep handle) whose edges to extract
+ * @returns a mesh `Shape` (compound of the face's boundary edges)
+ */
+export function edgesOfFace(face: unknown): Shape {
+  const k = kernel()
+  const fH = brepH(face)
+  const edgeHandles = k.getSubShapes(fH, 'edge') as unknown as ShapeHandle[]
+  const wire = k.makeCompound(edgeHandles) as ShapeHandle
+  return fromHandle(wire) as Shape
+}
+
+// ---------------------------------------------------------------------------
 // Face factories (upstream Shape.py Face statics)
 // ---------------------------------------------------------------------------
 
@@ -94,16 +194,25 @@ export function disposeShape(s: CqShape): void {
  * @param width - size along the plane's local Y
  * @param basePnt - plane origin (default world origin)
  * @param dir - plane normal (default +Z)
+ * @param scale - finite stand-in span factor for the INFINITE plane
+ *   (default 100, see JSDoc); pass 1 to get a literal `length×width` face,
+ *   used when the plane is consumed as a split tool rather than queried.
  * @returns CqShape (face)
  */
-export function faceMakePlane(length: number, width: number, basePnt?: Pt3, dir?: Pt3): CqShape {
+export function faceMakePlane(
+  length: number,
+  width: number,
+  basePnt?: Pt3,
+  dir?: Pt3,
+  scale = 100,
+): CqShape {
   const k = kernel()
   const n = dir ?? { x: 0, y: 0, z: 1 }
   const base = basePnt ?? { x: 0, y: 0, z: 0 }
   // build in XY then rotate +Z → n, then translate to base
-  // (finite stand-in for upstream's INFINITE plane: ×100 span, see JSDoc)
-  const hw = (length * 100) / 2
-  const hd = (width * 100) / 2
+  // (finite stand-in for upstream's INFINITE plane: ×scale span, see JSDoc)
+  const hw = (length * scale) / 2
+  const hd = (width * scale) / 2
   const e1 = k.makeLineEdge(v3(-hw, -hd, 0), v3(hw, -hd, 0))
   const e2 = k.makeLineEdge(v3(hw, -hd, 0), v3(hw, hd, 0))
   const e3 = k.makeLineEdge(v3(hw, hd, 0), v3(-hw, hd, 0))
