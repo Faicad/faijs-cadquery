@@ -83,11 +83,13 @@ export function disposeShape(s: CqShape): void {
 // ---------------------------------------------------------------------------
 // Shape surgery (CadQuery Shape.replace / Shape.split parity)
 // ---------------------------------------------------------------------------
-// The mirror `.fai.js` world is mesh-first: `cq.val`/`cq.faces` hand back mesh
-// `Shape`s that carry their OCCT handle in the runtime slot (verified — `faces`
-// registers each selected face via `fromHandle(h)`). These two helpers work on
-// those mesh `Shape`s, resolve the OCCT handle, run the BOP, and bridge the
-// result back to a mesh `Shape` (so the CLI can export it to STEP).
+// The faijs-cadquery compat DSL exposes every shape as a mesh `Shape` wrapper
+// whose OCCT handle lives in a runtime slot (`brepOf`, @faicad/faijs/shape).
+// `cq.val`/`cq.faces` return that wrapper, NOT a raw handle. These helpers
+// bridge from the wrapper to the raw OCCT handle, run an OCCT BOP, and wrap the
+// result back into a `Shape` (so the CLI export pipeline can write it to STEP).
+// The geometry work is 100% OCCT — "mesh" only names the wrapper type the DSL
+// passes around; there is no mesh geometry backend doing the cutting/sewing.
 
 import { brepOf, isShape } from '@faicad/faijs/shape'
 import { fromHandle } from '@faicad/faijs/sdk'
