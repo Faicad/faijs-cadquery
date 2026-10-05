@@ -1,26 +1,26 @@
 /**
  * run-cand.ts — export candidate STEP files for mirrored cq-compat test cases.
  *
- * Walks `packages/faijs-cadquery/tests/<module>/<Case>__<test>__<var>.fai.js` files
+ * Walks `tests/<module>/<Case>__<test>__<var>.fai.js` files
  * (case IDs mirror the reference STEP naming from ref-harness/cq_step_plugin)
  * and runs each through the faijs CLI in brep mode, writing
- * `packages/faijs-cadquery/out/cand/<same-name>.step`.
+ * `out/cand/<same-name>.step`.
  *
  * A case that fails to run keeps its `blocked` status in tests/manifest.json —
  * never silently dropped (stderr-zero / honesty rules apply).
  *
- * Usage: npx tsx packages/faijs-cadquery/tests/run-cand.ts [--module test_cadquery] [--only <substring>]
+ * Usage: npx tsx tests/run-cand.ts [--module test_cadquery] [--only <substring>]
  */
 
 import { readdirSync, mkdirSync, statSync } from 'node:fs'
 import { join, basename, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { execFileSync } from 'node:child_process'
+import { createRequire } from 'node:module'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
-const PKG = join(HERE, '..') // packages/faijs-cadquery
-const REPO = join(PKG, '..', '..')
-const OUT_CAND = join(PKG, 'out', 'cand')
+const ROOT = join(HERE, '..') // repo root
+const OUT_CAND = join(ROOT, 'out', 'cand')
 
 // Windows spawnSync cannot resolve the extension-less `npx` shim — route through
 // the shell there (same command line, just resolved via cmd/bash).
@@ -34,7 +34,15 @@ function argValue(name: string): string | undefined {
 const moduleFilter = argValue('--module')
 const onlyFilter = argValue('--only')
 
-const CLI = join(REPO, 'packages', 'core', 'scripts', 'faijs-cli.ts')
+// Resolve faijs CLI from installed @faicad/faijs (registry dependency).
+// The CLI entry is not exported as a bin, so we locate the source via the
+// package root and run it with tsx — same approach as the monorepo.
+const require = createRequire(import.meta.url)
+const faijsPkgPath = require.resolve('@faicad/faijs/package.json')
+const faijsRoot = dirname(faijsPkgPath)
+// faijs-cli.ts is in the package scripts/ dir; it is not in the published tarball,
+// so we fall back to a thin inline wrapper that calls cliMain from the dist.
+const CLI = join(HERE, 'faijs-cli.mjs')
 
 function listCaseFiles(): string[] {
   const testsDir = HERE
@@ -70,14 +78,14 @@ async function main() {
       execFileSync(
         'npx',
         ['tsx', CLI, 'run', f, '--out', outStep, '--mode', 'brep'],
-        { cwd: REPO, stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf-8', shell: IS_WIN },
+        { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf-8', shell: IS_WIN },
       )
       pass++
-      console.log(`✓ ${name}`)
+      console.log(`\u2713 ${name}`)
     } catch (e) {
       fail++
       const msg = e instanceof Error ? e.message.split('\n').slice(-3).join('\n') : String(e)
-      console.error(`✗ ${name}\n${msg}`)
+      console.error(`\u2717 ${name}\n${msg}`)
     }
   }
   console.log(`\nrun-cand: ${pass} exported, ${fail} failed -> ${OUT_CAND}`)

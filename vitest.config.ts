@@ -4,11 +4,8 @@ import { resolve } from 'node:path'
 export default defineConfig({
   resolve: {
     alias: [
-      // M7：包名解析到活源码（不经 dist）。与 tsconfig paths 一致。
-      { find: '@faicad/faijs', replacement: resolve(__dirname, '../core/src') },
-      { find: '@faicad/faijs', replacement: resolve(__dirname, '../../src') },
-      { find: '@faicad/faijs-extra', replacement: resolve(__dirname, '../faijs-extra/src') },
-      { find: '@faicad/cq-compat-compare', replacement: resolve(__dirname, '../cq-compat-compare/src') },
+      // Self-alias: @faicad/faijs-cadquery resolves to live source (not dist).
+      { find: '@faicad/faijs-cadquery', replacement: resolve(__dirname, 'src') },
     ],
   },
   test: {
