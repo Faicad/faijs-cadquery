@@ -1,7 +1,0 @@
-// source: test_assembly.py::test_PointInPlane_param (var box_and_vertex)
-// fixture box_and_vertex: box(1,2,3) @ origin + a lone Vertex (zero volume, zero mass)
-// (the constraint/solve asserts are not STEP-observable; only the compound is compared)
-// ref anchor: vol=6
-import * as cq from '@faicad/faijs-cadquery'
-let p1 = await cq.box(cq.Workplane(), 1, 2, 3)
-let result = cq.compound(cq.val(p1))

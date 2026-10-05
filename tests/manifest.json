@@ -3373,7 +3373,7 @@
   "tests.test_assembly:::test_PointInPlane_param__box_and_vertex": {
     "status": "blocked",
     "source": "tests.test_assembly:::test_PointInPlane_param",
-    "blockedBy": "op:vertex-shape",
+    "blockedBy": "comparator:vertex-degenerate-compound",
     "manual": true
   },
   "tests.test_assembly:::test_toCompound__simple_assy": {
