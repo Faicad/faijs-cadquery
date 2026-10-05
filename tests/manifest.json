@@ -1783,9 +1783,9 @@
     "blockedBy": "importBin"
   },
   "tests.test_shapes:::test_remove__b": {
-    "status": "blocked",
+    "status": "ported",
     "source": "tests.test_shapes:::test_remove",
-    "blockedBy": "remove"
+    "blockedBy": null
   },
   "tests.test_shapes:::test_remove__br": {
     "status": "blocked",
@@ -1984,9 +1984,9 @@
     "blockedBy": null
   },
   "tests.test_free_functions:::test_sewing__b": {
-    "status": "blocked",
+    "status": "ported",
     "source": "tests.test_free_functions:::test_sewing",
-    "blockedBy": "remove"
+    "blockedBy": null
   },
   "tests.test_free_functions:::test_sewing__sh": {
     "status": "blocked",
@@ -1996,7 +1996,7 @@
   "tests.test_free_functions:::test_sewing__res3": {
     "status": "blocked",
     "source": "tests.test_free_functions:::test_sewing",
-    "blockedBy": "remove"
+    "blockedBy": "op:shell-sew"
   },
   "tests.test_free_functions:::test_solid__b": {
     "status": "ported",
