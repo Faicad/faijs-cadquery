@@ -547,8 +547,11 @@ describe('text-spine · CLI path (`autoLift:false`, the mirror configuration)', 
     // The mirror path, NOT the in-process call path: the parity CLI registers the
     // library with `faijs.autoLift:false`, so a green in-process test alone would
     // be a false positive (see the note in `shape-filter.test.ts`).
-    const runtime = createRuntime(createNodePorts(), 'brep', { faijs: { autoLift: false } })
-    runtime.registerLib('cq', cq as never, { packageName: '@faicad/faijs-cadquery' } as never)
+    const runtime = createRuntime(createNodePorts(), 'brep')
+    runtime.registerLib('cq', cq as never, {
+      packageName: '@faicad/faijs-cadquery',
+      autoLift: false,
+    } as never)
     const code = [
       "import * as cq from '@faicad/faijs-cadquery'",
       "let cyl = await cq.cylinder(cq.Workplane('XY'), 10, 5, { centered: [true, true, false] })",

@@ -287,12 +287,12 @@ const BY_KEY: Record<string, string> = {
   //    that cq-compat does not implement.
   'tests.test_free_functions:::test_text__r9': 'op:project',
   'tests.test_free_functions:::test_faceOn__f2': 'op:faceOn',
-  // Free-function draft(): applies taper to an EXISTING solid's faces
-  // (draft(box, fbot, fside, 5)); occt-wasm's draft(shape, face, angle, dir)
-  // fails outright (same kernel gap as §7.26 testTaperedExtrudeHeight__s2 —
-  // offsetWire2D / loft with 4-vs-8-edge sections / draft all fail).
-  'tests.test_free_functions:::test_draft__res1': 'kernel:draft-existing-solid',
-  'tests.test_free_functions:::test_draft__res2': 'kernel:draft-existing-solid',
+  // draft(): the `kernel:draft-existing-solid` label for test_draft__res1/res2
+  // was STALE — the kernel does have `draft` (single-face, origin neutral), and
+  // both mirrors now PASS bit-for-bit (volΔ/comΔ/bboxΔ 0, topo f6/e12/v8).
+  // Entries deliberately REMOVED (N5, 2026-10-05); re-adding them here would
+  // silently revert the ported cases to blocked on the next regen (the
+  // stamp-only-check-nothing trap). See roadmap §10.4.5.
   // project(): edge-to-surface projection (project(e, base) onto a cylinder
   // face). No cq-compat op or kernel projection exists.
   'tests.test_free_functions:::test_project__res': 'op:project',

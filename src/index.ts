@@ -86,6 +86,7 @@ export {
   combine,
   fillet,
   chamfer,
+  draft,
   shell,
   shell as hollow,
   val,

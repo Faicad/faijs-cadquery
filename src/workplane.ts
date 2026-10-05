@@ -657,6 +657,22 @@ async function cleanShapes(shape: Shape): Promise<Shape> {
 }
 
 /**
+ * Outward normal + a point on a face, both at the centre of its parametric
+ * bounds. `pointOnSurface` (not `getCenterOfMass`, which returns (0,0,0) for a
+ * bare face) is the only reliable way to land ON the surface.
+ */
+function faceNormalAndPoint(face: BrepHandle): {
+  n: { x: number; y: number; z: number }
+  p: { x: number; y: number; z: number }
+} {
+  const k = kern()
+  const b = k.uvBounds(face)
+  const um = (b.uMin + b.uMax) / 2
+  const vm = (b.vMin + b.vMax) / 2
+  return { n: k.surfaceNormal(face, um, vm), p: k.pointOnSurface(face, um, vm) }
+}
+
+/**
  * Fuse two shapes into ONE solid via the vendored brepjs fuse.
  *
  * Rationale: `cad.union` (defineOp → booleanBrep → fromBrep repack) has been
@@ -5389,6 +5405,88 @@ export async function face(wp: Workplane): Promise<Workplane> {
     vertexSel: null,
     selChain: undefined,
     pts: [],
+  })
+}
+
+/**
+ * draft — upstream module-level `draft(ctx, base, faces, angle[, dir])` free
+ * function (cadquery 2.8.0 `occ_impl/shapes.py:7794/7826`).
+ *
+ * Adds a draft angle to `faces`, hinged about the neutral plane through `base`
+ * (`BRepOffsetAPI_DraftAngle`: per-face `Add(face, n_dir, radians(angle),
+ * base_pln)` then ONE `Build()`). The pull direction is `dir` when given, else
+ * the outward normal of the base face.
+ *
+ * Kernel mapping / LIMITATION: the occt-wasm primitive is single-face and has
+ * **no neutral-plane argument** (`occt-wasm index.d.ts:156`); its neutral plane
+ * is the origin plane perpendicular to the pull direction (verified: drafting a
+ * box side with pull=-Z hinges at z=0 — `tests/ref-harness/draft-ref-frame-probe.py`
+ * and the `test_draft__res1` capture). When the base face lies on the origin
+ * plane this coincides with the upstream `base_pln`; a base face OFF the origin
+ * plane is **not representable** and is rejected loudly rather than silently
+ * drafted against the wrong plane (same rule as
+ * `core/src/occt-kernel/occt-primitives.ts`).
+ *
+ * @param ctx - Workplane carrying the solid to draft
+ * @param base - Workplane whose first face supplies the neutral plane and the default pull
+ * @param faces - Workplane whose faces receive the draft angle
+ * @param angleOrDir - the angle in degrees when the pull is inferred from `base`, else the pull direction
+ * @param angleDeg - the angle in degrees; required when `angleOrDir` is a direction
+ * @returns Promise<Workplane> whose shape is the drafted solid
+ */
+export async function draft(
+  ctx: Workplane,
+  base: Workplane,
+  faces: Workplane,
+  angleOrDir: number | [number, number, number] | { x: number; y: number; z: number },
+  angleDeg?: number,
+): Promise<Workplane> {
+  const solid = baseSolid(ctx)
+  if (!solid) return ctx
+  const baseFace = base.objects?.[0]
+  if (!baseFace) throw new Error('[cq-compat] draft: base workplane carries no face')
+  const faceList = (faces.objects ?? []).filter((f): f is Shape => Boolean(f))
+  if (faceList.length === 0) throw new Error('[cq-compat] draft: faces workplane carries no face')
+
+  const baseHandle = ownHandle(baseFace)
+  const baseNP = faceNormalAndPoint(baseHandle)
+  let dir: { x: number; y: number; z: number }
+  let angle: number
+  if (typeof angleOrDir === 'number') {
+    angle = angleOrDir
+    dir = baseNP.n
+  } else {
+    dir = vec3(angleOrDir)
+    if (typeof angleDeg !== 'number') {
+      throw new Error('[cq-compat] draft: an angle (deg) is required when a direction is given')
+    }
+    angle = angleDeg
+  }
+
+  // The kernel hinges about the origin plane ⊥ pull; only a base face on that
+  // plane is representable (see the LIMITATION note above).
+  const planarOffset =
+    baseNP.n.x * baseNP.p.x + baseNP.n.y * baseNP.p.y + baseNP.n.z * baseNP.p.z
+  if (Math.abs(planarOffset) > 1e-9) {
+    throw new Error(
+      '[cq-compat] draft: the occt-wasm kernel has no neutral-plane argument; only a base ' +
+        `face on the origin plane is representable (base plane is ${planarOffset} from the origin)`,
+    )
+  }
+
+  const result = kern().draft(
+    ownHandle(solid),
+    faceList.map((f) => ownHandle(f)),
+    dir,
+    { x: 0, y: 0, z: 0 },
+    angle,
+  )
+  return clone(ctx, {
+    objects: [toShape(result)],
+    faceSel: null,
+    edgeSel: null,
+    vertexSel: null,
+    selChain: undefined,
   })
 }
 
