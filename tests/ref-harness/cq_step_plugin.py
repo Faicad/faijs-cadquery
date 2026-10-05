@@ -27,6 +27,9 @@ CQ_STEP_OUT        output directory for STEP files + manifest.json
                    (created if missing; a missing directory makes
                    ``Shape.exportStep`` silently return False and drop ALL
                    files — this plugin creates it defensively).
+CQ_MANIFEST_MERGE  "1" (default) to merge into an existing manifest.json,
+                   "0" to rebuild it from scratch. Needed because each
+                   invocation only indexes the modules it ran.
 CQ_TARGET_MODULES  JSON array of dotted module names to intercept,
                    e.g. '["tests.test_cadquery", "tests.test_shapes"]'.
 CQ_SOURCE_DIRS     JSON array of directories to resolve ``<mod>.py`` from.
@@ -60,6 +63,16 @@ SYSDIRS = json.loads(os.environ.get("CQ_SOURCE_DIRS", "[]"))
 
 os.makedirs(OUT, exist_ok=True)
 _manifest = {}
+
+if os.environ.get("CQ_MANIFEST_MERGE", "1") != "0":
+    # Merge into any existing manifest instead of overwriting it. Without this,
+    # running one module per invocation leaves only the last module indexed --
+    # the STEP files survive on disk but become unreachable to the comparer.
+    # Set CQ_MANIFEST_MERGE=0 to rebuild from scratch.
+    mpath = os.path.join(OUT, "manifest.json")
+    if os.path.isfile(mpath):
+        with open(mpath, encoding="utf-8") as f:
+            _manifest.update(json.load(f))
 
 
 def _export(mapping, case_id):

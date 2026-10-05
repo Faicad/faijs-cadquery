@@ -16,15 +16,10 @@ import { readdirSync, mkdirSync, statSync } from 'node:fs'
 import { join, basename, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { execFileSync } from 'node:child_process'
-import { createRequire } from 'node:module'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const ROOT = join(HERE, '..') // repo root
 const OUT_CAND = join(ROOT, 'out', 'cand')
-
-// Windows spawnSync cannot resolve the extension-less `npx` shim — route through
-// the shell there (same command line, just resolved via cmd/bash).
-const IS_WIN = process.platform === 'win32'
 
 const args = process.argv.slice(2)
 function argValue(name: string): string | undefined {
@@ -34,15 +29,15 @@ function argValue(name: string): string | undefined {
 const moduleFilter = argValue('--module')
 const onlyFilter = argValue('--only')
 
-// Resolve faijs CLI from installed @faicad/faijs (registry dependency).
-// The CLI entry is not exported as a bin, so we locate the source via the
-// package root and run it with tsx — same approach as the monorepo.
-const require = createRequire(import.meta.url)
-const faijsPkgPath = require.resolve('@faicad/faijs/package.json')
-const faijsRoot = dirname(faijsPkgPath)
-// faijs-cli.ts is in the package scripts/ dir; it is not in the published tarball,
-// so we fall back to a thin inline wrapper that calls cliMain from the dist.
 const CLI = join(HERE, 'faijs-cli.mjs')
+
+// NOTE: do not resolve the faijs package root here. @faicad/faijs publishes a
+// strict "exports" map with no "./package.json" subpath, so
+// `require.resolve('@faicad/faijs/package.json')` throws ERR_PACKAGE_PATH_NOT_EXPORTED
+// and takes the whole runner down before a single case executes (hit after the
+// standalone split, when the package started resolving from the registry tarball
+// instead of the monorepo workspace). The CLI wrapper lives in this repo, so the
+// package root was never needed.
 
 function listCaseFiles(): string[] {
   const testsDir = HERE
@@ -75,10 +70,19 @@ async function main() {
     const name = basename(f, '.fai.js')
     const outStep = join(OUT_CAND, `${name}.step`)
     try {
+      // tests/faijs-cli.mjs is plain ESM with no TypeScript in it, so it runs
+      // directly under node -- no tsx transform/register step. Measured: ~7s per
+      // case instead of ~17s (tsx costs another TS-loader + npx resolution per
+      // spawned process), i.e. the full suite drops from ~2.6h to ~1.1h. The STEP
+      // bytes are not identical between the two paths (the STEP header carries the
+      // export temp path and a timestamp), so "are they interchangeable?" is a
+      // measurement question, not a byte question -- tests/_probe-cli-equiv.ts
+      // grades both against the same ref with compareStepFiles and reports them
+      // equal on volume / centroid / bbox / boolean / topology.
       execFileSync(
-        'npx',
-        ['tsx', CLI, 'run', f, '--out', outStep, '--mode', 'brep'],
-        { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf-8', shell: IS_WIN },
+        process.execPath,
+        [CLI, 'run', f, '--out', outStep, '--mode', 'brep'],
+        { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf-8' },
       )
       pass++
       console.log(`\u2713 ${name}`)

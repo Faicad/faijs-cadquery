@@ -1,11 +1,11 @@
 {
   "cadquerySrc": "C:\\git\\CADQ\\cadquery",
   "cadqueryTag": "v2.8.0",
-  "python": "C:\\cqenv\\Scripts\\python.exe",
+  "python": "C:\\Users\\ylt\\cadquery-env\\Scripts\\python.exe",
   "cadqueryVersion": "2.8.0",
   "ocp": "cadquery-ocp 7.9.3.1.1",
   "pytest": "9.1.1",
-  "faijsOcct": "occt-wasm ^3.8.0",
+  "faijsOcct": "occt-wasm ^5.6.0",
   "targetModules": [
     "test_cadquery",
     "test_shapes",
