@@ -36,8 +36,11 @@ import type { Shape } from '@faicad/faijs/mesh/types'
 // occt-wasm 的 OcctKernel 符号钉进 getSubShapes 闭包。本模块直接调
 // kernel.getSubShapes 会抛 "Cannot read properties of undefined (reading
 // 'OcctKernel')"（GOTCHA：见下方 selectKindHandles 注释），故必须复用本路径。
-import { solids as scSolids, wiresOf as scWiresOf, shells as scShells, compounds as scCompounds, facesOf as scFacesOf, shapeTypeOf as scShapeTypeOf, makeCompound, childrenOf } from './shape-class'
+import { solids as scSolids, wiresOf as scWiresOf, shells as scShells, compounds as scCompounds, facesOf as scFacesOf, edgesOf, shapeTypeOf as scShapeTypeOf, makeCompound, childrenOf, unwrapShape, boundingBoxOf } from './shape-class'
 import type { CqShape } from './shape-class'
+// CadQuery `Wire.locationAt(d)` moving frame (text on a spine) — see the module
+// header for why arc length is integrated numerically.
+import { locationAtFrame, composeAffine34, eulerExtrinsicXYZ } from './spine-frame'
 // cq-compat owns its CadQuery-compatible text geometry (no faijs-extra dep):
 // glyph outlines → OCCT via core `textBlueprints`, aligned per CadQuery.
 import { buildTextSolid, type HAlign, type VAlign } from './text-solid'
@@ -1128,6 +1131,111 @@ export async function text(
     result = clone(result, { objects: [await cleanShapes(result.shape) ]})
   }
   return clone(result, { faceSel: null, edgeSel: null, vertexSel: null, selChain: undefined, pts: [] })
+}
+
+/**
+ * textOnSpine — CadQuery free-function `text(txt, size, spine[, planar=…])`
+ * (cadquery 2.8.0 `occ_impl/shapes.py:6772`): lay each glyph of `txt` along a
+ * spine, one glyph at a time.
+ *
+ * Upstream's loop, transliterated verbatim:
+ *
+ * ```python
+ * spine = _get_one_wire(spine); L = spine.Length()
+ * for el in text(txt, size, font, path, kind, halign, valign).Faces():
+ *     pos = el.BoundingBox().center.x
+ *     rv.append(el.moved(-pos)
+ *                 .moved(rx=-90 if planar else 0, ry=-90)
+ *                 .moved(spine.locationAt(pos / L)))
+ * return _normalize(compound(rv))
+ * ```
+ *
+ * Two details carry all the geometry and neither is guessable:
+ *
+ * - **`pos` is the glyph's bounding-box centre**, not its `Center()` (area
+ *   centroid) and not the pen origin. `pos / L` is therefore a *signed*
+ *   normalised arc length, negative for glyphs left of the string origin —
+ *   which is why {@link locationAtFrame} must accept a negative distance.
+ * - **`moved(rx, ry)` is one extrinsic-XYZ rotation** (`R = Rz·Ry·Rx`), not two
+ *   sequential rotations, and it is applied *after* the `-pos` shift but
+ *   *before* the spine frame. See {@link eulerExtrinsicXYZ} for why routing this
+ *   through `rotateBrep` would be wrong whenever both `rx` and `ry` are set.
+ *
+ * The spine must resolve to exactly ONE edge (`_get_one_wire` semantics); a
+ * multi-edge wire is rejected with an explicit error rather than silently
+ * placed by the first edge.
+ *
+ * **Not implemented here**: upstream's third overload
+ * `text(txt, size, spine, base)` (`occ_impl/shapes.py:6805`) projects each
+ * placed glyph onto `base` via `Face.project` = `BRepProj_Projection`, which the
+ * kernel does not bind. That overload is tracked separately (`op:project`); this
+ * function covers the `spine` and `spine + planar` forms only.
+ *
+ * @param txt - the string to render
+ * @param fontsize - font size in model units
+ * @param spine - the wire/edge the glyphs are laid along
+ * @param opts - `{ planar?, font?, fontPath?, kind?, halign?, valign? }`
+ *   (`planar` tilts each glyph flat into the local XY plane instead of standing
+ *   it on the spine frame)
+ * @returns the placed glyphs — the single face itself, or a compound of faces
+ *   (`_normalize`)
+ * @throws if `spine` is missing or does not contain exactly one edge
+ */
+export async function textOnSpine(
+  txt: string,
+  fontsize: number,
+  spine: Shape | null | undefined,
+  opts?: {
+    planar?: boolean
+    font?: string
+    fontPath?: string
+    kind?: string
+    halign?: HAlign
+    valign?: VAlign
+  },
+): Promise<Shape> {
+  const flat = await buildTextSolid(txt, {
+    fontSize: fontsize,
+    distance: 0,
+    halign: opts?.halign,
+    valign: opts?.valign,
+    font: opts?.font,
+    fontPath: opts?.fontPath,
+  })
+  if (spine === null || spine === undefined) {
+    throw new Error('[cq-compat] textOnSpine: a spine shape is required')
+  }
+  const spineShape = asBrepShape(spine)
+  const spineEdges = edgesOf(brepOf(spineShape) as never)
+  if (spineEdges.length !== 1) {
+    throw new Error(
+      `[cq-compat] textOnSpine: the spine must resolve to exactly one edge ` +
+        `(upstream \`_get_one_wire\`); got ${spineEdges.length}`,
+    )
+  }
+  const spineHandle = unwrapShape(spineEdges[0]!)
+  // Upstream `L = spine.Length()`; for a one-edge wire this is the edge's own length.
+  const L = getKernel().curveLength(spineHandle)
+  const rot = eulerExtrinsicXYZ(opts?.planar ? -90 : 0, -90, 0)
+  const parts: Array<CqShape | ShapeHandle> = []
+  for (const glyph of scFacesOf(brepOf(flat) as never)) {
+    const bb = boundingBoxOf(glyph)
+    const pos = (bb.xmin + bb.xmax) / 2
+    const frame = locationAtFrame(spineHandle, pos / L)
+    // One kernel-level affine (BRepBuilderAPI_Transform, STEP-safe) for the whole
+    // `moved(-pos) → moved(rx, ry) → moved(locationAt)` chain. `cad.transform` /
+    // `rotateBrep` are NOT usable: the first would open a lineage statement whose
+    // N1 guard rejects the locally built glyph face, and the second bakes in
+    // THREE's Euler order, which is not CadQuery's (see `eulerExtrinsicXYZ`).
+    const placed = kern().transform(
+      glyph.handle as never,
+      composeAffine34(frame, rot, { x: pos, y: 0, z: 0 }),
+    )
+    parts.push(placed as unknown as ShapeHandle)
+  }
+  // `_normalize`: a single-element compound collapses to that element.
+  if (parts.length === 1) return toShape(parts[0])
+  return toShape(makeCompound(parts).handle)
 }
 
 /**

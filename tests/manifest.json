@@ -2122,19 +2122,19 @@
   "tests.test_free_functions:::test_text__r7": {
     "status": "blocked",
     "source": "tests.test_free_functions:::test_text",
-    "blockedBy": "op:text-spine",
+    "blockedBy": "comparator:open-shell-volume",
     "manual": true
   },
   "tests.test_free_functions:::test_text__r8": {
     "status": "blocked",
     "source": "tests.test_free_functions:::test_text",
-    "blockedBy": "op:text-spine",
+    "blockedBy": "comparator:open-shell-volume",
     "manual": true
   },
   "tests.test_free_functions:::test_text__r9": {
     "status": "blocked",
     "source": "tests.test_free_functions:::test_text",
-    "blockedBy": "op:text-spine",
+    "blockedBy": "op:project",
     "manual": true
   },
   "tests.test_free_functions:::test_operators__b1": {

@@ -29,6 +29,11 @@
  *   compound with the context solid (`combine`: "cut" | "a" | false).
  * - each glyph face keeps its enclosed COUNTER (the hole in "0"/"Q"/"A"), i.e.
  *   the outline is a face-with-holes, not a filled disc.
+ * - each glyph face's normal is **+Z** in the local frame, matching
+ *   `Font_BRepTextBuilder` (upstream's own `test_text` asserts it for r8). The
+ *   engine's raw contour winding gives -Z, so every contour is reoriented — see
+ *   {@link reverseWire} for the measured evidence, and for why it is not
+ *   cosmetic;
  * - the face is chosen exactly as upstream does: `fontPath` (a font file) wins
  *   over `font` (a family name), and the name is resolved by the HOST the way
  *   OCC's font manager resolves it — see `options.font`/`options.fontPath`.
@@ -117,6 +122,44 @@ function containsBox(outer: BrepBoundingBox, inner: BrepBoundingBox, eps = 1e-6)
 }
 
 /**
+ * The same contour, traversed the other way round (each edge reversed and the
+ * edge order reversed), as its own wire.
+ *
+ * ## Why every glyph outline is reoriented (GOTCHA)
+ *
+ * `textBlueprints` returns contours wound so that `makeFace` yields a face with
+ * a **-Z** normal (probe: `surfaceNormal(face, uMid, vMid)` = `(0, 0, -1)` on
+ * the face built from its wire). CadQuery's are **+Z**:
+ *
+ * - the committed ref STEP of `text("CQ", 10)` reads back `normal=(0,0,1)`;
+ * - upstream `tests/test_free_functions.py::test_text` asserts it directly —
+ *   `(r8.faces("<<X").normalAt() - Vector(0, 0, 1)).Length == approx(0)`, i.e.
+ *   the assertion is only satisfiable with a +Z face normal.
+ *
+ * The flip is invisible for the flat cases, because a face lying in `z = 0` has
+ * `n = (0,0,1)` and the comparator's "volume" for an open shell — OCCT's
+ * `∮ x·n dA` — is then identically 0. It is NOT invisible once the faces leave
+ * the origin, which is exactly what the spine-placement overload does: before
+ * this was fixed, `compare-one` read `volΔ 212 %` / `comΔ 0.16` on r7 while its
+ * bbox matched to 5.5e-13 — the 212 % ≈ 200 % + 12 % being the signature of a
+ * sign flip, not of a geometry error.
+ *
+ * Reversing the WIRE (rather than flagging the finished face `REVERSED`) keeps
+ * the face *properly* oriented, so a later `extrude` still builds an outward
+ * solid. All contours are reversed, bodies and counters alike, which preserves
+ * the relative orientation that makes a counter a hole (see the nesting pass
+ * below — it reads bounding boxes, never orientation, so it is unaffected).
+ *
+ * @param kernel - the brep engine
+ * @param wire - the contour wire to reverse
+ * @returns a new wire tracing the same contour backwards
+ */
+function reverseWire(kernel: BrepEngineApi, wire: BrepHandle): BrepHandle {
+  const edges = kernel.getSubShapes(wire, 'edge')
+  return kernel.makeWire([...edges].reverse().map((e) => kernel.reverseShape(e)))
+}
+
+/**
  * Build the text geometry in its own local frame — the XY plane, extruded along
  * local +Z — with CadQuery's `halign`/`valign` applied to the glyph box.
  *
@@ -139,10 +182,17 @@ export async function buildTextSolid(txt: string, options: TextSolidOptions): Pr
   const fontKey = options.fontPath ?? options.font
   const font = await ensureFont(fontKey)
 
-  const wires = textBlueprints(kernel, txt, { fontSize, fontFamily: fontKey })
-  if (wires.length === 0) {
+  const raw = textBlueprints(kernel, txt, { fontSize, fontFamily: fontKey })
+  if (raw.length === 0) {
     throw new Error('[cq-compat] text: no glyph outlines generated')
   }
+  // Match CadQuery's +Z glyph normal — see {@link reverseWire} for why this is
+  // load-bearing rather than cosmetic.
+  const wires = raw.map((w) => {
+    const oriented = reverseWire(kernel, w)
+    kernel.release(w)
+    return oriented
+  })
 
   // `textBlueprints` returns every closed contour as its OWN wire — glyph bodies
   // and their counters alike. Upstream `Compound.makeText` keeps the counter as

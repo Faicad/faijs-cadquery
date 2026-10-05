@@ -237,18 +237,55 @@ const BY_KEY: Record<string, string> = {
   // kernel:boolean-near-coincident-bspline). Geometry itself matches to machine
   // precision (volΔ% 2.6e-5) — keep blocked until the kernel boolean is robust.
   'tests.test_cadquery::TestCadQuery::testTwistExtrudeCombine__r': 'kernel:boolean-near-coincident-bspline',
-  // Free-function text() (2026-09-30): the FLAT overload
-  // `text(txt, size, font, path, kind, halign, valign)` is mirrored and passing
-  // (test_text__r1..r5, __c). The two remaining corners are still out of reach:
-  //  - r7/r8/r9 use the SPINE overload `text(txt, size, spine, planar | face)` —
-  //    glyphs are laid out along a path and (r9) projected onto the cylinder's
-  //    side; cq-compat's `text` only builds flat, axis-aligned text.
+  // Free-function text() (2026-09-30, updated 2026-10-05 / roadmap N4):
+  //  - the FLAT overload `text(txt, size, font, path, kind, halign, valign)` is
+  //    mirrored and passing (test_text__r1..r5, __c);
+  //  - the SPINE overload `text(txt, size, spine, planar)` IS IMPLEMENTED
+  //    (`textOnSpine` + `src/spine-frame.ts`) and both mirrors exist
+  //    (test_text__r7 / __r8). Their GEOMETRY is verified independently:
+  //    bbox matches the ref to 5.5e-13, every face normal matches the ref
+  //    exactly, and the glyph area matches a Green's-theorem integral of the
+  //    font outline to 1e-15. They are pinned `blocked` anyway because the
+  //    COMPARATOR cannot grade them, and pinning is the only encoding that
+  //    survives gen-manifest (`manual: true`) — dropping them would have the
+  //    next regeneration call them ported and lose the finding.
+  //
+  //    WHY the comparator cannot grade them: both results are OPEN 2-D shells,
+  //    and compare.ts runs its volume/COM/boolean probes whenever
+  //    `faces > 0` (step-compare.ts `hasMass`). For an open shell
+  //    `BRepGProp::VolumeProperties` is `∮x·n dA`, not a volume:
+  //      · r7 — the two glyph planes are nearly antiparallel, so the integral is
+  //        a near-total cancellation of ~0.25-sized contributions. Measured raw
+  //        (occt-wasm, the comparator's own reader): ref 0.003036936696537975 vs
+  //        cand 0.003388861288015331 → 11.6 %, which is downstream of NOTHING but
+  //        OCC's own glyph-outline approximation (2.8e-5 relative, see below) —
+  //        the metric amplifies it ~4000x. Before the glyph-orientation fix in
+  //        `src/text-solid.ts#reverseWire` the sign flip read 212 % = 200 % + 12 %.
+  //      · r8 — ref volume is EXACTLY 0 and com (0,0,0); cand volume is 2.07e-19
+  //        (numerically zero), so `getCenterOfMass` returns a real point and
+  //        comΔ = 4.98. A knife-edge on floating-point noise.
+  //    So no correct implementation passes; the only way would be to reproduce
+  //    OCC's coarsened outline, i.e. to be deliberately less exact.
+  //
+  //    The 2.8e-5 area gap itself is OCC's approximation, measured not guessed:
+  //    ref "C" has 4 edges (`LINE,BSPLINE,LINE,BSPLINE`) against the outline's
+  //    22 (ref f2/e12/v12 vs cand f2/e49/v49), and a Green's-theorem integral of
+  //    the font outline gives 0.3480125268300373 against the capture's
+  //    0.3480026696998122 — our faces are the exact ones. Pinned as a unit test
+  //    (`src/text-spine.test.ts` → "is EXACT on the glyph area…").
+  'tests.test_free_functions:::test_text__r7': 'comparator:open-shell-volume',
+  'tests.test_free_functions:::test_text__r8': 'comparator:open-shell-volume',
+  //  - **r9 stays blocked** on a real capability gap: `text(txt, size, spine,
+  //    base)` is `tmp = text(txt, size, spine, False)` then
+  //    `f.project(base, f.normalAt())` (`occ_impl/shapes.py:6805`), and
+  //    `Face.project` = OCCT `BRepProj_Projection`, which occt-wasm does not bind
+  //    (the kernel has only the POINT projections `projectPointOnFace` /
+  //    `projectPointOnEdge` and the HLR `projectEdges`). Same gap as
+  //    `test_project__res`, so it carries the same label.
   //  - test_faceOn engraves text onto a spherical FACE via `faceOn(f, text(…)`;
   //    `faceOn` is a `cadquery.func`-only op (never a Workplane/Shape method)
   //    that cq-compat does not implement.
-  'tests.test_free_functions:::test_text__r7': 'op:text-spine',
-  'tests.test_free_functions:::test_text__r8': 'op:text-spine',
-  'tests.test_free_functions:::test_text__r9': 'op:text-spine',
+  'tests.test_free_functions:::test_text__r9': 'op:project',
   'tests.test_free_functions:::test_faceOn__f2': 'op:faceOn',
   // Free-function draft(): applies taper to an EXISTING solid's faces
   // (draft(box, fbot, fside, 5)); occt-wasm's draft(shape, face, angle, dir)
@@ -367,13 +404,20 @@ const BY_KEY: Record<string, string> = {
   'tests.test_assembly:::test_point_on_line__w': 'op:assembly-solve',
   'tests.test_assembly:::test_expression_grammar__nested_assy': 'op:assembly-solve',
   'tests.test_assembly:::test_constrain_with_tags__nested_assy': 'op:assembly-solve',
-  // pytest.raises error-path assertions (duplicate name / empty solve /
-  // invalid constraint kind / unary-with-solve) — no exported geometry.
-  'tests.test_assembly:::test_duplicate_name__nested_assy': 'raises',
-  'tests.test_assembly:::test_empty_solve__nested_assy': 'raises',
-  'tests.test_assembly:::test_constraint_validation__simple_assy2': 'raises',
-  'tests.test_assembly:::test_single_unary_constraint__simple_assy2': 'raises',
-  'tests.test_assembly:::test_save_raises__nested_assy': 'raises',
+  // CLOSED (found 2026-10-05 while flipping the free-function `text` spine
+  //   overload): the five pytest.raises error-path cases (duplicate name /
+  //   empty solve / invalid constraint kind / unary-with-solve / save-raises)
+  //   were pinned here as 'raises', but all five have had committed mirrors for
+  //   a while and gen-manifest reports them `ported`. The pins were therefore
+  //   STALE — and latent: because `mark-blocked.ts` only writes, nothing
+  //   surfaced them until a later run re-annotated all five back to `blocked`
+  //   (`manual: true`), i.e. a silent REGRESSION of 5 ported cases waiting for
+  //   the next person to run the script. Removed so regeneration keeps them
+  //   ported (do NOT re-add; the same trap is documented on the plane() /
+  //   findSolid / polyline / addCavity closures above).
+  // NOTE: they are case-level `raises` — the upstream test asserts an exception,
+  // so their ref runs export no geometry. That is why they are easy to mistake
+  // for non-portable; the mirrors assert the same raise through the DSL.
   // STEP subshape metadata round-trip (subshape names/colors/layers) —
   // importStep/load return plain members; no _subshape_names metadata channel.
   'tests.test_assembly:::test_assembly_subshape_import__subshape_assy': 'op:assembly-subshape-import',

@@ -386,6 +386,16 @@ export function facesOf(s: CqShape | ShapeHandle): CqShape[] {
   return (k.getSubShapes(unwrapShape(s), 'face') as unknown as ShapeHandle[]).map((h) => borrowShape('face', h))
 }
 
+/**
+ * `Shape.Edges` — topological edge extraction (recursive, like {@link facesOf}).
+ * @param s - shape (wrapper or handle)
+ * @returns borrowed CqShape list of every edge at any depth
+ */
+export function edgesOf(s: CqShape | ShapeHandle): CqShape[] {
+  const k = kernel()
+  return (k.getSubShapes(unwrapShape(s), 'edge') as unknown as ShapeHandle[]).map((h) => borrowShape('edge', h))
+}
+
 // ---------------------------------------------------------------------------
 // Selector class hierarchy (upstream selectors.py, on-demand subset)
 // ---------------------------------------------------------------------------

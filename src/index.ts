@@ -120,6 +120,7 @@ export {
   sort,
   workplaneFromTagged,
   text,
+  textOnSpine,
   split,
   section,
   sweep,
