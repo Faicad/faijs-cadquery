@@ -10,7 +10,7 @@
 import { describe, it, expect, beforeAll } from 'vitest'
 import { createRuntime, registerOcctBrepEngine } from '@faicad/faijs'
 import { createNodePorts } from '@faicad/faijs/node'
-import { hasBrep, brepOf } from '@faicad/faijs/shape'
+import { hasBrep } from '@faicad/faijs/shape'
 import { asPartName } from '@faicad/faijs/identity'
 import type { Shape } from '@faicad/faijs/mesh/types'
 import type { AssemblyConstraint } from '@faicad/faijs/api/assembly/types'

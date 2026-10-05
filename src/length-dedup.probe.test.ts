@@ -97,7 +97,6 @@ describe('probe: length dedup across shape kinds', () => {
     const comp = kk.makeCompound([box, box2])
     record('compound:2boxes', comp)
 
-    // eslint-disable-next-line no-console
     console.log('\n' + JSON.stringify(rows, null, 2) + '\n')
 
     expect(rows.length).toBe(6)

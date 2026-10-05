@@ -95,7 +95,7 @@ function axisBOf(c: AssemblyConstraint): { origin: V3; direction: V3 } {
   const a = (c as unknown as { b: { edge: { axis: { origin: V3; direction: V3 } } } }).b.edge.axis
   return { origin: a.origin, direction: a.direction }
 }
-function closeToV3(a: V3, b: V3, eps = 1e-3): void {
+function closeToV3(a: V3, b: V3): void {
   for (let i = 0; i < 3; i++) expect(a[i], `axis ${i}: ${a[i]} ≈ ${b[i]}`).toBeCloseTo(b[i], 3)
 }
 

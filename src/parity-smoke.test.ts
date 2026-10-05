@@ -24,8 +24,9 @@ const execFileAsync = promisify(execFile)
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const PKG = join(HERE, '..')
-const REPO = join(PKG, '..', '..')
-const CLI = join(REPO, 'packages', 'core', 'scripts', 'faijs-cli.ts')
+// Standalone repo: the thin CLI wrapper lives at tests/faijs-cli.mjs (the
+// published @faicad/faijs tarball omits packages/core/scripts/faijs-cli.ts).
+const CLI = join(PKG, 'tests', 'faijs-cli.mjs')
 const OUT_SMOKE = join(PKG, 'out', 'smoke')
 const FIXTURES = join(PKG, 'tests', 'fixtures', 'ref')
 
@@ -85,7 +86,7 @@ async function exportCandStep(mirror: string, outBase: string): Promise<string> 
   await execFileAsync(
     'npx',
     ['tsx', CLI, 'run', mirror, '--out', outBase, '--mode', 'brep'],
-    { cwd: REPO, shell: IS_WIN, maxBuffer: 16 * 1024 * 1024 },
+    { cwd: PKG, shell: IS_WIN, maxBuffer: 16 * 1024 * 1024 },
   )
   const dir = dirname(outBase)
   const base = outBase.slice(dir.length + 1)

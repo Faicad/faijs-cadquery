@@ -21,7 +21,6 @@ import {
   resolveFaceSelector,
   resolveEdgeSelection,
   resolveFaceEdgeSelection,
-  resolveVertexSelection,
   resolveSelection,
 } from '@faicad/faijs/api/cadquery-selectors'
 import type { SelStep } from '@faicad/faijs/api/cadquery-selectors'

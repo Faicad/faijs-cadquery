@@ -18,7 +18,7 @@ import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
 
 const here = dirname(fileURLToPath(import.meta.url))
-const fixtureStep = resolve(here, '../../fixtures/data/box_boss.step')
+const fixtureStep = resolve(here, '../fixtures/data/box_boss.step')
 
 let runtime: ReturnType<typeof createRuntime>
 let boxA: Shape
@@ -162,7 +162,7 @@ describe('importStep/load（P0-1 工作项 C）', () => {
   // 2026-10-03：夹具从 `box_boss.step`（裸 shape 导出，无装配）换成真装配。
   // 旧断言（`part_1` / `imported` / 单成员）描述的是「拍平成匿名单成员」的旧行为，
   // 那正是 upstream `test_assembly_step_import` 里 `pytest.raises(ValueError)` 所否定的。
-  const assemblyStep = resolve(here, '../../fixtures/data/step-metadata/cq-assembly-two-parts.step')
+  const assemblyStep = resolve(here, '../fixtures/data/step-metadata/cq-assembly-two-parts.step')
 
   it('importStep 读装配 STEP → 保留装配名与成员名', async () => {
     const asm = await asmPkg.importStep(assemblyStep)

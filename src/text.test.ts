@@ -23,12 +23,20 @@ import type { Shape } from '@faicad/faijs/mesh/types'
 import { verticalMetrics } from './text-solid'
 import * as cq from './index'
 
+// The published @faicad/faijs tarball does not ship its default font under
+// dist/assets/fonts (the monorepo only ever resolved it via the src alias).
+// Bundle the single source of truth here and point createNodePorts at it so
+// text tests are hermetic regardless of the installed faijs content.
+const DEFAULT_FONT = fileURLToPath(
+  new URL('../fixtures/data/fonts/OpenSans-Regular.ttf', import.meta.url),
+)
+
 let runtime: ReturnType<typeof createRuntime>
 
 beforeAll(async () => {
   await registerOcctBrepEngine()
   // createNodePorts() installs the fs FontLoader (node-host) that text needs.
-  runtime = createRuntime(createNodePorts(), 'brep')
+  runtime = createRuntime(createNodePorts({ defaultFontPath: DEFAULT_FONT }), 'brep')
   runtime.registerLib('cq', cq as never, { packageName: '@faicad/faijs-cadquery' } as never)
 }, 120000)
 
@@ -216,9 +224,7 @@ describe('cq-compat Workplane.text (self-contained)', () => {
   }, 120000)
 
   it('fontPath selects a font file and matches the default when it IS the default file', async () => {
-    const defaultFont = fileURLToPath(
-      new URL('../../core/src/assets/fonts/OpenSans-Regular.ttf', import.meta.url),
-    )
+    const defaultFont = DEFAULT_FONT
     const viaPath = bboxOf(
       await cq.text(cq.Workplane('XY'), 'CQ', 10, 0, 'cut', { fontPath: defaultFont }),
     )

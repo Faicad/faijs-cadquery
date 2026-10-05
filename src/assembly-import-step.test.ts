@@ -3,7 +3,7 @@
  *
  * 真值冻结自一次性 CadQuery 2.8.0 捕获
  * （`tests/ref-harness/step-metadata-probe.py`，不进 CI，见审计 §5.1）；夹具也是
- * 那次捕获再生成的（`packages/fixtures/data/step-metadata/`，别手改 STEP）。
+ * 那次捕获再生成的（`fixtures/data/step-metadata/`，别手改 STEP）。
  *
  * 三条断言对应三类会被"只比几何"的 parity 永久看不见的东西：
  *   1. 装配名 + 成员名 + 成员颜色（importStep 之前走 loadBrep，全丢）
@@ -22,7 +22,7 @@ import { importStep } from './assembly/save'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const fixture = (name: string): string =>
-  resolve(here, '../../fixtures/data/step-metadata', name)
+  resolve(here, '../fixtures/data/step-metadata', name)
 
 beforeAll(async () => {
   await setupNativeKernel()
