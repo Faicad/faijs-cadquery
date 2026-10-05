@@ -100,6 +100,8 @@ export {
   stackMap,
   stackApply,
   sortStack,
+  filterByPredicate,
+  sortByKey,
   bboxSize,
   transformed,
   setColor,

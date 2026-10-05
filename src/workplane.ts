@@ -36,7 +36,7 @@ import type { Shape } from '@faicad/faijs/mesh/types'
 // occt-wasm 的 OcctKernel 符号钉进 getSubShapes 闭包。本模块直接调
 // kernel.getSubShapes 会抛 "Cannot read properties of undefined (reading
 // 'OcctKernel')"（GOTCHA：见下方 selectKindHandles 注释），故必须复用本路径。
-import { solids as scSolids, wiresOf as scWiresOf, shells as scShells, compounds as scCompounds, facesOf as scFacesOf, shapeTypeOf as scShapeTypeOf, makeCompound } from './shape-class'
+import { solids as scSolids, wiresOf as scWiresOf, shells as scShells, compounds as scCompounds, facesOf as scFacesOf, shapeTypeOf as scShapeTypeOf, makeCompound, childrenOf } from './shape-class'
 import type { CqShape } from './shape-class'
 // cq-compat owns its CadQuery-compatible text geometry (no faijs-extra dep):
 // glyph outlines → OCCT via core `textBlueprints`, aligned per CadQuery.
@@ -5911,6 +5911,99 @@ export function stackApply(wp: Workplane, fn: (objects: Shape[]) => Shape[]): Wo
  */
 export function sortStack(wp: Workplane, key: (a: Shape, b: Shape) => number): Workplane {
   return clone(wp, { objects: [...wp.objects].sort(key) })
+}
+
+// ── SHAPE-receiver λ ops (upstream `Shape.filter` / `Shape.sort`) ────────────
+//
+// Naming: upstream gives `filter` / `sort` to THREE receivers — `Shape`
+// (`shapes.py:1928/1932`), `Workplane` (`cq.py:4460/4490`) and `Sketch`
+// (`sketch.py`). faijs already exports `sort` (pending-wire ordering) and the
+// Workplane-stack family (`stackFilter` / `sortStack`), so reusing the bare
+// upstream name here would be wrong twice over:
+//   1. `analyze-coverage.py:575` compares a FLAT name set, so a bare `filter`
+//      export would wrongly mark every `Sketch.filter` / `Workplane.filter`
+//      case portable — exactly the trap its `remove` comment (:86-92)
+//      documents. A distinct name keeps the analyzer honest.
+//   2. the receiver would still be ambiguous at the call site.
+// The `…ByPredicate` / `…ByKey` suffixes therefore name the SHAPE receiver.
+
+/** Resolve a required mesh `Shape` to its kernel handle; fail loudly on null. */
+function requiredHandle(shape: Shape | null | undefined, op: string): ShapeHandle {
+  const h = shape ? brepOf(shape) : undefined
+  if (typeof h !== 'number') throw new Error(`[cq-compat] ${op}: no shape to operate on`)
+  return h as ShapeHandle
+}
+
+/**
+ * filterByPredicate — upstream `Shape.filter(f)`
+ * (`occ_impl/shapes.py:1928` = `compound(*filter(f, self))`): keep the direct
+ * sub-shapes for which `pred` returns true, aggregated into ONE compound in
+ * source order.
+ *
+ * Semantics follow the upstream iteration exactly — direct children only, no
+ * leaf special case (see `shape-class.childrenOf`). An empty selection yields
+ * an EMPTY compound (volume 0), matching `compound(*[])` — NOT `null`.
+ *
+ * **The predicate is AWAITED**, which is not optional in practice: every
+ * `.fai.js` `function` declaration is compiled to an `async function`
+ * (`core/src/cad-runtime/direct-executor.ts:1012`), so a DSL predicate always
+ * returns a Promise — and a Promise is always TRUTHY, so a naive
+ * `Array.prototype.filter` would keep every child. (A sync arrow predicate
+ * returning a real boolean also works; it simply needs no await.)
+ *
+ * This is the **Shape receiver** only: the Workplane receiver
+ * (upstream `Workplane.filter`, `cq.py:4460`, which returns a Workplane) is
+ * {@link stackFilter}, and the Sketch receiver is not implemented.
+ *
+ * λ convention (`shape-filter.test.ts`): declare a `function`, not an arrow —
+ * an ARROW body cannot reference the `cq` namespace at all (`cq is not
+ * defined`; only function bodies get `const cq = __ns.cq` injected, same file
+ * `:1010`), so it can never call `volumeOf`.
+ *
+ * @param shape - shape whose direct sub-shapes are tested (a compound, typically)
+ * @param pred - predicate over each borrowed sub-shape (`volumeOf` / `areaOf` work); may be async
+ * @returns compound of the survivors, in source order (empty compound if none)
+ */
+export async function filterByPredicate(
+  shape: Shape | null | undefined,
+  pred: (child: CqShape) => boolean | Promise<boolean>,
+): Promise<Shape> {
+  const kids = childrenOf(requiredHandle(shape, 'filterByPredicate'))
+  const kept: CqShape[] = []
+  for (const child of kids) if (await pred(child)) kept.push(child)
+  return toShape(kern().makeCompound(kept.map((c) => c.handle as unknown as BrepHandle)))
+}
+
+/**
+ * sortByKey — upstream `Shape.sort(key)`
+ * (`occ_impl/shapes.py:1932` = `compound(*sorted(self, key=key))`): reorder the
+ * direct sub-shapes by `key`, aggregated into ONE compound.
+ *
+ * The callable is a **key extractor** (one child → one comparable value),
+ * matching Python's `key=`; the order is ASCENDING by that key and STABLE
+ * (Python `sorted` and JS `Array.prototype.sort` are both stable). Write
+ * `function byVolume(x) { return -cq.volumeOf(x) }` for a descending volume
+ * order, exactly as upstream. The key is AWAITED — see `filterByPredicate` for
+ * why a DSL-declared function is always async.
+ *
+ * GOTCHA: `sortStack` (the Workplane-stack op) takes a JS **comparator**
+ * `(a, b) => number`, not a key extractor — handing a key extractor to it
+ * silently produces the wrong order (`b` is ignored).
+ *
+ * @param shape - shape whose direct sub-shapes are ordered (a compound, typically)
+ * @param key - key extractor over each borrowed sub-shape; may be async
+ * @returns compound of the reordered sub-shapes
+ */
+export async function sortByKey(
+  shape: Shape | null | undefined,
+  key: (child: CqShape) => number | Promise<number>,
+): Promise<Shape> {
+  const keyed: Array<{ child: CqShape; k: number }> = []
+  for (const child of childrenOf(requiredHandle(shape, 'sortByKey'))) {
+    keyed.push({ child, k: await key(child) })
+  }
+  keyed.sort((a, b) => a.k - b.k)
+  return toShape(kern().makeCompound(keyed.map((e) => e.child.handle as unknown as BrepHandle)))
 }
 
 /**

@@ -92,6 +92,22 @@ CQ_COMPAT_EXTRA: set[str] = {
     # (conservative = honest). Tracked as a modeling limitation, not a data fix.
     "addSubshape",
     "traverse",
+    # `filter` / `sort` are deliberately ABSENT for the same reason as `remove`,
+    # and the reason is now concrete rather than hypothetical: upstream gives both
+    # names to THREE receivers — `Shape` (`occ_impl/shapes.py:1928/1932`),
+    # `Workplane` (`cq.py:4460/4490`) and `Sketch` (`sketch.py`). faijs implements
+    # the first two (as `filterByPredicate` / `sortByKey` and as the `stack*`
+    # family) but NOT the Sketch receiver, and this op universe is a flat name set
+    # that cannot see the receiver. Listing either name would mark every
+    # `Sketch.filter` case portable. Today those sketch cases happen to carry no
+    # STEP, so the mistake would be invisible — which is exactly the kind of
+    # accident the `remove` note above was written to stop.
+    #
+    # Consequence: `tests.test_shapes::test_special` keeps reporting
+    # `blockedBy: filter` even though its mirrors (`test_special__cf` /
+    # `__cs`) now PASS. That false negative is deliberate — conservative =
+    # honest, and the manifest (which is driven by mirror presence, not by this
+    # file) is the accurate record of what has been ported.
 }
 
 

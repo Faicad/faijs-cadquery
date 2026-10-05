@@ -1843,14 +1843,14 @@
     "blockedBy": null
   },
   "tests.test_shapes:::test_special__cf": {
-    "status": "blocked",
+    "status": "ported",
     "source": "tests.test_shapes:::test_special",
-    "blockedBy": "filter"
+    "blockedBy": null
   },
   "tests.test_shapes:::test_special__cs": {
-    "status": "blocked",
+    "status": "ported",
     "source": "tests.test_shapes:::test_special",
-    "blockedBy": "filter"
+    "blockedBy": null
   },
   "tests.test_shapes:::test_reverse__simple_box": {
     "status": "ported",

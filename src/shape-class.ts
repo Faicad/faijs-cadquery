@@ -356,6 +356,27 @@ export function compounds(s: CqShape | ShapeHandle): CqShape[] {
 }
 
 /**
+ * `Shape.__iter__` — the DIRECT sub-shapes of a shape, in kernel order
+ * (upstream `Shape.__iter__`, `occ_impl/shapes.py:1732` = `TopoDS_Iterator`).
+ *
+ * This is the iteration `Shape.filter` / `Shape.sort` are defined on
+ * (`compound(*filter(f, self))` / `compound(*sorted(self, key=key))`,
+ * `occ_impl/shapes.py:1928/1932`), so its exact semantics matter:
+ *  - **direct only, never recursive** — a nested compound yields the inner
+ *    compound itself, not its leaves;
+ *  - **no leaf special case** — iterating a solid yields its SHELL.
+ * Both are probe-verified in `shape-children.probe.test.ts`; the kernel's
+ * `iterShapes` matches `TopoDS_Iterator` exactly, so no special-casing here.
+ *
+ * @param s - shape (wrapper or handle)
+ * @returns borrowed CqShape list (the source shape keeps ownership)
+ */
+export function childrenOf(s: CqShape | ShapeHandle): CqShape[] {
+  const k = kernel()
+  return k.iterShapes(unwrapShape(s)).map((h) => borrowShape(k.getShapeType(h) as CqShape['kind'], h))
+}
+
+/**
  * Shape.faces — topological face extraction.
  * @param s - shape (wrapper or handle)
  * @returns borrowed CqShape list
