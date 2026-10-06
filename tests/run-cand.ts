@@ -12,7 +12,7 @@
  * Usage: npx tsx tests/run-cand.ts [--module test_cadquery] [--only <substring>]
  */
 
-import { readdirSync, mkdirSync, statSync } from 'node:fs'
+import { readdirSync, mkdirSync, statSync, rmSync } from 'node:fs'
 import { join, basename, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { execFileSync } from 'node:child_process'
@@ -20,6 +20,10 @@ import { execFileSync } from 'node:child_process'
 const HERE = dirname(fileURLToPath(import.meta.url))
 const ROOT = join(HERE, '..') // repo root
 const OUT_CAND = join(ROOT, 'out', 'cand')
+
+// A healthy case costs ~6s; 20x that is a generous ceiling that still stops a
+// wedged kernel from freezing the whole sweep.
+const CASE_TIMEOUT_MS = 120_000
 
 const args = process.argv.slice(2)
 function argValue(name: string): string | undefined {
@@ -79,17 +83,25 @@ async function main() {
       // measurement question, not a byte question -- tests/_probe-cli-equiv.ts
       // grades both against the same ref with compareStepFiles and reports them
       // equal on volume / centroid / bbox / boolean / topology.
+      // timeout: the observed healthy case costs ~6s, and a hung kernel call has
+      // historically wedged whole overnight sweeps. Without a per-case ceiling a
+      // single stuck case freezes the entire run with no output to diagnose from.
       execFileSync(
         process.execPath,
         [CLI, 'run', f, '--out', outStep, '--mode', 'brep'],
-        { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf-8' },
+        { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf-8', timeout: CASE_TIMEOUT_MS },
       )
       pass++
       console.log(`\u2713 ${name}`)
     } catch (e) {
       fail++
+      const timedOut = e instanceof Error && (e as NodeJS.ErrnoException).code === 'ETIMEDOUT'
+      // Remove the partial output: for a timeout the child may be killed with a
+      // half-written file, and a stale/absent candidate must not be graded as if
+      // the mirror produced something.
+      rmSync(outStep, { force: true })
       const msg = e instanceof Error ? e.message.split('\n').slice(-3).join('\n') : String(e)
-      console.error(`\u2717 ${name}\n${msg}`)
+      console.error(`\u2717 ${name}${timedOut ? ' (TIMEOUT)' : ''}\n${msg}`)
     }
   }
   console.log(`\nrun-cand: ${pass} exported, ${fail} failed -> ${OUT_CAND}`)

@@ -2,9 +2,9 @@
 
 English | [中文](README.zh.md)
 
-Geometry-equivalence verification between CadQuery and faijs-cadquery. The AST-injection capture harness for upstream test geometry is designed in the `2026-09-08-cq-compat-cadquery-parity-harness` decision note under `.agents/notes/proposed/testing/`.
+Geometry-equivalence verification between CadQuery and faijs-cadquery. The AST-injection capture harness for upstream test geometry is designed in the `2026-09-08-cq-compat-cadquery-parity-harness` decision note — it stayed in the **faijs monorepo** (`faijs/.agents/notes/proposed/testing/`), not in this standalone repo.
 
-Taking over this package? Start with the handover document — [`docs/handover/2026-09-10-cq-compat-handover.md`](../../../docs/handover/2026-09-10-cq-compat-handover.md) — environment and paths, the parity pipeline, known pitfalls and red lines, the blocked inventory, the current baseline, and the acceptance checklist.
+Taking over this package? The handover document — `faijs/docs/handover/2026-09-10-cq-compat-handover.md` — also stayed in the **faijs monorepo** after the standalone split: environment and paths, the parity pipeline, known pitfalls and red lines, the blocked inventory, the current baseline, and the acceptance checklist.
 
 ## Layout
 
@@ -40,6 +40,12 @@ npx tsx tests/run-cand.ts
 # 5. 比对出报告
 npx tsx tests/compare.ts
 ```
+
+## Parity assets and the current baseline
+
+`out/` — the reference STEPs, the candidate STEPs and `report.{md,json}` — is **gitignored**: it is a generated artifact, never committed. Rebuild it with the five commands above before any zero-regression check, and gate on a **PASS/FAIL set diff**, not on the parity percentage (the ref set is rebuilt from scratch, so the denominator/membership can shift).
+
+Baseline (2026-10-06, full suite, 650 ref cases): **PASS 474 / PASS-NT 19 / FAIL 22 / ERROR 1 / BLOCKED 135 → parity 75.85%**. The pre-split report (72.92%) was not migrated into this repo, so this table cannot be diffed against it — it is the new reference point. Per-case detail (15 runtime failures + 23 comparison failures) is recorded in `docs/plans/2026-10-05-cadquery-post-occt56-plan.md` §P0.
 
 ## Mirror case naming
 

@@ -2,9 +2,9 @@
 
 [English](README.md) | 中文
 
-CadQuery ⇄ faijs-cadquery 几何等价验证（抓取上游测试几何的 AST 注入 harness 见 `.agents/notes/proposed/testing/` 下的 `2026-09-08-cq-compat-cadquery-parity-harness` 决策记录）。
+CadQuery ⇄ faijs-cadquery 几何等价验证（抓取上游测试几何的 AST 注入 harness 见 `2026-09-08-cq-compat-cadquery-parity-harness` 决策记录 —— 该记录留在 **faijs monorepo**（`faijs/.agents/notes/proposed/testing/`），未随本仓迁出）。
 
-接手本包？先读交接文档 —— [`docs/handover/2026-09-10-cq-compat-handover.md`](../../../docs/handover/2026-09-10-cq-compat-handover.md) —— 覆盖环境与路径、parity 链路、已知坑与红线、blocked 清单、当前基线与验收清单。
+接手本包？交接文档 —— `faijs/docs/handover/2026-09-10-cq-compat-handover.md` —— 同样留在 **faijs monorepo**，本仓未随迁：覆盖环境与路径、parity 链路、已知坑与红线、blocked 清单、当前基线与验收清单。
 
 ## 布局
 
@@ -40,6 +40,12 @@ npx tsx tests/run-cand.ts
 # 5. 比对出报告
 npx tsx tests/compare.ts
 ```
+
+## parity 资产与当前基线
+
+`out/`（ref STEP、cand STEP、`report.{md,json}`）**已 gitignore** —— 它是生成物，不入库。做任何「零回归」检查前，先用上面五条命令重建它；判定走 **PASS/FAIL 集合 diff**，不要看 parity 百分比（ref 每次从零重建，分母/成员都可能变）。
+
+基线（2026-10-06 全量，650 条 ref）：**PASS 474 / PASS-NT 19 / FAIL 22 / ERROR 1 / BLOCKED 135 → parity 75.85%**。拆分前的报告（72.92%）没有随仓迁移，故本表无法与之 diff —— 它就是新的参照点。逐例明细（15 条运行时失败 + 23 条比对失败）记在 `docs/plans/2026-10-05-cadquery-post-occt56-plan.md` §P0。
 
 ## 镜像用例命名
 
