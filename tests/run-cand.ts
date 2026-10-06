@@ -12,7 +12,7 @@
  * Usage: npx tsx tests/run-cand.ts [--module test_cadquery] [--only <substring>]
  */
 
-import { readdirSync, mkdirSync, statSync, rmSync } from 'node:fs'
+import { readdirSync, mkdirSync, statSync, rmSync, existsSync } from 'node:fs'
 import { join, basename, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { execFileSync } from 'node:child_process'
@@ -20,6 +20,13 @@ import { execFileSync } from 'node:child_process'
 const HERE = dirname(fileURLToPath(import.meta.url))
 const ROOT = join(HERE, '..') // repo root
 const OUT_CAND = join(ROOT, 'out', 'cand')
+
+// Fonts are a HOST responsibility (core only dependency-injects; the published
+// @faicad/faijs tarball ships no bundled font). The host default here points at
+// the monorepo core's source font when it exists locally; override with the
+// FAIJS_DEFAULT_FONT env var.
+const HOST_DEFAULT_FONT = join(ROOT, '..', 'faijs', 'packages', 'core', 'src', 'assets', 'fonts', 'OpenSans-Regular.ttf')
+const defaultFontPath = process.env.FAIJS_DEFAULT_FONT ?? (existsSync(HOST_DEFAULT_FONT) ? HOST_DEFAULT_FONT : '')
 
 // A healthy case costs ~6s; 20x that is a generous ceiling that still stops a
 // wedged kernel from freezing the whole sweep.
@@ -89,7 +96,16 @@ async function main() {
       execFileSync(
         process.execPath,
         [CLI, 'run', f, '--out', outStep, '--mode', 'brep'],
-        { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf-8', timeout: CASE_TIMEOUT_MS },
+        {
+          cwd: ROOT,
+          stdio: ['ignore', 'pipe', 'pipe'],
+          encoding: 'utf-8',
+          timeout: CASE_TIMEOUT_MS,
+          // Fonts are a HOST responsibility (core only dependency-injects):
+          // point the CLI's defaultFontPath at the host-provided font via
+          // FAIJS_DEFAULT_FONT (see tests/faijs-cli.mjs).
+          env: { ...process.env, FAIJS_DEFAULT_FONT: defaultFontPath },
+        },
       )
       pass++
       console.log(`\u2713 ${name}`)

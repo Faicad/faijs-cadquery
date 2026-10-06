@@ -238,7 +238,7 @@ grep -inE "prism|plate|filling|nsided|thruSection|multisection" index.d.ts types
 
 | 类 | 条数 | 症状 | 归因 |
 |---|---|---|---|
-| 字体资源缺失 | **8** | `[NodeFontProvider] font file not found: …/@faicad/faijs/dist/assets/fonts/OpenSans-Regular.ttf` | **monorepo core 打包缺陷**：`packages/core` build 只跑 `tsc`、`files:["dist"]`，而字体真源在 `src/assets/fonts/`，无拷贝步骤 ⇒ dist 无 assets。monorepo 内测试消费 `src/` 故不可见（假绿）。全部 `TestCadQuery__testText*` / `testTextAlignment*` |
+| 字体资源缺失 | **8 → ✅ 已修（2026-10-06）** | `[NodeFontProvider] font file not found: …/@faicad/faijs/dist/assets/fonts/OpenSans-Regular.ttf` | **归因更正：字体是宿主（host）责任，不是 core 缺陷**——core 的 `NodeFontProvider` 本就是依赖注入设计（`defaultFontPath`，注释「发布态由宿主注入覆盖」），但 `cliMain` 只透传 `fontsDir` 不透传 `defaultFontPath` ⇒ 本仓 CLI（`tests/faijs-cli.mjs`）改为直调 `cliRun` 并注入 `FAIJS_DEFAULT_FONT`（run-cand 默认指向 monorepo core 的源字体，env 可覆盖）。实测 9 条 Text 镜像全导出。已发布的 tgz 不含内置字体 ⇒ 下游宿主必须自行注入 |
 | `draftPrism: Invalid shape ID: 0` | **3** | 锥度拉伸（taper）路径 | 本仓镜像/内核适配（`testTaperedExtrudeHeight__s`、`testTaperedExtrudeCutBlind__s`、`TestCQSelectors__testCenterNthSelector__prism`） |
 | `cqa.constraint is not a function` | **2** | `@faicad/cq-compat-assembly` 命名空间缺 `constraint` | **§5 X-1**（core `metadata-extractor.ts:145` `derivePackageName()` 丢子路径 ⇒ 子路径被装载成根包）。`test_toCompound__assy1` / `__c3` |
 | `fillet: TopoDS::Solid` | **1** | fillet 入参非 Solid | `TestCadQuery__testFillet__c` |
