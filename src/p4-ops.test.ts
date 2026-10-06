@@ -42,6 +42,14 @@ function volume(shape: Shape): number {
   return getBrepApi().getVolume(brepOf(shape) as BrepHandle)
 }
 
+/** All edge lengths of a shape, ascending. */
+function sortedEdgeLengths(shape: Shape): number[] {
+  const api = getBrepApi()
+  return (api.getSubShapes(brepOf(shape) as BrepHandle, 'edge') as BrepHandle[])
+    .map((e) => api.getLength(e))
+    .sort((a, b) => a - b)
+}
+
 /** Bounding-box center via brepjs bounds (carries kernel tolerance padding). */
 function center(shape: Shape): [number, number, number] {
   const b = getBrepApi().getBoundingBox(brepOf(shape) as BrepHandle) as unknown as Record<string, number>
@@ -162,16 +170,22 @@ describe('cq-compat P4 batch-1 ops', () => {
     expect(faceCount(s)).toBe(10)
   }, 60000)
 
-  it('chamfer length2 (asymmetric) throws — occt-wasm uniform distance only', async () => {
-    const code = [
-      "import * as cq from '@faicad/faijs-cadquery'",
+  it('chamfer length2 (asymmetric): top edges 0.6, side edges 0.9 (testChamferAsymmetrical)', async () => {
+    const s = await runShape([
       "let wp0 = await cq.box(cq.Workplane('XY'), 1, 1, 1)",
       "let wp1 = cq.faces(wp0, '>Z')",
       'let wp_out = await cq.chamfer(wp1, 0.1, 0.2)',
-      'let result = cq.val(wp_out)',
-    ].join('\n')
-    const res = await runtime.execute(code)
-    expect(res.failedAt).toBeDefined()
+    ])
+    // Unit cube: d2=0.2 is set back on the top face on each side, so the top
+    // edges shrink to 1-2*0.2 = 0.6 (4 of them); d1=0.1 on the side faces
+    // shrinks the vertical edges to 1-0.1 = 0.9 (4 of them). This load-bearing
+    // triple (face count + both edge classes + volume) is the cadquery 2.8.0
+    // truth — flipping d1/d2 in chamfer() makes every assertion below red.
+    expect(faceCount(s)).toBe(10)
+    const lens = sortedEdgeLengths(s)
+    expect(lens.filter((v) => Math.abs(v - 0.6) < 1e-6)).toHaveLength(4)
+    expect(lens.filter((v) => Math.abs(v - 0.9) < 1e-6)).toHaveLength(4)
+    expect(volume(s)).toBeCloseTo(0.9653333333333333, 6)
   }, 60000)
 
   it('cutThruAll cuts both directions (testCutThroughAll plate hole)', async () => {

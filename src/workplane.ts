@@ -25,6 +25,11 @@ import {
 } from '@faicad/faijs/api/cadquery-selectors'
 import type { SelStep } from '@faicad/faijs/api/cadquery-selectors'
 export { resolveFaceSelector }
+import {
+  angleBetweenNormals,
+  chamferAngleFromDistances,
+  materialDihedralFromNormalAngle,
+} from '@faicad/faijs/api/chamfer-math'
 import { applyMatrixBrep } from '@faicad/faijs/api/brep-mirror/topologyFns'
 import type { BrepHandle } from '@faicad/faijs/brep/engine/types'
 import type { BrepEngineApi } from '@faicad/faijs/brep/engine/primitives'
@@ -5723,20 +5728,29 @@ export async function fillet(wp: Workplane, radius: number): Promise<Workplane> 
  * CadQuery semantics (verified vs cadquery 2.8.0 `Workplane.chamfer`):
  * chamfers the selected edges of the current shape. Edge resolution order:
  * explicit `edges("|Z")` selector; else, if a face selector is pending
- * (`.faces(">Z").chamfer(l)`), the edges OF the selected face; else all
- * edges. LIMITATION: asymmetric `length2` is NOT supported — the occt-wasm
- * kernel chamfer takes a single uniform distance (resolveUniformRadius
- * degrades a pair to d1), so length2 throws instead of silently producing a
- * symmetric chamfer.
+ * (`.faces(">Z").chamfer(l)`), the edges OF the selected face; else all edges.
+ * The pending face selector only picks WHICH edges are chamfered — it is NOT a
+ * kernel reference face (upstream `Shape.chamfer` adds each edge with its own
+ * first adjacent face as reference, ignoring the selector).
+ *
+ * `length2` (asymmetric) parity: upstream calls
+ * `BRepFilletAPI_MakeChamfer.Add(d1, d2, E, F)` per edge into one builder,
+ * where F is `TopExp` map's FIRST face adjacent to E — d1 is set back on F, d2
+ * on the other adjacent face. occt-wasm's `chamferAsymmetric` is single-edge
+ * and fails to chain across edges that share a corner (measured:
+ * "no adjacent face found for edge"), so the asymmetric path routes through the
+ * batch `chamferDistAngle` channel instead: convert (dF = d1 on the kernel's
+ * reference face, dO = d2) to (distance = dF, angle = theta) via the §3.5 law
+ * `theta = atan2(dO·sinβ, dF − dO·cosβ)` with β the material-side dihedral
+ * angle. Parity-calibrated against 2.8.0 — `faces(">Z").chamfer(0.1,0.2)` on a
+ * unit cube → 10 faces, top edge 0.6, side edge 0.9, vol 0.9653333
+ * (`scripts/probe-chamfer-asym-kernel.mts`).
  */
 export async function chamfer(
   wp: Workplane,
   length: number,
   length2?: number,
 ): Promise<Workplane> {
-  if (length2 !== undefined) {
-    throw new Error('[cq-compat] chamfer length2 (asymmetric) is not supported by the occt-wasm kernel')
-  }
   if (!baseSolid(wp)) return wp
   let edges: unknown[]
   if (wp.edgeSel !== null && wp.edgeSel !== undefined) {
@@ -5746,9 +5760,85 @@ export async function chamfer(
   } else {
     edges = resolveEdgeSelection(baseSolid(wp)!, undefined)
   }
-  const product = kern().chamfer(ownHandle(baseSolid(wp)!), edges as BrepHandle[], length)
+  const handle = ownHandle(baseSolid(wp)!)
+  let product: unknown
+  if (length2 !== undefined) {
+    // Asymmetric (two-distance) chamfer — see the note above. The kernel's
+    // reference face for a batch `chamferDistAngle` call is the first face
+    // (getSubShapes enumeration order) containing the edge; upstream's `F`
+    // uses the same TopExp first-face enumeration, so dF = length (d1) and
+    // dO = length2 (d2). All selected edges are assumed to share β (the
+    // CadQuery usage pattern); a mixed-β selection would need per-edge calls,
+    // which the batch channel cannot express.
+    const kernel = kern()
+    const edgeHandles = edges as BrepHandle[]
+    const faces = kernel.getSubShapes(handle, 'face' as never) as BrepHandle[]
+    const beta = edgeDihedralRad(kernel, faces, edgeHandles[0]!)
+    const theta = chamferAngleFromDistances(length, length2, beta)
+    product = kernel.chamferDistAngle(
+      handle,
+      edgeHandles,
+      length,
+      (theta * 180) / Math.PI,
+    )
+  } else {
+    product = kern().chamfer(handle, edges as BrepHandle[], length)
+  }
   const shape = toShape(product)
   return clone(wp, { objects: [shape], edgeSel: null, faceSel: null, selChain: undefined })
+}
+
+/**
+ * Mid-surface outward normal of a face (same convention `captureFaceHint` uses):
+ * sample the surface at the centre of its UV bounds.
+ *
+ * @param kernel - the BREP engine.
+ * @param face - face handle.
+ * @returns the outward normal as a `[x, y, z]` tuple.
+ */
+function faceMidNormal(
+  kernel: BrepEngineApi,
+  face: BrepHandle,
+): [number, number, number] {
+  const uv = kernel.uvBounds(face)
+  const n = kernel.surfaceNormal(face, (uv.uMin + uv.uMax) / 2, (uv.vMin + uv.vMax) / 2)
+  return [n.x, n.y, n.z]
+}
+
+/**
+ * Material-side dihedral angle β (radians) of an edge, from the mid-normals of
+ * its two adjacent faces: β = π − γ, where γ is the angle between the outward
+ * normals (convex edge ⇒ 0 < β < π). Used by the asymmetric chamfer's §3.5
+ * conversion. Throws if the edge does not have two adjacent faces in `faces`.
+ *
+ * @param kernel - the BREP engine.
+ * @param faces - the solid's faces in kernel enumeration order.
+ * @param edge - the edge handle.
+ * @returns β in radians.
+ */
+function edgeDihedralRad(
+  kernel: BrepEngineApi,
+  faces: BrepHandle[],
+  edge: BrepHandle,
+): number {
+  const adjacent: BrepHandle[] = []
+  for (const f of faces) {
+    for (const fe of kernel.getSubShapes(f, 'edge' as never) as BrepHandle[]) {
+      if (kernel.isSame(fe, edge)) {
+        adjacent.push(f)
+        break
+      }
+    }
+  }
+  if (adjacent.length < 2) {
+    throw new Error(
+      '[cq-compat] chamfer: could not find two adjacent faces for an asymmetric (length2) edge',
+    )
+  }
+  const a = faceMidNormal(kernel, adjacent[0]!)
+  const b = faceMidNormal(kernel, adjacent[1]!)
+  const gamma = angleBetweenNormals(a[0] * b[0] + a[1] * b[1] + a[2] * b[2])
+  return materialDihedralFromNormalAngle(gamma)
 }
 
 
@@ -6463,8 +6553,17 @@ export async function splineFace(
 
 /**
  * helix — create a helical wire on the workplane (origin = `wp.origin`, axis =
- * `wp.normal`). Equivalent to CadQuery `Workplane().makeHelix(pitch, height,
- * radius, ...)`.
+ * `wp.normal`). Equivalent to CadQuery
+ * `Wire.makeHelix(pitch, height, radius, ..., lefthand)`.
+ *
+ * Handedness: `leftHanded` maps straight to the kernel's `makeHelixWireHanded`
+ * — the axis stays `wp.normal` (both hands climb +Z from the same start point)
+ * and only the winding sense flips. This matches upstream
+ * `Wire.makeHelix(..., lefthand=True)` (one-shot capture: both hands bbox
+ * z[0,10], identical start (r,0,0), quarter-turn y sign flips, length
+ * 51.250549089 — scripts/probe-helix-handed.{py,mts}). The earlier axis-
+ * negation shortcut made the left-handed wire grow DOWN the axis, which is NOT
+ * the upstream semantics.
  *
  * @param wp - Workplane (origin + normal define the helix axis)
  * @param pitch - axial advance per full turn (mm)
@@ -6481,20 +6580,25 @@ export async function helix(
   opts?: { leftHanded?: boolean },
 ): Promise<Workplane> {
   const kernel = getKernel() as unknown as OcctKernel
-  const axis: [number, number, number] = opts?.leftHanded
-    ? [-wp.normal[0], -wp.normal[1], -wp.normal[2]]
-    : wp.normal
   const raw = (
     kernel as unknown as {
-      makeHelixWire: (
+      makeHelixWireHanded: (
         origin: { x: number; y: number; z: number },
         axis: { x: number; y: number; z: number },
         pitch: number,
         height: number,
         radius: number,
+        leftHanded?: boolean,
       ) => ShapeHandle
     }
-  ).makeHelixWire(v3(wp.origin), v3(axis), pitch, height, radius)
+  ).makeHelixWireHanded(
+    v3(wp.origin),
+    v3(wp.normal),
+    pitch,
+    height,
+    radius,
+    opts?.leftHanded ?? false,
+  )
   return clone(wp, { objects: [fromHandle(raw) ]})
 }
 

@@ -1946,9 +1946,9 @@
     "blockedBy": null
   },
   "tests.test_cadquery::TestCadQuery::testChamferAsymmetrical__cube": {
-    "status": "blocked",
+    "status": "ported",
     "source": "tests.test_cadquery::TestCadQuery::testChamferAsymmetrical",
-    "blockedBy": "narrow:chamfer-asym"
+    "blockedBy": null
   },
   "tests.test_cadquery::TestCadQuery::testChamferCylinder__cylinder": {
     "status": "ported",
