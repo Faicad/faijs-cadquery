@@ -7209,26 +7209,30 @@ export async function sweep(
   // kernel sweep (BRepOffsetAPI_MakePipe) has no transition parameter —
   // corner handling is fixed by the kernel. Documented, not silently ignored.
   void opts.transition
-  // auxSpine: REJECTED LOUDLY — the kernel's SweepMode.Auxiliary (3) is NOT
-  // equivalent to the OCP call CadQuery makes, `SetMode(auxSpine,
-  // CurvilinearEquivalence=True)` (occ_impl/shapes.py:4587). Measured on the
-  // upstream testSweep aux case (rect(10,20) along a 102.5-long YZ spline with a
-  // 105.2-long aux guide): the kernel returns vol 17759.16 vs CadQuery 2.8.0's
-  // 20218.35; OCP with CV=False (20500.44), default/Fixed (20500.46) and Frenet
-  // (19295.97) match neither. The kernel mode only coincides with CadQuery when
-  // the guide's reparametrisation is a no-op (equal-length straight guides, e.g.
-  // the 1-long guide of test_sweep_aux, which does match), so it cannot be
-  // relied on. Silently returning divergent geometry is not acceptable (same rule
-  // as core's `draft` neutral-plane rejection); a fixed up direction via `normal`
-  // is available instead. Kernel gap tracked as `kernel:sweep-aux-spine-mode`
+  // auxSpine: REJECTED LOUDLY — re-verified 2026-10-06 against occt-wasm 5.6:
+  // SweepAdvancedOptions now TYPES curvilinearEquivalence (types.d.ts:275), but
+  // at RUNTIME it is a no-op — sweepAdvanced(profile, spine, {mode: Auxiliary,
+  // auxSpine, curvilinearEquivalence: true}) returns vol 17759.157466286128 on
+  // the testSweep aux case, i.e. the same 12.2%-wrong value as the raw
+  // sweepOriented mode 3, vs CadQuery's 20218.347254736764 (one-shot captures:
+  // scripts/probe-aux-spine.py, scripts/probe-aux-spine-steps.py). So the
+  // declared option does not reach OCCT's SetMode(aux, CurvilinearEquivalence=
+  // True) (occ_impl/shapes.py:4587). A guide whose reparametrisation is a no-op
+  // (equal-length straight guides, e.g. the 1-long guide of test_sweep_aux)
+  // coincides by accident and must not be relied on. Silently returning
+  // divergent geometry is not acceptable (same rule as core's `draft`
+  // neutral-plane rejection); a fixed up direction via `normal` is available
+  // instead. Kernel gap stays tracked as `kernel:sweep-aux-spine-mode`
   // (roadmap G-C9 / B6). Mirrors: tests/**/test_sweep_aux__r{1,2}.fai.js.blocked
-  // and TestCadQuery__testSweep__result.fai.js.blocked.
+  // and TestCadQuery__testSweep__result.fai.js.blocked; guard test
+  // src/sweep-aux-spine-guard.test.ts freezes the rejection.
   if (opts.auxSpine) {
     throw new Error(
       '[cq-compat] sweep: auxSpine is not supported — the kernel auxiliary-guide ' +
         'sweep mode is not equivalent to CadQuery SetMode(auxSpine, ' +
-        'CurvilinearEquivalence=True) (kernel:sweep-aux-spine-mode); pass `normal` ' +
-        'for a fixed up direction instead',
+        'CurvilinearEquivalence=True) (kernel:sweep-aux-spine-mode; occt-wasm 5.6 ' +
+        'sweepAdvanced accepts curvilinearEquivalence but ignores it); pass ' +
+        '`normal` for a fixed up direction instead',
     )
   }
   const multisection = (opts.multisection ?? []).filter((w) => (w.pendingWires ?? []).length > 0 || w.shape)

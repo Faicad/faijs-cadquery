@@ -128,7 +128,7 @@ grep -inE "prism|plate|filling|nsided|thruSection|multisection" index.d.ts types
 | 标签 | 条数 | 5.6 依据 | 落点 |
 |---|---|---|---|
 | `narrow:chamfer-asym` | 1 | `chamferAsymmetric(solid, edge, d1, d2, referenceFace?)` `:157` —— 与上游 `MakeChamfer.Add(d1,d2,E,F)` + edge→face 映射表同构 | **P4**（`src/workplane.ts:5659/5670` 的抛错改为实现） |
-| `kernel:sweep-aux-spine-mode` | 3 | `SweepAdvancedOptions.curvilinearEquivalence` `:275` / `SweepOrientedOptions.curvilinearEquivalence` `:357`，即 `GeomFill_GuideTrihedronAC` | **P1**（`src/workplane.ts:7226` 的显式拒绝改为 `curvilinearEquivalence: true` 路径） |
+| ~~`kernel:sweep-aux-spine-mode`~~ | ~~3~~ | **❌ 捕获推翻（2026-10-06，P1-1）**：5.6 的 `SweepAdvancedOptions.curvilinearEquivalence`（`:275`）**只有类型、运行时无效**——`sweepAdvanced({mode: Auxiliary, auxSpine, curvilinearEquivalence: true})` 返回 17759.157，与旧 sweepOriented mode 3 逐位相同，仍差 ref 20218.347 达 12.2%（`scripts/probe-aux-spine{,-steps}.py`）。**维持 blocked**，守卫测试 `src/sweep-aux-spine-guard.test.ts` 冻结拒绝 | 无（occt-wasm 上游真正实现 `SetMode(aux, CE=True)` 后重估） |
 | `op:history-subshape` | 3 | `booleanOp(..., { inputFaceHashes, hashUpperBound })` → `EvolutionData{ modified, generated, deleted }` `:437`，正是上游 `History.generated/first/last` 的反查数据 | **P3** |
 | `op:assembly-subshape-import` | **4 → 部分** | XCAF `getSubShapes:141` / `addSubShape:148` / `getLabelInfo` 的 `name` + `hasColor` + `color` | **P5**：**name/color 解封；`layer` 仍无 `LayerTool`** ⇒ 4 条里含 layer 断言的子项维持 blocked，并在 manifest `reason` 写明 `layer-metadata-unavailable` |
 
@@ -138,7 +138,7 @@ grep -inE "prism|plate|filling|nsided|thruSection|multisection" index.d.ts types
 |---|---|---|---|
 | `op:fuzzy-bool` | 5 | `BooleanOpOptions.fuzzyValue`（近重合几何合并）+ `glue`（BooleanGlue: Shift/Full 共面短路）`:393-402` | 上游 `BoolOptions.fuzzyValue` 的语义与 OCCT `SetFuzzyValue` 是否逐位等价；`glue` 会不会掩盖真交叉 |
 | `kernel:boolean-near-coincident-bspline` | 4 | 同上 | 实测锚点：circletorectSweep 的 `cut(ref,cand)`=整个 ref / `common`=0 / `fuse`=−2.1e-4；`fuzzyValue` 能否让布尔探针恢复，判据是**布尔值恢复且体积不变** |
-| `kernel:sweep-multisection-pipe` | 5 | **`sweepFull` 的 `law` / `lawLength` / `lawEndFactor`** `:324-332`（沿脊缩放律） | 上游是 **N 个不同截面 × Add**；`law` 是**同一截面缩放**。**只对「截面同形、仅尺寸沿脊变化」的子集等价**（arcSweep 锥形类）。r5/r7/specialSweep 的截面形状不同 ⇒ 大概率仍 blocked。**必须逐条实测，不许整批翻** |
+| `kernel:sweep-multisection-pipe` | 5 | ~~`sweepFull` 的 `law`/`lawLength`/`lawEndFactor`~~ **❌ 捕获推翻（2026-10-06，P1-2）**：law 是**同一截面沿脊缩放**，实测（`scripts/probe-sweepfull-caps-r5.mts`）Linear/SCurve 对 r5 输出与单截面 sweep 逐位相同（vol 0.9134245、bb z [-0.0084, 1.4]、6 faces）——既不能加第二截面，端盖仍垂直于脊（ref 在截面平面封端）。逐条判定：r5 同形同尺寸（law 无用武之地）、r7/arcSweep/normalSweep/specialSweep 截面异形或各向异性/阶梯变化 ⇒ **5 条全维持 blocked** | 无（occt-wasm 暴露 MakePipeShell 多截面 `Add` 后重估） |
 | `project` + `op:project` | 4（2+2） | `projectPointOnFace:477` / `projectPointOnEdge:500` | 只覆盖「点→面/边」；上游 `BRepProj_Projection` 是**边→面投影出曲线**。⇒ **点投影可解（子集），边→面仍 blocked** |
 
 ### 3.3 C 组 · 5.6 无关，但本仓可做（沿用旧判定，不因升级改变）
@@ -259,9 +259,9 @@ grep -inE "prism|plate|filling|nsided|thruSection|multisection" index.d.ts types
 
 | 序 | 项 | 动作 | 判据 |
 |---|---|---|---|
-| **P1-1** | **aux-spine 3 条解锁** | `src/workplane.ts:7226` 的显式拒绝改为：走 `sweepAdvanced(profile, spine, { mode: Auxiliary, auxSpine, curvilinearEquivalence: true })`；保留 `normal=`（FixedUp）路径 | 一次性 Python 捕获 `SetMode(aux, CurvilinearEquivalence=True)` 的真值（旧锚点：kernel Auxiliary 17759.16 vs ref 20218.35）⇒ 复现到 1e-6 才算解封；**不达标就回写 blocked** |
+| **P1-1** | ~~aux-spine 3 条解锁~~ → **❌ 捕获推翻（2026-10-06）**：5.6 `sweepAdvanced` 的 `curvilinearEquivalence` 运行时无效（17759.157 = 旧 mode 3 值，差 ref 12.2%）。镜像恢复 blocked，拒绝路径保留，守卫测试 `src/sweep-aux-spine-guard.test.ts` 冻结 | 捕获证据 `scripts/probe-aux-spine{,-steps}.py`；待 occt-wasm 真正实现 `SetMode(aux, CE=True)` 再重估 |
 | **P1-2** | **multisection 5 条逐条试 law** | 对每条判「截面是否同形仅尺寸变」：是 ⇒ 试 `sweepFull({ law, lawLength, lawEndFactor })`；否 ⇒ 维持 blocked | 逐条记体积/bbox/拓扑对照；**判别量是端盖平面 + bbox，不是体积**（体积可能巧合接近） |
-| **P1-3** | `transitionMode` 通道 | `sweepAdvanced` 的 `transitionMode`（Transformed/RightCorner/RoundCorner，字段 `:285`）⇒ 顺便确认上游默认是否 Transformed | 与上游默认一致则现有镜像不回退 |
+| **P1-3** | `transitionMode` 通道 | **✅ 已确认（2026-10-06）**：上游 `Workplane.sweep` 签名默认 `transition='right'`（→ `SetTransitionMode(RightCorner)`），而 kernel `sweepAdvanced` 默认 `Transformed`（types.d.ts:284）——**不一致**。本仓 `sweep()` 走 `BRepOffsetAPI_MakePipe`（无 transition 参数，代码内已注明「Documented, not silently ignored」），既有镜像均按此通过 parity ⇒ **不改行为，只记录差异**；若未来接 `sweepAdvanced`/`sweepFull` 主路径，须显式传 `transitionMode` 对齐上游 'right' |
 
 ### P2 · 布尔稳健（`booleanOp` 底座）
 
