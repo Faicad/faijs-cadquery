@@ -386,16 +386,14 @@ const BY_KEY: Record<string, string> = {
   // the box hangs the kernel boolean (>300 s, no completion), the same
   // near-coincident twisted B-spline boolean gap as testTwistExtrude/Combine.
   'tests.test_cadquery::TestCadQuery::testTwistExtrudeCombineCut__cut': 'kernel:boolean-near-coincident-bspline',
-  // union/intersect with tol=eps (fuzzy boolean). cq-compat and the core
-  // boolean API have no tolerance channel at all, so the fuzzy-merged results
-  // (res_fuzzy vol 2.001, res_fuzzy_intersect vol 1.0 vs plain 0.499) cannot
-  // be reproduced. box1_cmp/box4_cmp (single-box compounds) ARE mirrored and
-  // pass — only the tol-dependent vars stay blocked.
-  'tests.test_cadquery::TestCadQuery::testFuzzyBoolOp__res_fuzzy': 'op:fuzzy-bool',
-  'tests.test_cadquery::TestCadQuery::testFuzzyBoolOp__res_fuzzy2': 'op:fuzzy-bool',
-  'tests.test_cadquery::TestCadQuery::testFuzzyBoolOp__res_fuzzy_intersect': 'op:fuzzy-bool',
-  'tests.test_cadquery::TestCadQuery::testFuzzyBoolOp__res_fuzzy_intersect_cmp': 'op:fuzzy-bool',
-  'tests.test_cadquery::TestCadQuery::testFuzzyBoolOp__res_fuzzy_intersect_val': 'op:fuzzy-bool',
+  // union/intersect with tol=eps (fuzzy boolean) — UNBLOCKED 2026-10-06 (P2-2):
+  // occt-wasm 5.6's booleanOp now carries fuzzyValue, and cq-compat's
+  // union/cut/intersect expose it as `{tol}` (routed through booleanOpBase).
+  // Calibrated bit-equal vs CadQuery 2.8.0 (union tol=1e-3 → 2.001 after clean;
+  // see src/boolean-op-base.test.ts + scripts/probe-fuzzy-bool.py). All five
+  // tol-dependent vars (res_fuzzy / res_fuzzy2 / res_fuzzy_intersect / _cmp /
+  // _val) are mirrored and pass parity (6/6 PASS, 2026-10-06). BY_KEY entries
+  // REMOVED so gen-manifest re-derives them as ported. Do NOT re-add.
   // Solid.makeSolid(Shell.makeShell(faces)) over 4 arbitrary 3D triangle faces
   // CLOSED (2026-10-01): faceFromPoints (3D vertex ring -> wire -> face) +
   // solidFromFaces give the exact √2/12 tetrahedron; mirror parity PASS.

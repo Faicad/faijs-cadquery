@@ -136,7 +136,7 @@ grep -inE "prism|plate|filling|nsided|thruSection|multisection" index.d.ts types
 
 | 标签 | 条数 | 5.6 依据 | 待验问题 |
 |---|---|---|---|
-| `op:fuzzy-bool` | 5 | `BooleanOpOptions.fuzzyValue`（近重合几何合并）+ `glue`（BooleanGlue: Shift/Full 共面短路）`:393-402` | 上游 `BoolOptions.fuzzyValue` 的语义与 OCCT `SetFuzzyValue` 是否逐位等价；`glue` 会不会掩盖真交叉 |
+| `op:fuzzy-bool` | **5 → ✅ 解封（2026-10-06）** | `BooleanOpOptions.fuzzyValue` 与上游 `tol`→`SetFuzzyValue` 语义一致（底座校准逐位）；`union/cut/intersect` 已暴露 `{tol}` 参数（走 booleanOpBase），5 条镜像 6/6 PASS（volDiffPct=0、拓扑逐位）。manifest 533 ported / 109 blocked | — |
 | `kernel:boolean-near-coincident-bspline` | 4 | 同上 | **❌ 实测否决（2026-10-06，P2-3，`scripts/probe-near-coincident-bool.mts`）**：testTwistExtrude 对 ref/cand 直调内核 booleanOp——**plain 通道本身健康**（cut 2.6e-4 = 真实缝隙、common 999.9999996 ≈ cand 体积，对称无退化）；fuzzyValue(1e-3~1e-5) 虽让 cut→0「恢复」，但 common 从 cand 的 999.9999996 变为 ref 的 1000.0002620 ⇒ **体积被改变，触发 R3（假 PASS）风险，不达标**；glue Shift 无改变、Full 掩盖缝隙。退化根因在比较器（E 组，`@faicad/cq-compat-compare` 侧的两形体 cut 路径），**4 条维持 blocked，归 X-2 跨仓** | 无（需 comparator 侧修复评级，或 occt-wasm 提供不改变体积的近重合通道） |
 | `kernel:sweep-multisection-pipe` | 5 | ~~`sweepFull` 的 `law`/`lawLength`/`lawEndFactor`~~ **❌ 捕获推翻（2026-10-06，P1-2）**：law 是**同一截面沿脊缩放**，实测（`scripts/probe-sweepfull-caps-r5.mts`）Linear/SCurve 对 r5 输出与单截面 sweep 逐位相同（vol 0.9134245、bb z [-0.0084, 1.4]、6 faces）——既不能加第二截面，端盖仍垂直于脊（ref 在截面平面封端）。逐条判定：r5 同形同尺寸（law 无用武之地）、r7/arcSweep/normalSweep/specialSweep 截面异形或各向异性/阶梯变化 ⇒ **5 条全维持 blocked** | 无（occt-wasm 暴露 MakePipeShell 多截面 `Add` 后重估） |
 | `project` + `op:project` | 4（2+2） | `projectPointOnFace:477` / `projectPointOnEdge:500` | 只覆盖「点→面/边」；上游 `BRepProj_Projection` 是**边→面投影出曲线**。⇒ **点投影可解（子集），边→面仍 blocked** |
@@ -268,7 +268,7 @@ grep -inE "prism|plate|filling|nsided|thruSection|multisection" index.d.ts types
 | 序 | 项 | 判据 |
 |---|---|---|
 | **P2-1** | **✅ 完成（2026-10-06）**：`booleanOpBase` 底座接入（`src/workplane.ts`，export 供测试），单 solid/单 solid-compound 结果自动 clean（与上游 clean=True 对齐），多 solid compound 跳过（simplify 会炸句柄）。plain 路径零回归（全量 651 测试通过） | 既有 PASS 零回归 ✅ |
-| **P2-2** | **✅ 校准完成（2026-10-06，`scripts/probe-fuzzy-bool.py` + `probe-fuzzy-clean.mts`）**：`fuzzyValue` 与上游 `tol`→`SetFuzzyValue` 语义一致；fuzzy fuse raw 2.0006667 → clean 后 2.0009999999999994 = 上游 2.001 **逐位**；fuzzy cut→0、intersect→1.0 逐位。**op:fuzzy-bool 5 条通道就绪**——但解封仍需给 union/cut/intersect 暴露 tol 参数 + 写镜像跑 parity（尚未做） | 布尔探针恢复 + 体积 Δ ≤ 1e-6·rel ✅（底座层） |
+| **P2-2** | **✅ 完成（2026-10-06）**：`fuzzyValue` 与上游 `tol`→`SetFuzzyValue` 语义一致；fuzzy fuse raw 2.0006667 → clean 后 2.0009999999999994 = 上游 2.001 **逐位**。`union/cut/intersect` 已暴露 `{tol}`（走 booleanOpBase，未传 tol 走原路径零回归），**op:fuzzy-bool 5 条解封**：6/6 parity PASS（volDiff 0、拓扑逐位），manifest 533 ported / 109 blocked（coverage 已重算）。坑留档：改 src 后必须 rebuild——CLI 吃 dist，陈旧产物会让镜像全变 plain 值（本次实测踩中） | 布尔探针恢复 + 体积 Δ ≤ 1e-6·rel ✅ |
 | **P2-3** | **❌ 实测否决（见 §3.2）**：`kernel:boolean-near-coincident-bspline` 4 条维持 blocked（fuzzy 掩盖真实缝隙、体积被改，触发 R3） | 不达标，回写 blocked |
 | **P2-4** | **✅ 完成**：变异测试——丢弃 options 后 4 条 fuzzy 断言变红，恢复后 7/7 全绿（`src/boolean-op-base.test.ts`） | 承重 ✅ |
 

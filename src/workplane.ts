@@ -5385,11 +5385,16 @@ export async function move(wp: Workplane, ...locs: unknown[]): Promise<Workplane
 export async function union(
   wp: Workplane,
   other: Workplane | Shape,
+  opts?: { tol?: number },
 ): Promise<Workplane> {
   if (!baseSolid(wp)) return wp
   const otherShape = 'shape' in other ? (other as Workplane).shape : (other as Shape)
   if (!otherShape) return wp
-  const shape = await fuseShapes(baseSolid(wp)!, otherShape)
+  // tol → fuzzy boolean (upstream union(..., tol=) → SetFuzzyValue); the plain
+  // path is untouched so existing callers see zero change.
+  const shape = opts?.tol
+    ? booleanOpBase(0, [baseSolid(wp)!], [otherShape], { fuzzyValue: opts.tol }).shape
+    : await fuseShapes(baseSolid(wp)!, otherShape)
   return clone(wp, { objects: [shape] })
 }
 
@@ -5420,11 +5425,14 @@ export async function combine(wp: Workplane): Promise<Workplane> {
 export async function cut(
   wp: Workplane,
   other: Workplane | Shape,
+  opts?: { tol?: number },
 ): Promise<Workplane> {
   if (!baseSolid(wp)) return wp
   const otherShape = 'shape' in other ? (other as Workplane).shape : (other as Shape)
   if (!otherShape) return wp
-  const shape = await cad.subtract(resolveInputShape(wp), resolveInputShape(other))
+  const shape = opts?.tol
+    ? booleanOpBase(1, [baseSolid(wp)!], [otherShape], { fuzzyValue: opts.tol }).shape
+    : await cad.subtract(resolveInputShape(wp), resolveInputShape(other))
   return clone(wp, { objects: [shape] })
 }
 
@@ -5656,11 +5664,14 @@ export function imprint(...shapes: (Workplane | Shape | null | undefined)[]): Sh
 export async function intersect(
   wp: Workplane,
   other: Workplane | Shape,
+  opts?: { tol?: number },
 ): Promise<Workplane> {
   if (!baseSolid(wp)) return wp
   const otherShape = 'shape' in other ? (other as Workplane).shape : (other as Shape)
   if (!otherShape) return wp
-  const shape = await intersectShapes(baseSolid(wp)!, otherShape)
+  const shape = opts?.tol
+    ? booleanOpBase(2, [baseSolid(wp)!], [otherShape], { fuzzyValue: opts.tol }).shape
+    : await intersectShapes(baseSolid(wp)!, otherShape)
   return clone(wp, { objects: [shape] })
 }
 
