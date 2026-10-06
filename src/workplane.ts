@@ -701,6 +701,63 @@ async function intersectShapes(a: Shape, b: Shape): Promise<Shape> {
   return cleanShapes(isect)
 }
 
+/**
+ * booleanOp base — one call to the kernel's `booleanOp(op, args, tools, options)`
+ * (BOPAlgo_Builder-style: N args × M tools in ONE boolean, with OCCT's glue /
+ * fuzzy / simplification channels). This is the P2 底座: the plain
+ * fuse/cut/intersect helpers above stay on the two-shape wrappers (zero
+ * regression by construction); the fuzzy/robust paths route through here.
+ *
+ * The result is unified with `simplify` (CadQuery's `clean=True` default).
+ * CALIBRATED (P2-2, 2026-10-06, scripts/probe-fuzzy-clean.mts): fuzzy fuse of
+ * two eps-overlapping boxes gives raw 2.000666666666666, after simplify
+ * 2.0009999999999994 — bit-equal to CadQuery 2.8.0's `union(tol=eps)` 2.001.
+ * The raw fuzzy result carries eps-scale splitter geometry that clean removes.
+ *
+ * `EvolutionData.history` (result's modified/generated/deleted) is returned for
+ * P3 but NOT consumed here — history-free callers just take `.result`.
+ */
+export function booleanOpBase(
+  op: 0 | 1 | 2, // BooleanOp: 0 Fuse / 1 Cut / 2 Common
+  args: Shape[],
+  tools: Shape[],
+  options?: { glue?: number; fuzzyValue?: number },
+): { shape: Shape; evolution: { modified: unknown[]; generated: unknown[]; deleted: unknown[] } } {
+  if (!args.length) throw new Error('[cq-compat] booleanOp: no argument shapes')
+  const k = getKernel() as unknown as {
+    booleanOp: (
+      op: number,
+      args: BrepHandle[],
+      tools: BrepHandle[],
+      options?: { glue?: number; fuzzyValue?: number },
+    ) => { result: BrepHandle; modified: unknown[]; generated: unknown[]; deleted: unknown[] }
+  }
+  const evolution = k.booleanOp(
+    op,
+    args.map(ownHandle),
+    tools.map(ownHandle),
+    options,
+  )
+  // clean ONLY single-solid results (bare solid OR a compound wrapping exactly
+  // one solid — a fuzzy fuse returns the latter, and its eps-scale splitter
+  // geometry is what clean removes, calibrated 2.0006667→2.001 = upstream).
+  // `simplify` on a MULTI-solid compound (plain fuse of near-disjoint boxes)
+  // invalidates the handle, so those skip the unify pass. CALLED LIKE THE
+  // PROBE (scripts/probe-fuzzy-clean.mts): simplify takes the RAW booleanOp
+  // handle — a fromHandle→brepOf roundtrip before simplify yields a dead
+  // handle downstream ("Invalid shape ID: 0").
+  const kernel = getKernel() as unknown as {
+    isSolid: (s: BrepHandle) => boolean
+    getSubShapes: (s: BrepHandle, kind: string) => BrepHandle[]
+    simplify: (s: BrepHandle) => BrepHandle
+  }
+  const singleSolid =
+    kernel.isSolid(evolution.result) || kernel.getSubShapes(evolution.result, 'solid').length === 1
+  const outHandle = singleSolid ? kernel.simplify(evolution.result) : evolution.result
+  const shape = toShape(outHandle)
+  return { shape, evolution: { modified: evolution.modified ?? [], generated: evolution.generated ?? [], deleted: evolution.deleted ?? [] } }
+}
+
 /** Get bbox max of a shape (via cad.bboxMax — synchronous). */
 function bboxMax(shape: Shape): [number, number, number] {
   return cad.bboxMax(shape) as unknown as [number, number, number]
