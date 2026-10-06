@@ -1,7 +1,7 @@
 # faijs-cadquery 独立后开发计划（occt-wasm 5.6 重估版）
 
 - 日期：2026-10-05
-- 状态：**实施中 —— P0/P2/P4 已完成（2026-10-06）**，P1/P3/P5/P6/P7 未开始
+- 状态：**实施中 —— P0/P2/P4 已完成（2026-10-06）**；**P5-1 捕获推翻 → blocked（2026-10-06，与 X-3 同类缺口）**；P1/P3/P5-2/P5-3/P6/P7 未开始
 - 仓库：`D:\Faicad\faijs-cadquery`（`@faicad/faijs-cadquery`，已从 faijs monorepo 拆出为独立 git 仓）
 - 上游基准：CadQuery **2.8.0**
 - 内核：`occt-wasm@5.6.0`（`node_modules/occt-wasm/dist/index.d.ts`，peer `^5.6.0`）
@@ -130,7 +130,7 @@ grep -inE "prism|plate|filling|nsided|thruSection|multisection" index.d.ts types
 | `narrow:chamfer-asym` | **1 → ✅ 解封（2026-10-06，P4-1）** | `chamferAsymmetric(solid, edge, d1, d2, referenceFace?)` `:157` 是**单边**接口，链式跨共享角点的边失败（实测 `chamferAsymmetric: no adjacent face found for edge`）。改走批量 `chamferDistAngle(solid, edges, dF, θ)` + §3.5 换算 `θ=atan2(dO·sinβ, dF−dO·cosβ)`（β=材料侧二面角，dF=d1 在内核参考面、dO=d2）。上游 `Shape.chamfer` 对每条边 `Add(d1,d2,E,TopExp.First())`，内核参考面同枚举序 ⇒ dF=d1 恒成立。`testChamferAsymmetrical__cube` parity 逐位（vol 0.9653333、f10/e20/v12、顶边 0.6、侧边 0.9），变异测试翻转 d1/d2 断言变红（`src/p4-ops.test.ts`、`scripts/probe-chamfer-asym-kernel.mts`） | **P4-1 完成**（`src/workplane.ts` chamfer length2 分支 + `faceMidNormal`/`edgeDihedralRad` 辅助） |
 | ~~`kernel:sweep-aux-spine-mode`~~ | ~~3~~ | **❌ 捕获推翻（2026-10-06，P1-1）**：5.6 的 `SweepAdvancedOptions.curvilinearEquivalence`（`:275`）**只有类型、运行时无效**——`sweepAdvanced({mode: Auxiliary, auxSpine, curvilinearEquivalence: true})` 返回 17759.157，与旧 sweepOriented mode 3 逐位相同，仍差 ref 20218.347 达 12.2%（`scripts/probe-aux-spine{,-steps}.py`）。**维持 blocked**，守卫测试 `src/sweep-aux-spine-guard.test.ts` 冻结拒绝 | 无（occt-wasm 上游真正实现 `SetMode(aux, CE=True)` 后重估） |
 | `op:history-subshape` | **3 → ❌ 维持 blocked（2026-10-06，P3 捕获推翻）** | 5.6 的 EvolutionData（`:437`）只回 **face-hash 数组**（modified/generated/deleted），而上游 `Op.first/last` 需要 `builder.FirstShape()/LastShape()`、`Op.generated(f.edges())` 需要任意 subshape 键的 `Generated(el)` 映射；occt-wasm 5.6 **无 FirstShape/LastShape/Images 通道**，也无 extrude/sweep/loft 的 WithHistory 变体（仅 boolean/fillet/shell 等族，`scripts/probe-evolution-hashes.mts` + `probe-history.py` 取证）。hash 语义已探明：deleted=输入面 hash、未动面保 hash | 无（occt-wasm 暴露 FirstShape/LastShape/Generated 绑定后重估） |
-| `op:assembly-subshape-import` | **4 → 部分** | XCAF `getSubShapes:141` / `addSubShape:148` / `getLabelInfo` 的 `name` + `hasColor` + `color` | **P5**：**name/color 解封；`layer` 仍无 `LayerTool`** ⇒ 4 条里含 layer 断言的子项维持 blocked，并在 manifest `reason` 写明 `layer-metadata-unavailable` |
+| `op:assembly-subshape-import` | **4 → ❌ 维持 blocked（2026-10-06，P5-1 捕获推翻）** | XCAF `getSubShapes:141` / `addSubShape:148` / `getLabelInfo` 的 `name` + `hasColor` + `color` 在 **component/product 级可用、subshape 级 STEP 往返读不回**（`scripts/probe-subshape-dump.mts`：cube_1 原型 1 条 / cyl_1 原型 2 条子形状，均 `name=""`、`hasColor=false`）；且 **CadQuery 2.8.0 自身 `Assembly.importStep` 读回同一 STEP 也 `members=[]` / `_subshape_names={}`** | **P5-1**：name/color/layer **三者全不可经 STEP 回读**（occt-wasm 5.6 reader 不把 representation-item 名映射到 subshape 标签 `TDataStd_Name`），4 条维持 blocked；manifest `reason` 写 `subshape-name-color-layer-unavailable-via-step` |
 
 ### 3.2 B 组 · 5.6 打开通道但等价性待实测（**候选，不许预先翻 ported**）
 
@@ -182,7 +182,7 @@ grep -inE "prism|plate|filling|nsided|thruSection|multisection" index.d.ts types
 
 | 口径 | 值 |
 |---|---|
-| 确定解封（A 组） | **11 条**（1 + 3 + 3 + 4 中的 name/color 部分，layer 子项不计）；**已解锁 1 条**（P4-1 chamfer-asym，2026-10-06） |
+| 确定解封（A 组） | **7 条**（1 + 3 + 3；**P5-1 的「4 中的 name/color 部分」捕获推翻 → 移除**，见 §3.1 `op:assembly-subshape-import`）；**已解锁 1 条**（P4-1 chamfer-asym，2026-10-06）⇒ 剩 6 条候选待验 |
 | 候选待验（B 组） | **18 条**（5 + 4 + 5 + 4），**实测后才定，不许预先计入** |
 | 本仓可做、与升级无关（C 组） | **51 条** |
 | 内核依赖残余（D 组） | **27 条** |
@@ -203,7 +203,7 @@ grep -inE "prism|plate|filling|nsided|thruSection|multisection" index.d.ts types
 | **P2** | 布尔稳健：`fuzzyValue`/`glue` 接入 → 5 + 4 | 中 | 0~9 候选 | P0 |
 | **P3** | History 子形状反查（`EvolutionData`）3 + images 2 | 中 | 5 | **P2**（同一 booleanOp 底座） |
 | **P4** | `chamferAsymmetric` 1 + `makeHelixWireHanded` 修正 | 小 | **1（✅ 已解锁 chamfer-asym；helix handed 修正但不立镜像）** | P0 |
-| **P5** | XCAF 子形状 name/color 读回 + 装配导出结构 | 大 | 4（layer 除外） | P0 |
+| **P5** | XCAF 子形状 name/color 读回 + 装配导出结构 | 大 | **0（P5-1 name/color 捕获推翻→blocked；仅 P5-2 导出结构 / P5-3 layer 缺口登记可推进）** | P0 |
 | **P6** | 本仓可做 op 批（C 组 51 条，再拆子批） | 特大 | ~40（逐子批） | P0 |
 | **P7** | 长线：装配求解器 14 + 内核残余 27 + comparator 3 | 特大 | 排期问题，不是「不做」 | P3/P5 |
 
@@ -290,7 +290,7 @@ grep -inE "prism|plate|filling|nsided|thruSection|multisection" index.d.ts types
 
 | 序 | 项 | 判据 |
 |---|---|---|
-| **P5-1** | `importStep` 走 XCAF：部件 `getSubShapes` + `getLabelInfo` 读 **name / color** | 与 E3b 既有 13 用例不回退 |
+| **P5-1** | **❌ 捕获推翻（2026-10-06）→ blocked**：`importStep` 走 XCAF `getSubShapes` + `getLabelInfo` 读 name/color。**一次性捕获实证**：(1) 子形状名确实写进 STEP 文本；(2) occt-wasm 5.6 读回后 subshape 标签 `name=""`/`hasColor=false`；(3) CadQuery 2.8.0 自身 `importStep` 读回同一 STEP 也 `members=[]`/`_subshape_names={}`。⇒ 属 occt-wasm reader 不映射 representation-item 名到 subshape `TDataStd_Name`，与 X-3 layer 同类。**冻结守卫** `src/assembly-subshape-import-guard.test.ts`（`asm.subshapes === {}`） | 不许把返回空 map 的 no-op 当已实现；待 occt-wasm 暴露 subshape 名/色读通道后翻红解锁 |
 | **P5-2** | 装配导出结构：`addShape({ assembly: true })` + `getReferredLabel` + `getLocation` 的 3×4 矩阵 | 导出 STEP 能被自身 `importStep` 读回同名同色同位姿（往返断言） |
 | **P5-3** | **`layer` 明确登记为缺口**：manifest `reason` 写 `layer-metadata-unavailable`（`XCAFDoc_LayerTool` 无绑定） | reason 到位，不许静默当解封 |
 

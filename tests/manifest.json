@@ -1283,24 +1283,28 @@
     "status": "blocked",
     "source": "tests.test_assembly:::test_assembly_subshape_import",
     "blockedBy": "op:assembly-subshape-import",
+    "reason": "subshape-name-color-layer-unavailable-via-step (occt-wasm 5.6 reader does not map representation-item names to subshape TDataStd_Name; CadQuery 2.8.0 Assembly.importStep also returns empty _subshape_names for the same STEP; see plan §3.1 P5-1)",
     "manual": true
   },
   "tests.test_assembly:::test_assembly_subshape_import__imported_assy": {
     "status": "blocked",
     "source": "tests.test_assembly:::test_assembly_subshape_import",
     "blockedBy": "op:assembly-subshape-import",
+    "reason": "subshape-name-color-layer-unavailable-via-step (occt-wasm 5.6 reader does not map representation-item names to subshape TDataStd_Name; CadQuery 2.8.0 Assembly.importStep also returns empty _subshape_names for the same STEP; see plan §3.1 P5-1)",
     "manual": true
   },
   "tests.test_assembly:::test_assembly_multi_subshape_import__multi_subshape_assy": {
     "status": "blocked",
     "source": "tests.test_assembly:::test_assembly_multi_subshape_import",
     "blockedBy": "op:assembly-subshape-import",
+    "reason": "subshape-name-color-layer-unavailable-via-step (occt-wasm 5.6 reader does not map representation-item names to subshape TDataStd_Name; CadQuery 2.8.0 Assembly.importStep also returns empty _subshape_names for the same STEP; see plan §3.1 P5-1)",
     "manual": true
   },
   "tests.test_assembly:::test_assembly_multi_subshape_import__imported_assy": {
     "status": "blocked",
     "source": "tests.test_assembly:::test_assembly_multi_subshape_import",
     "blockedBy": "op:assembly-subshape-import",
+    "reason": "subshape-name-color-layer-unavailable-via-step (occt-wasm 5.6 reader does not map representation-item names to subshape TDataStd_Name; CadQuery 2.8.0 Assembly.importStep also returns empty _subshape_names for the same STEP; see plan §3.1 P5-1)",
     "manual": true
   },
   "tests.test_assembly:::test_plain_assembly_import__cube_1": {
