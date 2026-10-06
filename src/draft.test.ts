@@ -23,8 +23,6 @@
  * documented rejection (test below), NOT a silent wrong-plane draft.
  */
 import { describe, it, expect, beforeAll } from 'vitest'
-import { createRuntime, registerOcctBrepEngine } from '@faicad/faijs'
-import { createNodePorts } from '@faicad/faijs/node'
 import { getBrepApi } from '@faicad/faijs/brep/handle-bridge'
 import { brepOf } from '@faicad/faijs/shape'
 import { setupNativeKernel } from './gear-test-harness'
