@@ -129,7 +129,7 @@ grep -inE "prism|plate|filling|nsided|thruSection|multisection" index.d.ts types
 |---|---|---|---|
 | `narrow:chamfer-asym` | 1 | `chamferAsymmetric(solid, edge, d1, d2, referenceFace?)` `:157` —— 与上游 `MakeChamfer.Add(d1,d2,E,F)` + edge→face 映射表同构 | **P4**（`src/workplane.ts:5659/5670` 的抛错改为实现） |
 | ~~`kernel:sweep-aux-spine-mode`~~ | ~~3~~ | **❌ 捕获推翻（2026-10-06，P1-1）**：5.6 的 `SweepAdvancedOptions.curvilinearEquivalence`（`:275`）**只有类型、运行时无效**——`sweepAdvanced({mode: Auxiliary, auxSpine, curvilinearEquivalence: true})` 返回 17759.157，与旧 sweepOriented mode 3 逐位相同，仍差 ref 20218.347 达 12.2%（`scripts/probe-aux-spine{,-steps}.py`）。**维持 blocked**，守卫测试 `src/sweep-aux-spine-guard.test.ts` 冻结拒绝 | 无（occt-wasm 上游真正实现 `SetMode(aux, CE=True)` 后重估） |
-| `op:history-subshape` | 3 | `booleanOp(..., { inputFaceHashes, hashUpperBound })` → `EvolutionData{ modified, generated, deleted }` `:437`，正是上游 `History.generated/first/last` 的反查数据 | **P3** |
+| `op:history-subshape` | **3 → ❌ 维持 blocked（2026-10-06，P3 捕获推翻）** | 5.6 的 EvolutionData（`:437`）只回 **face-hash 数组**（modified/generated/deleted），而上游 `Op.first/last` 需要 `builder.FirstShape()/LastShape()`、`Op.generated(f.edges())` 需要任意 subshape 键的 `Generated(el)` 映射；occt-wasm 5.6 **无 FirstShape/LastShape/Images 通道**，也无 extrude/sweep/loft 的 WithHistory 变体（仅 boolean/fillet/shell 等族，`scripts/probe-evolution-hashes.mts` + `probe-history.py` 取证）。hash 语义已探明：deleted=输入面 hash、未动面保 hash | 无（occt-wasm 暴露 FirstShape/LastShape/Generated 绑定后重估） |
 | `op:assembly-subshape-import` | **4 → 部分** | XCAF `getSubShapes:141` / `addSubShape:148` / `getLabelInfo` 的 `name` + `hasColor` + `color` | **P5**：**name/color 解封；`layer` 仍无 `LayerTool`** ⇒ 4 条里含 layer 断言的子项维持 blocked，并在 manifest `reason` 写明 `layer-metadata-unavailable` |
 
 ### 3.2 B 组 · 5.6 打开通道但等价性待实测（**候选，不许预先翻 ported**）
@@ -152,7 +152,7 @@ grep -inE "prism|plate|filling|nsided|thruSection|multisection" index.d.ts types
 | `plane` | 2 | free `plane()` 无参「无限平面」重载不支持（内核无 ±1e60 平面原语） |
 | `export` | 3 | `native_export` / `save_stl_formats` / `export_errors`；内核 `toBREPBinary`/`fromBREPBinary` 已存在（`:393/:395`），缺的是 `.fai.js` 侧字节/字符串通道 |
 | `importBin` | 2 | 同上；**语义陷阱**：ref 的 `b`/`r` 体积逐位相同 ⇒ 写两个同形 box 能 PASS 但**不验证往返**，按 G-C19 原则不冒充 ported |
-| `history:images` | 2 | 依赖 P3 的 History 反查 |
+| `history:images` | **2 → ❌ 维持 blocked（2026-10-06，P3）** | 依赖已被 P3 捕获否决的 History 反查通道（`Op.images` 需 occt-wasm 的 `Images` 绑定，5.6 无） | 无（同 op:history-subshape） |
 | `op:shell` / `op:pendingWires` / `op:shell-sew` | 4 | 本仓可做（多轮廓 pendingWires） |
 | `eachpoint` | 1 | `eachpoint` 收 `Location → Shape` 回调（λ 可用，非语法缺口） |
 | `cast` / `op:offset2D-multi-region` / `op:sweep-sketch-sections` / `op:extrude-taper-sketch` / `op:faceOn` | 5 | 零散值面与参数通道 |
@@ -276,8 +276,8 @@ grep -inE "prism|plate|filling|nsided|thruSection|multisection" index.d.ts types
 
 | 序 | 项 | 判据 |
 |---|---|---|
-| **P3-1** | 用 `inputFaceHashes` + `EvolutionData{modified, generated, deleted}` 实现 `History.generated/first/last` | 一次性 Python 捕获上游 `History` 的面集合真值 → 固化 TS 断言 |
-| **P3-2** | `op:history-subshape` 3 条 + `history:images` 2 条镜像 | parity 逐位（子形状集合是**非 STEP 输出**，按 §6 判据 3 走「选中实体 {type, center} 保序集合」比对） |
+| **P3-1** | ~~用 `inputFaceHashes` + `EvolutionData` 实现 `History.generated/first/last`~~ → **❌ 捕获推翻（2026-10-06）**：EvolutionData 只回 face-hash 数组，occt-wasm 5.6 无 `FirstShape`/`LastShape`/`Generated(el)`/`Images` 绑定，也无 extrude/sweep/loft 的 WithHistory 变体（`scripts/probe-evolution-hashes.mts` + `probe-history.py`） | 不实现；hash 语义已探明留档（deleted=输入面 hash、未动面保 hash） |
+| **P3-2** | ~~5 条镜像~~ → **不立项**（通道不存在，维持 blocked，见 §3.1/§3.3） | — |
 
 ### P4 · 倒角与螺旋
 
