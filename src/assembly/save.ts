@@ -10,8 +10,8 @@ import { writeFileSync, readFileSync } from 'node:fs'
 import { getBackends } from '@faicad/faijs/runtime-state'
 import { brepOf, fromBrep } from '@faicad/faijs/shape'
 import type { BrepHandle } from '@faicad/faijs/brep/engine/types'
-import { exportStepFromSolids } from '@faicad/faijs/brep/export/step'
 import { solidToShape } from '@faicad/faijs/brep/brep-ops'
+import type { XCAFDocument, ShapeHandle } from 'occt-wasm'
 import {
   initOcctWasm,
   importAssemblyFromStep,
@@ -38,13 +38,50 @@ export async function save(
   }
   const kernel = getBackends().kernel.brep as BrepEngineApi | null
   if (!kernel) throw new Error('[cq-compat-assembly] save(): BREP kernel unavailable')
-  const entries = asm.members.map((m) => ({
-    solid: brepOf(m.shape) as BrepHandle | undefined,
-    name: m.name,
-    color: m.color,
-  }))
-  const buf = exportStepFromSolids(kernel, entries)
-  writeFileSync(path, Buffer.from(buf))
+  if (asm.members.length === 0) {
+    throw new Error('[cq-compat-assembly] save(): cannot export an empty assembly (no members)')
+  }
+  // P5-2: emit a real XCAF assembly (component references carrying names +
+  // colours) instead of the earlier flat solid list, so importStep recognises
+  // the STEP as an assembly and round-trips names/colours/placements.
+  //
+  // The assemblyOp compound's top-level children ARE the members, in order;
+  // after solve() their placements are baked into the child geometry. We export
+  // that compound as the root and mark it `assembly: true` — occt-wasm then
+  // creates one component per top-level child at an identity location, because
+  // the placement already lives in the geometry (the form importStep reads back).
+  const rawKernel = (await initOcctWasm()) as unknown as {
+    createXCAFDocument(): XCAFDocument
+    makeCompound(shapes: ShapeHandle[]): ShapeHandle
+  }
+  const doc = rawKernel.createXCAFDocument()
+  try {
+    // Build a real XCAF assembly: a compound of the member geometries as the
+    // root, marked `assembly: true` so occt-wasm emits one component per member
+    // (at an identity location — the placement already lives in the member's
+    // baked geometry, which is exactly what importStep reads back). Name +
+    // colour each component to match its member.
+    const solids = asm.members.map((m) => {
+      const h = brepOf(m.shape) as unknown as ShapeHandle | undefined
+      if (!h) throw new Error(`[cq-compat-assembly] save(): member "${m.name}" has no BREP solid`)
+      return h
+    })
+    const compound = rawKernel.makeCompound(solids)
+    const root = doc.addShape(compound, { name: asm.name, assembly: true })
+    // Component order mirrors makeCompound's input == member order; importStep
+    // reads them back in the same order via collectLeafParts.
+    const components = doc.getChildren(root)
+    asm.members.forEach((m, i) => {
+      const comp = components[i]
+      if (!comp) return
+      doc.setName(comp, m.name)
+      if (m.color) doc.setColor(comp, m.color)
+    })
+    const stepText = doc.exportSTEP()
+    writeFileSync(path, Buffer.from(stepText, 'utf8'))
+  } finally {
+    doc.close()
+  }
 }
 /**
  * importStep — CQ Assembly.importStep() 等价（STEP 文件导入为装配）。

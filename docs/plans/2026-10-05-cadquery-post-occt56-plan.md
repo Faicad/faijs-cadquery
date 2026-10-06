@@ -1,7 +1,7 @@
 # faijs-cadquery 独立后开发计划（occt-wasm 5.6 重估版）
 
 - 日期：2026-10-05
-- 状态：**实施中 —— P0/P2/P4 已完成（2026-10-06）**；**P5-1 捕获推翻 → blocked（2026-10-06，与 X-3 同类缺口）**；P1/P3/P5-2/P5-3/P6/P7 未开始
+- 状态：**实施中 —— P0/P2/P4/P5-2 已完成（2026-10-06）**；**P5-1 捕获推翻 → blocked（2026-10-06，与 X-3 同类缺口）**；P1/P3/P5-3/P6/P7 未开始
 - 仓库：`D:\Faicad\faijs-cadquery`（`@faicad/faijs-cadquery`，已从 faijs monorepo 拆出为独立 git 仓）
 - 上游基准：CadQuery **2.8.0**
 - 内核：`occt-wasm@5.6.0`（`node_modules/occt-wasm/dist/index.d.ts`，peer `^5.6.0`）
@@ -203,7 +203,7 @@ grep -inE "prism|plate|filling|nsided|thruSection|multisection" index.d.ts types
 | **P2** | 布尔稳健：`fuzzyValue`/`glue` 接入 → 5 + 4 | 中 | 0~9 候选 | P0 |
 | **P3** | History 子形状反查（`EvolutionData`）3 + images 2 | 中 | 5 | **P2**（同一 booleanOp 底座） |
 | **P4** | `chamferAsymmetric` 1 + `makeHelixWireHanded` 修正 | 小 | **1（✅ 已解锁 chamfer-asym；helix handed 修正但不立镜像）** | P0 |
-| **P5** | XCAF 子形状 name/color 读回 + 装配导出结构 | 大 | **0（P5-1 name/color 捕获推翻→blocked；仅 P5-2 导出结构 / P5-3 layer 缺口登记可推进）** | P0 |
+| **P5** | XCAF 子形状 name/color 读回 + 装配导出结构 | 大 | **1（P5-2 导出结构已解封，2026-10-06；P5-1 name/color 捕获推翻→blocked；P5-3 layer 缺口登记可推进）** | P0 |
 | **P6** | 本仓可做 op 批（C 组 51 条，再拆子批） | 特大 | ~40（逐子批） | P0 |
 | **P7** | 长线：装配求解器 14 + 内核残余 27 + comparator 3 | 特大 | 排期问题，不是「不做」 | P3/P5 |
 
@@ -291,7 +291,7 @@ grep -inE "prism|plate|filling|nsided|thruSection|multisection" index.d.ts types
 | 序 | 项 | 判据 |
 |---|---|---|
 | **P5-1** | **❌ 捕获推翻（2026-10-06）→ blocked**：`importStep` 走 XCAF `getSubShapes` + `getLabelInfo` 读 name/color。**一次性捕获实证**：(1) 子形状名确实写进 STEP 文本；(2) occt-wasm 5.6 读回后 subshape 标签 `name=""`/`hasColor=false`；(3) CadQuery 2.8.0 自身 `importStep` 读回同一 STEP 也 `members=[]`/`_subshape_names={}`。⇒ 属 occt-wasm reader 不映射 representation-item 名到 subshape `TDataStd_Name`，与 X-3 layer 同类。**冻结守卫** `src/assembly-subshape-import-guard.test.ts`（`asm.subshapes === {}`） | 不许把返回空 map 的 no-op 当已实现；待 occt-wasm 暴露 subshape 名/色读通道后翻红解锁 |
-| **P5-2** | 装配导出结构：`addShape({ assembly: true })` + `getReferredLabel` + `getLocation` 的 3×4 矩阵 | 导出 STEP 能被自身 `importStep` 读回同名同色同位姿（往返断言） |
+| **P5-2** | ✅ **已解封（2026-10-06）**：装配导出结构。`save()` 用 raw occt-wasm `kernel.createXCAFDocument()` + `makeCompound(memberSolids)` + `addShape({ assembly: true, name })` 拆出 component，逐成员 `setName`/`setColor`，`exportSTEP()` 写盘；`importStep` 读回识别为装配，同名/同色/同位姿（volume+bbox）往返断言见 `src/assembly-export-step.test.ts`（2/2 绿）。`getLocation` 3×4 在此模型中为恒等（位姿已烘焙进成员几何，与 importStep 读取语义一致） | 导出 STEP 能被自身 `importStep` 读回同名同色同位姿（往返断言） ✅ |
 | **P5-3** | **`layer` 明确登记为缺口**：manifest `reason` 写 `layer-metadata-unavailable`（`XCAFDoc_LayerTool` 无绑定） | reason 到位，不许静默当解封 |
 
 ### P6 · 本仓可做 op 批（C 组 51 条，按「一次改动解锁多条」再拆）
