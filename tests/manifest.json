@@ -2176,19 +2176,22 @@
     "status": "blocked",
     "source": "tests.test_cadquery::TestCadQuery::testCutBlindUntilFace",
     "blockedBy": "op:cutBlind.until-face",
-    "manual": true
+    "manual": true,
+    "reason": "until-face-primitive-unavailable (faijs 5.6 BrepEngineApi L1 has no facesIntersectedByLine / ray-face intersection primitive; CadQuery until='next'|'last'|Face all call facesIntersectedByLine(center,eDir,direction) — cq.py _extrude; only boolean intersect + planar sectionByPlane available, cannot compose; see plan §3.3 / §4 P6-a)"
   },
   "tests.test_cadquery::TestCadQuery::testCutBlindUntilFace__wp_last": {
     "status": "blocked",
     "source": "tests.test_cadquery::TestCadQuery::testCutBlindUntilFace",
     "blockedBy": "op:cutBlind.until-face",
-    "manual": true
+    "manual": true,
+    "reason": "until-face-primitive-unavailable (faijs 5.6 BrepEngineApi L1 has no facesIntersectedByLine / ray-face intersection primitive; CadQuery until='next'|'last'|Face all call facesIntersectedByLine(center,eDir,direction) — cq.py _extrude; only boolean intersect + planar sectionByPlane available, cannot compose; see plan §3.3 / §4 P6-a)"
   },
   "tests.test_cadquery::TestCadQuery::testCutBlindUntilFace__wp_next": {
     "status": "blocked",
     "source": "tests.test_cadquery::TestCadQuery::testCutBlindUntilFace",
     "blockedBy": "op:cutBlind.until-face",
-    "manual": true
+    "manual": true,
+    "reason": "until-face-primitive-unavailable (faijs 5.6 BrepEngineApi L1 has no facesIntersectedByLine / ray-face intersection primitive; CadQuery until='next'|'last'|Face all call facesIntersectedByLine(center,eDir,direction) — cq.py _extrude; only boolean intersect + planar sectionByPlane available, cannot compose; see plan §3.3 / §4 P6-a)"
   },
   "tests.test_cadquery::TestCadQuery::testCutEach__w": {
     "status": "ported",
@@ -2392,25 +2395,29 @@
     "status": "blocked",
     "source": "tests.test_cadquery::TestCadQuery::testExtrudeUntilFace",
     "blockedBy": "op:extrude-until-face",
-    "manual": true
+    "manual": true,
+    "reason": "until-face-primitive-unavailable (faijs 5.6 BrepEngineApi L1 has no facesIntersectedByLine / ray-face intersection primitive; CadQuery until='next'|'last'|Face all call facesIntersectedByLine(center,eDir,direction) — cq.py _extrude; only boolean intersect + planar sectionByPlane available, cannot compose; see plan §3.3 / §4 P6-a)"
   },
   "tests.test_cadquery::TestCadQuery::testExtrudeUntilFace__wp_ref_extrude": {
     "status": "blocked",
     "source": "tests.test_cadquery::TestCadQuery::testExtrudeUntilFace",
     "blockedBy": "op:extrude-until-face",
-    "manual": true
+    "manual": true,
+    "reason": "until-face-primitive-unavailable (faijs 5.6 BrepEngineApi L1 has no facesIntersectedByLine / ray-face intersection primitive; CadQuery until='next'|'last'|Face all call facesIntersectedByLine(center,eDir,direction) — cq.py _extrude; only boolean intersect + planar sectionByPlane available, cannot compose; see plan §3.3 / §4 P6-a)"
   },
   "tests.test_cadquery::TestCadQuery::testExtrudeUntilFace__part": {
     "status": "blocked",
     "source": "tests.test_cadquery::TestCadQuery::testExtrudeUntilFace",
     "blockedBy": "op:extrude-until-face",
-    "manual": true
+    "manual": true,
+    "reason": "until-face-primitive-unavailable (faijs 5.6 BrepEngineApi L1 has no facesIntersectedByLine / ray-face intersection primitive; CadQuery until='next'|'last'|Face all call facesIntersectedByLine(center,eDir,direction) — cq.py _extrude; only boolean intersect + planar sectionByPlane available, cannot compose; see plan §3.3 / §4 P6-a)"
   },
   "tests.test_cadquery::TestCadQuery::testExtrudeUntilFace__part_section": {
     "status": "blocked",
     "source": "tests.test_cadquery::TestCadQuery::testExtrudeUntilFace",
     "blockedBy": "op:extrude-until-face",
-    "manual": true
+    "manual": true,
+    "reason": "until-face-primitive-unavailable (faijs 5.6 BrepEngineApi L1 has no facesIntersectedByLine / ray-face intersection primitive; CadQuery until='next'|'last'|Face all call facesIntersectedByLine(center,eDir,direction) — cq.py _extrude; only boolean intersect + planar sectionByPlane available, cannot compose; see plan §3.3 / §4 P6-a)"
   },
   "tests.test_cadquery::TestCadQuery::testFaceIntersectedByLine__shape": {
     "status": "ported",

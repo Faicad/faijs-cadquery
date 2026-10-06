@@ -1,7 +1,7 @@
 # faijs-cadquery 独立后开发计划（occt-wasm 5.6 重估版）
 
 - 日期：2026-10-05
-- 状态：**实施中 —— P0/P2/P4/P5-2 已完成（2026-10-06）**；**P5-1 捕获推翻 → blocked（2026-10-06，与 X-3 同类缺口）**；**P5-3 layer 缺口登记完成（2026-10-06，X-3 结构性缺口）**；P1/P3/P6/P7 未开始
+- 状态：**实施中 —— P0/P2/P4/P5-2 已完成（2026-10-06）**；**P5-1 捕获推翻 → blocked（2026-10-06，与 X-3 同类缺口）**；**P5-3 layer 缺口登记完成（2026-10-06，X-3 结构性缺口）**；**P6-a until-face 捕获推翻 → blocked（2026-10-06，缺 facesIntersectedByLine 射线-面求交原语）**；P1/P3/P6-b/P6-c/P6-d/P6-e/P7 未开始
 - 仓库：`D:\Faicad\faijs-cadquery`（`@faicad/faijs-cadquery`，已从 faijs monorepo 拆出为独立 git 仓）
 - 上游基准：CadQuery **2.8.0**
 - 内核：`occt-wasm@5.6.0`（`node_modules/occt-wasm/dist/index.d.ts`，peer `^5.6.0`）
@@ -145,7 +145,7 @@ grep -inE "prism|plate|filling|nsided|thruSection|multisection" index.d.ts types
 
 | 标签 | 条数 | 说明 |
 |---|---|---|
-| `op:extrude-until-face` + `op:cutBlind.until-face` | 7 | 含 G-G1 的 ref 异常，须**重新推导镜像**不可照源码写 |
+| `op:extrude-until-face` + `op:cutBlind.until-face` | 7 | **❌ 捕获推翻（2026-10-06，P6-a）→ blocked**：until=`"next"`/`"last"`/`Face` 全部依赖 `facesIntersectedByLine(center, eDir, direction)`（cq.py `_extrude` 射线-面求交，取第 0/末位面）；faijs 5.6 `BrepEngineApi`(L1) 仅 `intersect`(布尔)+`sectionByPlane`(平面切割)，无射线-面求交原语（全 dist grep 零命中），不可组合绕过。manifest 7 条 `reason: until-face-primitive-unavailable`；冻结守卫 `src/extrude-until-face-guard.test.ts` |
 | `op:prism-from-face` / `op:prism-tilt` | 5 | from-face 4 条内核依赖；tilt 1 条本仓可做（`extrude` 本就吃方向向量） |
 | `getfixturevalue` | 5 | 内联 fixture 写镜像（其中 3 条需 export→importStep 内存往返） |
 | `parametricCurve` / `op:parametricSurface` | 3 | 参数曲线/曲面 |
@@ -298,7 +298,7 @@ grep -inE "prism|plate|filling|nsided|thruSection|multisection" index.d.ts types
 
 建议子批顺序（每条开工前一次性捕获）：
 
-1. **P6-a until-face 7 条**（`extrude("next"/"last")` + `cutBlind.until-face` + `faces(">X[1]")` 索引；**G-G1 ref 异常必须重新推导，不可照源码写**）
+1. **P6-a until-face 7 条** —— **❌ 捕获推翻（2026-10-06）→ blocked**：`extrude("next"/"last")` + `cutBlind.until-face` 依赖 `facesIntersectedByLine` 射线-面求交原语，faijs 5.6 缺失（见 §3.3 表 + 冻结守卫 `src/extrude-until-face-guard.test.ts`）。**不在本仓可做范围**，需 faijs 暴露该原语后翻红。
 2. **P6-b 零散值面**（`cast` / `offset2D-multi-region` / `sweep-sketch-sections` / `extrude-taper-sketch` / `faceOn` / `eachpoint` / `parametricCurve` / `parametricSurface` / `op:shell` / `pendingWires` / `shell-sew`，共 ~14 条）
 3. **P6-c fixture 内联**（`getfixturevalue` 5 + `plane` 2，其中 3 条需 export→importStep 内存往返通道）
 4. **P6-d IO**（`export` 3 + `importBin` 2 —— 需先做 B1-1 ④ 的**前置决策**：要不要「不验证往返」的镜像；本计划倾向 **保持 blocked 并在 reason 写明 `pass-nt:no-roundtrip-channel`**，不冒充 ported）
