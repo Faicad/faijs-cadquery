@@ -21,7 +21,9 @@
 > （`test_hollow__res2`、`test_hollow_open__res2`、`testSimpleShell__s1/s2/s3`、`testLegoBrick__s`）；
 > T2-a（`importBin` 二进制 BREP 通道）已落地，2 条翻 ported；
 > T2-b（assembly 导出 3 条）已落地，3 条翻 ported；blocked 99 → **88**。
-> `testLegoBrick__tmp` 仍缺镜像（U6 余 1 条）。下一批：T4（aux-spine 探针 7 条）。
+> T4（aux-spine 探针）已判为**负结论**：`sweepFull` 与 `sweepAdvanced` 逐位相同，CE=true 仍差 −12.163%，
+> 7 条维持 blocked（已冻结为测试）。`testLegoBrick__tmp` 仍缺镜像（U6 余 1 条）。
+> 本轮可解项（U1–U6）至此全部处置完毕：blocked **99 → 88**。
 >
 > **T2-a 落地形态**：`src/workplane.ts` 新增 `exportBrep/importBrep`（文本）与 `exportBin/importBin`（二进制），
 > 经 `src/index.ts` 导出。DEVIATION：上游这四个方法收/写 file-like 对象，而 .fai.js 镜像面无文件 IO，
@@ -84,12 +86,24 @@ D binary round-trip:     bytes=4494 vol=1.0 f=6
 - 本仓 `src/workplane.ts:5897` 当前调用 `kernel.shell(h, facesToRemove, -thickness, 1e-3)`——**没传第 5 个实参**。`mark-blocked.ts:494-496` 记的「occt-wasm offset is arc-join only」已过期。
 - `dist/index.d.ts:172` 明确声明 `shell(solid, facesToRemove, thickness, tolerance, joinType?: JoinType.Arc | JoinType.Intersection)`；内核内部把 Intersection 重编码为 1（错误信息 `joinType must be Arc (0) or Intersection (1)`），wrapper 层传 **2** 即可。
 
-### 2.2 结论 B：`sweepFull` 的辅助向导几何未复现 → **留待探针**
+### 2.2 结论 B：`sweepFull` **未**闭合 aux-spine（2026-10-07 已判，负结论）
 
-自造 geometry 触发了 `Courbes non jointives` / `cannot keep the section in contact with the guide wire`。这是**探针输入不合法**（guide 与 spine 未满足相交约束），不能据此判定 CE 生效与否。扩展方案 §2.3 B 桶的 `kernel:sweep-aux-spine-mode` 仍需**照抄上游 `testSweep` 的真实 path/guide 几何**再判：
+§2 里最初的自造 geometry 触发 `Courbes non jointives` / `cannot keep the section in contact with the guide wire`——那是**探针输入不合法**（直线 guide 与直线 spine 不相交），不能用作判据。已改用**上游 `testSweep` 的真实几何**重判
+（profile rect 10×20；spine spline (0,0,0)→(0,20,100) 切向 +Z；guide spline (0,20,0)→(20,0,100) 切向 +Z），
+脚本 `scripts/_analysis/probe-aux-spine-sweepfull.mjs`：
 
-- 上游真值已冻结：`SetMode(aux, CE=True) → 20218.347`、`CE=False → 20500.445`、`Fixed → 20500.455`（`mark-blocked.ts:162-166`）。
-- 待判命题：`sweepFull({mode:Auxiliary, auxSpine, curvilinearEquivalence:true})` 是否给出 **20218.347**（旧 `sweepAdvanced` 给的是 12.2% 偏的 17759.157）。
+| 调用 | 体积 | 对上游真值 |
+|---|---|---|
+| `sweepAdvanced(mode=3, aux, CE=true)` | 17759.15746693434 | −12.163% |
+| `sweepFull(mode=3, aux, CE=true)` | **17759.15746693434**（与上一行逐位相同） | −12.163% |
+| `sweepFull(mode=3, aux, CE=false)` | 20500.444900109196 | == 上游 CE=False 真值 20500.445 |
+| `sweepFull(mode=0, Fixed)` | 20500.45513233427 | == 上游 Fixed 真值 20500.455 |
+
+**修正了一条过期论断**：此前记的是「内核 IGNORES `curvilinearEquivalence`」。实测并非忽略——CE=true 与 CE=false 产出不同实体；
+只是内核的 CE=true 构造（`GeomFill_GuideTrihedronAC` / `BRepFill_ACRLaw`）与 OCP 的不等价，而 CE=true 恰恰是上游默认走的模式。
+⇒ `kernel:sweep-aux-spine-mode`（3 条）与 `kernel:boolean-near-coincident-bspline`（4 条）**维持 blocked**；
+`src/workplane.ts` 的 auxSpine 拒绝分支与 `sweep-aux-spine-guard.test.ts` 保留，理由文案已按上述实测改写；
+新增 `src/sweep-aux-spine-sweepfull.probe.test.ts` 冻结本次负结论。
 
 ### 2.3 结论 C：`shell` 正厚度 + 移除面**不再抛错**（通道确证，真值待对拍）
 
@@ -120,10 +134,10 @@ D binary round-trip:     bytes=4494 vol=1.0 f=6
 
 ### 3.2 待探针（通道就绪，结论未定，共 4 类 / 10 条）
 
-| 标签 | 条 | 待判命题 | 探针 |
+| 标签 | 条 | 待判命题 | 探针（**2026-10-07 已判：负，仍 block**） |
 |---|---|---|---|
-| `kernel:sweep-aux-spine-mode` | 3 | `sweepFull` CE 是否给出上游 20218.347 | 结论 B，需真实 path/guide |
-| `kernel:boolean-near-coincident-bspline` | 4 | 若 aux-spine 解则同源解；否则是否需 `law` 驱动 twist | 沿用同一 path/guide 探针 |
+| `kernel:sweep-aux-spine-mode` | 3 | `sweepFull` CE 是否给出上游 20218.347 | ❌ 17759.157（−12.163%，与 sweepAdvanced 逐位相同）→ §2.2 / T4 |
+| `kernel:boolean-near-coincident-bspline` | 4 | 若 aux-spine 解则同源解；否则是否需 `law` 驱动 twist | ❌ 不同源；`law` 仅缩放律，twist 需旋转律 → T4-4 |
 | `remove`（sew 子集） | 2 | `test_sewing__sh/res3`：`sew`/`sewAndSolidify`/`buildSolidFromFaces` 通道已可用（faijs `solidFromFaces`） | 与上游 sewing 语义对拍 |
 | `op:offset2D-multi-region` | 1 | faijs `offset2d` 只接 `offsetWire2D`，**未提供 MakeOffset2D 多区域语义**（`mark-blocked.ts:337-343`） | 判为**仍 block**，除非内核另有多区域通道 |
 
@@ -172,11 +186,17 @@ D binary round-trip:     bytes=4494 vol=1.0 f=6
 2. **先**用一次性 Python 捕获 `testSimpleShell__s1/s3`、`testLegoBrick__s/tmp` 的面数/体积真值，冻结进镜像注释。
 3. 变异测试：恢复 throw 分支，断言变红。
 
-### T4 · aux-spine 探针（判 `sweep-aux-spine-mode` 3 条 + 连带 4 条）
+### T4 · aux-spine 探针（判 `sweep-aux-spine-mode` 3 条 + 连带 4 条）— **已完成，负结论**
 
-1. 用上游 `testSweep` 的真实 path/guide 几何，分别调 `sweepAdvanced`（基线 17759.157）与 `sweepFull({mode:3, auxSpine, curvilinearEquivalence:true, guideContact})`，与 20218.347 对拍。
-2. 命中 ⇒ 删 `src/workplane.ts:7415-7423` 的 auxSpine 拒绝分支 + `src/sweep-aux-spine-guard.test.ts`，解锁 3+4 条；未命中 ⇒ 维持拒绝，reason 更新为「sweepFull CE 亦无效」。
-3. 无论结果，`kernel:boolean-near-coincident-bspline` 的四条 twist 用例需单列判别（twist 需旋转律，非 `law` 缩放律）。
+1. ✅ 用上游 `testSweep` 的真实 path/guide 几何跑过了（`scripts/_analysis/probe-aux-spine-sweepfull.mjs`）：
+   `sweepAdvanced(CE=true)` 与 `sweepFull(CE=true)` 同为 **17759.15746693434**（逐位相同），距上游 20218.347 差 **−12.163%**；
+   而 `sweepFull(CE=false)`=20500.4449、`sweepFull(Fixed)`=20500.4551 与上游对应真值**逐位相等**。详见 §2.2。
+2. ✅ 未命中 ⇒ 维持 `src/workplane.ts` 的 auxSpine 拒绝分支与 `sweep-aux-spine-guard.test.ts`（3+4 条**继续 blocked**）；
+   reason 已由「内核忽略 CE」改写为实测口径「内核 honour CE，但其 CE=true 构造与 OCP 不等价，CE=false/Fixed 反而是精确的」。
+3. ✅ 负结论冻结：`src/sweep-aux-spine-sweepfull.probe.test.ts`（3 断言），
+   未来任一天 sweepFull 真的对齐 OCP，该测试会**先红**，再回跑捕获，然后才允许抬镜像。
+4. `kernel:boolean-near-coincident-bspline` 四条 twist 用例仍单列：twist 需旋转律，`sweepFull` 的 `law` 只有缩放律
+   （`SweepLaw.Linear/SCurve` + `lawEndFactor`），不构成解。
 
 ---
 

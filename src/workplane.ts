@@ -7492,15 +7492,22 @@ export async function sweep(
   // kernel sweep (BRepOffsetAPI_MakePipe) has no transition parameter —
   // corner handling is fixed by the kernel. Documented, not silently ignored.
   void opts.transition
-  // auxSpine: REJECTED LOUDLY — re-verified 2026-10-06 against occt-wasm 5.6:
-  // SweepAdvancedOptions now TYPES curvilinearEquivalence (types.d.ts:275), but
-  // at RUNTIME it is a no-op — sweepAdvanced(profile, spine, {mode: Auxiliary,
-  // auxSpine, curvilinearEquivalence: true}) returns vol 17759.157466286128 on
-  // the testSweep aux case, i.e. the same 12.2%-wrong value as the raw
-  // sweepOriented mode 3, vs CadQuery's 20218.347254736764 (one-shot captures:
-  // scripts/probe-aux-spine.py, scripts/probe-aux-spine-steps.py). So the
-  // declared option does not reach OCCT's SetMode(aux, CurvilinearEquivalence=
-  // True) (occ_impl/shapes.py:4587). A guide whose reparametrisation is a no-op
+  // auxSpine: REJECTED LOUDLY — re-verified 2026-10-07 against occt-wasm 5.6 on
+  // BOTH entry points (sweepAdvanced and the newer sweepFull, which forwards the
+  // MakePipeShell knobs sweepAdvanced cannot reach):
+  //   sweepAdvanced(CE=true) 17759.15746693434  (12.163% under CadQuery truth)
+  //   sweepFull(CE=true)     17759.15746693434  (identical — no improvement)
+  //   sweepFull(CE=false)    20500.444900109196 (== OCP SetMode(aux, False))
+  //   sweepFull(mode=Fixed)  20500.45513233427  (== OCP default/Fixed)
+  // So the flag is NOT ignored — CE=true and CE=false produce different solids —
+  // but the kernel's CE=true construction (GeomFill_GuideTrihedronAC over
+  // BRepFill_ACRLaw) is not what OCP builds for
+  // SetMode(aux, CurvilinearEquivalence=True) (occ_impl/shapes.py:4587), and
+  // CE=true is exactly the mode CadQuery defaults to: 20218.347254736764
+  // (one-shot captures: scripts/probe-aux-spine.py, probe-aux-spine-steps.py;
+  // kernel-side: scripts/_analysis/probe-aux-spine-sweepfull.mjs, frozen by
+  // src/sweep-aux-spine-sweepfull.probe.test.ts).
+  // A guide whose reparametrisation is a no-op
   // (equal-length straight guides, e.g. the 1-long guide of test_sweep_aux)
   // coincides by accident and must not be relied on. Silently returning
   // divergent geometry is not acceptable (same rule as core's `draft`
@@ -7514,7 +7521,8 @@ export async function sweep(
       '[cq-compat] sweep: auxSpine is not supported — the kernel auxiliary-guide ' +
         'sweep mode is not equivalent to CadQuery SetMode(auxSpine, ' +
         'CurvilinearEquivalence=True) (kernel:sweep-aux-spine-mode; occt-wasm 5.6 ' +
-        'sweepAdvanced accepts curvilinearEquivalence but ignores it); pass ' +
+        'sweepFull/sweepAdvanced honour the flag but their CE=true solid is ' +
+        '12.16% off CadQuery, while CE=false/Fixed match); pass ' +
         '`normal` for a fixed up direction instead',
     )
   }

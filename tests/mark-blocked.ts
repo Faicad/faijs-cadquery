@@ -176,12 +176,16 @@ const BY_KEY: Record<string, string> = {
   //   parity-verified and stays implemented.
   //   Kernel binding needed to lift: expose CurvilinearEquivalence on the
   //   auxiliary-spine mode (roadmap G-C9 / B6).
-  //   RE-VERIFIED 2026-10-06 against occt-wasm 5.6: sweepAdvanced now TYPES
-  //   `curvilinearEquivalence` (types.d.ts:275) but IGNORES it at runtime —
-  //   sweepAdvanced(profile, spine, {mode: Auxiliary, auxSpine,
-  //   curvilinearEquivalence: true}) returns vol 17759.157466286128, the same
-  //   12.2%-wrong value (captures: scripts/probe-aux-spine.py +
-  //   probe-aux-spine-steps.py). Guard test: src/sweep-aux-spine-guard.test.ts.
+  //   RE-VERIFIED 2026-10-07 against occt-wasm 5.6 on BOTH entry points
+  //   (sweepAdvanced and the newer sweepFull): the flag is NOT ignored —
+  //   CE=true and CE=false give different solids — but CE=true, the mode
+  //   CadQuery defaults to, is 12.163% off (17759.15746693434 vs 20218.347),
+  //   and sweepFull reproduces sweepAdvanced to the digit, so the new entry
+  //   point closes nothing. CE=false (20500.445) and Fixed (20500.455) ARE
+  //   bit-exact against OCP — only the default mode is wrong.
+  //   Kernel-side probe: scripts/_analysis/probe-aux-spine-sweepfull.mjs;
+  //   frozen by src/sweep-aux-spine-sweepfull.probe.test.ts; the loud
+  //   rejection is frozen by src/sweep-aux-spine-guard.test.ts.
   'tests.test_cadquery::TestCadQuery::testSweep__result': 'kernel:sweep-aux-spine-mode',
   // CLOSED 2026-10-04 (roadmap B2-3): test_sweep r6/r8 were mislabelled
   //   `op:sweep.pipeshell` — the SINGLE-profile path already reproduces them.

@@ -4,11 +4,15 @@
  * Why this test exists (global rule: verified-but-negative API findings are
  * frozen as tests): occt-wasm 5.6 ADDED `curvilinearEquivalence` to
  * SweepAdvancedOptions (types.d.ts:275), which reads as if the kernel gap
- * `kernel:sweep-aux-spine-mode` were closed. It is NOT — at runtime the option
- * is ignored and sweepAdvanced(mode: Auxiliary, auxSpine, curvilinearEquivalence:
- * true) returns the same 12.2%-wrong volume as the raw sweepOriented mode 3
- * (captured 2026-10-06: cand 17759.157466286128 vs CadQuery 20218.347254736764,
- * scripts/probe-aux-spine.py / probe-aux-spine-steps.py). This test freezes the
+ * `kernel:sweep-aux-spine-mode` were closed. It is NOT — sweepAdvanced(mode:
+ * Auxiliary, auxSpine, curvilinearEquivalence: true) returns a 12.163%-wrong
+ * volume (captured 2026-10-06: cand 17759.157466286128 vs CadQuery
+ * 20218.347254736764, scripts/probe-aux-spine.py / probe-aux-spine-steps.py).
+ * Re-checked 2026-10-07 against `sweepFull` too (the other 5.6 entry point,
+ * which forwards the MakePipeShell knobs sweepAdvanced cannot reach): it
+ * reproduces sweepAdvanced to the digit, and CE=false/Fixed — the modes
+ * CadQuery does NOT default to — are bit-exact. See
+ * src/sweep-aux-spine-sweepfull.probe.test.ts. This test freezes the
  * loud rejection so a future "the type has the field, just wire it up" change
  * cannot silently ship 12%-wrong geometry again. If the kernel ever really
  * implements CurvilinearEquivalence, this test MUST fail first — then re-run
@@ -49,7 +53,14 @@ describe('sweep auxSpine rejection guard (kernel:sweep-aux-spine-mode)', () => {
     expect(failedAt?.message).toMatch(/auxSpine is not supported.*kernel:sweep-aux-spine-mode/s)
   })
 
-  it('error message documents that 5.6 sweepAdvanced ignores the flag', async () => {
+  // Wording corrected 2026-10-07: the 2026-10-06 message claimed the kernel
+  // "ignores" curvilinearEquivalence. The real-geometry probe
+  // (sweep-aux-spine-sweepfull.probe.test.ts) refutes that — the flag IS
+  // honoured (CE=true and CE=false give different solids); what is wrong is the
+  // CE=true construction itself, 12.16% under CadQuery, while CE=false/Fixed
+  // are bit-exact. The message must state the measured fact, so this assertion
+  // follows the corrected wording.
+  it('error message documents the measured CE behaviour, not "ignored"', async () => {
     const code = [
       "import * as cq from '@faicad/faijs-cadquery'",
       'let p = cq.rect(cq.Workplane("XY"), 10, 20)',
@@ -59,6 +70,6 @@ describe('sweep auxSpine rejection guard (kernel:sweep-aux-spine-mode)', () => {
       'let result = cq.val(r)',
     ].join('\n')
     const { failedAt } = await run(code)
-    expect(failedAt?.message).toMatch(/accepts curvilinearEquivalence but ignores it/)
+    expect(failedAt?.message).toMatch(/honour the flag but their CE=true solid is 12\.16% off/)
   })
 })
