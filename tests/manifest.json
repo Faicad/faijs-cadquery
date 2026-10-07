@@ -10,14 +10,14 @@
     "blockedBy": null
   },
   "tests.test_shapes:::test_bin_import_export__b": {
-    "status": "blocked",
+    "status": "ported",
     "source": "tests.test_shapes:::test_bin_import_export",
-    "blockedBy": "importBin"
+    "blockedBy": null
   },
   "tests.test_shapes:::test_bin_import_export__r": {
-    "status": "blocked",
+    "status": "ported",
     "source": "tests.test_shapes:::test_bin_import_export",
-    "blockedBy": "importBin"
+    "blockedBy": null
   },
   "tests.test_shapes:::test_remove__b": {
     "status": "ported",

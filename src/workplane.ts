@@ -5944,6 +5944,84 @@ export async function hollow(
 }
 
 /**
+ * BREP 序列化通道（文本 + 二进制）—— 上游 `Shape.exportBrep/importBrep` 与
+ * `Shape.exportBin/importBin`（cadquery 2.8.0 `occ_impl/shapes.py`）。
+ *
+ * DEVIATION（如实记录）：上游的四个方法都收/写一个 file-like 对象
+ * （`exportBin(file_object)` 写入、`Shape.importBin(file_object)` 读出），而
+ * .fai.js 镜像面没有文件对象，也没有落盘 IO。这里因此暴露**内存字节/字符串**：
+ * `exportBin` 返回 `Uint8Array`、`importBin` 接收 `Uint8Array`。往返语义与上游
+ * 完全一致（同一 OCCT `BRepTools::Write/Read`），只是载体从文件改成值。
+ *
+ * 内核绑定见 `occt-wasm@5.6.0` `dist/index.d.ts:390-395`
+ * （`toBREP`/`fromBREP`/`toBREPBinary`/`fromBREPBinary`），探针取证见
+ * `scripts/_analysis/probe-occt56-unblock.mjs` §D（文本 2470 字符 / 二进制
+ * 4494 字节，往返体积与面数逐位复原）。
+ */
+
+/** 取堆栈上待序列化的对象（优先当前对象，其次 base solid）。 */
+function exportTarget(wp: Workplane, op: string): Shape {
+  const shape = wp.shape ?? baseSolid(wp)
+  if (!shape) throw new Error(`[cq-compat] ${op}: workplane has no shape to export`)
+  return shape
+}
+
+/** Shape → 内核句柄（BREP 身份不可用时报错，不静默降级）。 */
+function kernelHandleOf(shape: Shape, op: string): ShapeHandle {
+  const h = brepOf(shape)
+  if (h === undefined) throw new Error(`[cq-compat] ${op}: BREP unavailable for shape`)
+  return h as unknown as ShapeHandle
+}
+
+/**
+ * exportBrep — BREP **文本**导出（上游 `Shape.exportBrep`，faijs `exportBrep` op
+ * 同源 `toBREP`）。
+ *
+ * @param wp - Workplane
+ * @returns BREP 文本
+ */
+export async function exportBrep(wp: Workplane): Promise<string> {
+  const kernel = getKernel() as unknown as OcctKernel
+  return kernel.toBREP(kernelHandleOf(exportTarget(wp, 'exportBrep'), 'exportBrep'))
+}
+
+/**
+ * importBrep — BREP **文本**导入（上游 `Shape.importBrep`）。
+ *
+ * 上游对非法/空输入抛异常；内核 `fromBREP` 同样抛，此处不吞、不补桩。
+ *
+ * @param data - BREP 文本
+ * @returns 承载导入形状的 Workplane
+ */
+export async function importBrep(data: string): Promise<Workplane> {
+  const kernel = getKernel() as unknown as OcctKernel
+  return workplaneFromObject(fromHandle(kernel.fromBREP(data)))
+}
+
+/**
+ * exportBin — BREP **二进制**导出（上游 `Shape.exportBin`）。
+ *
+ * @param wp - Workplane
+ * @returns 二进制 BREP 字节
+ */
+export async function exportBin(wp: Workplane): Promise<Uint8Array> {
+  const kernel = getKernel() as unknown as OcctKernel
+  return kernel.toBREPBinary(kernelHandleOf(exportTarget(wp, 'exportBin'), 'exportBin'))
+}
+
+/**
+ * importBin — BREP **二进制**导入（上游 `Shape.importBin` classmethod，
+ * `test_bin_import_export` 的 `r` 变量即走此通道）。
+ *
+ * @param data - 二进制 BREP 字节（空输入必须抛，与上游 `raises(Exception)` 一致）
+ * @returns 承载导入形状的 Workplane
+ */
+export async function importBin(data: Uint8Array): Promise<Workplane> {
+  const kernel = getKernel() as unknown as OcctKernel
+  return workplaneFromObject(fromHandle(kernel.fromBREPBinary(data)))
+}
+
+/**
  * offset — upstream module-level `offset(s, t, cap=True, both=False, tol=1e-6)`
  * free function (cadquery 2.8.0 `occ_impl/shapes.py:6969`): offset or thicken
  * FACES or SHELLS into a solid.
