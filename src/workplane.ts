@@ -6881,6 +6881,73 @@ export function faceFromPoints(wp: Workplane, pts: [number, number, number][]): 
 }
 
 /**
+ * Expand an input handle to the FACE handles upstream would feed to its sewing
+ * builder — upstream `shell(*s)` walks every argument with `_get(el, "Face")`,
+ * so a solid, a shell or a compound each contribute their faces, never the
+ * aggregate itself (`occ_impl/shapes.py:6060`).
+ */
+function sewingFaceHandles(h: ShapeHandle): ShapeHandle[] {
+  const k = getKernel() as unknown as {
+    getShapeType: (s: ShapeHandle) => string
+    getSubShapes: (s: ShapeHandle, kind: string) => ShapeHandle[]
+  }
+  if (k.getShapeType(h) === 'face') return [h]
+  const sub = k.getSubShapes(h, 'face')
+  return sub.length > 0 ? sub : [h]
+}
+
+/**
+ * shellFromFaces — upstream FREE-FUNCTION `shell(*faces, tol=1e-6, manifold=True)`
+ * overload (`occ_impl/shapes.py:6060`), i.e. `BRepBuilderAPI_Sewing`. This is a
+ * DIFFERENT op from this module's workplane `shell()`, which is hollowing
+ * (`BRepOffsetAPI_MakeThickSolid`) — upstream dispatches both on the same name,
+ * cq-compat names them apart because the semantics do not overlap.
+ *
+ * Unlike `solidFromFaces` it does NOT run `makeSolid` afterwards: upstream's
+ * `shell()` returns whatever the sewing builder produced — a Shell when the
+ * faces close into one, a Compound when they form several shells or leave a
+ * floating face. `test_sewing` asserts exactly that (`isinstance(res3, Shell)`
+ * / `Compound`), so solidifying here would break the case.
+ *
+ * Known deviations, measured rather than assumed:
+ *
+ *  - `BRepBuilderAPI_Sewing`'s non-manifold switch (`manifold=False`, upstream's
+ *    `option4=True`) is NOT bound by occt-wasm, so every call sews with the
+ *    kernel's manifold-compatible settings.
+ *  - `kernel.sew` returns a face that stayed FLOATING as a bare face child of a
+ *    compound, and this repo's STEP writer then emits only the shell part (both
+ *    `test_sewing__res3` children orders measured: 7 faces in memory, 6 written).
+ *    Upstream wraps those leftovers (`occ_impl/shapes.py`: `MakeShell` + `Add`),
+ *    and no bound kernel call does either: `sew([face])` gives back a FACE
+ *    (`getShapeType` says `face`, not `shell`), `buildSolidFromFaces([face])` and
+ *    `sewAndSolidify([face])` likewise, and `makeSolid(face)` throws
+ *    `TopoDS::Shell`. So a floating face cannot be made exportable here —
+ *    `test_sewing__res3` stays blocked on that, not on the sewing itself.
+ *
+ * @param wp - Workplane providing the result's coordinate frame
+ * @param inputs - Workplanes / Shapes carrying faces (solids, shells, compounds
+ *   and bare faces are all accepted and reduced to their faces)
+ * @param opts - `{ tolerance?: number (default 1e-6, upstream tol) }`
+ * @returns Workplane with the SEWED shape (shell or compound) as `.shape`
+ */
+export async function shellFromFaces(
+  wp: Workplane,
+  inputs: (Workplane | Shape | null | undefined)[],
+  opts?: { tolerance?: number },
+): Promise<Workplane> {
+  const handles: ShapeHandle[] = []
+  for (const input of inputs) {
+    for (const h of collectHandles(input)) handles.push(...sewingFaceHandles(h))
+  }
+  if (handles.length === 0) {
+    throw new Error('[cq-compat] shellFromFaces: no face-shaped input to sew')
+  }
+  const kernel = getKernel() as unknown as OcctKernel
+  const sewed = kernel.sew(handles, opts?.tolerance ?? 1e-6)
+  return clone(wp, { objects: [fromHandle(sewed)], pendingWires: [] })
+}
+
+/**
  * solidFromFaces — sew a closed set of faces into a solid on the workplane.
  * Equivalent to CadQuery `cq.Shell.makeShell(faces)` + `Solid.makeSolid(...)`
  * (BRepBuilderAPI_Sewing + BRepBuilderAPI_MakeSolid + orientation fix).

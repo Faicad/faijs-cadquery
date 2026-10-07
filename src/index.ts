@@ -115,6 +115,7 @@ export {
   splitFace,
   twistExtrude,
   solidFromFaces,
+  shellFromFaces,
   planarCap,
   siblings,
   tag,

@@ -25,6 +25,11 @@
 > 7 条维持 blocked（已冻结为测试）。`testLegoBrick__tmp` 也已补齐镜像（`op:shell` 标签清空）。
 > 本轮可解项（U1–U6）至此全部处置完毕：blocked **99 → 87**。
 >
+> **续 §3.2（2026-10-08 晨）**：`remove` 的 sew 子集先行判过 —— `test_sewing__sh` 翻 ported
+> （新增 `shellFromFaces`，f5/e12/v8 逐位命中），`test_sewing__res3` 维持 block 但理由换成
+> `export:free-face-in-compound`（sewing 本身已逐位对，STEP 写出丢散面），见 `### 3.2.1`。
+> blocked **87 → 86**，ported 555 → 556。
+>
 > **T2-a 落地形态**：`src/workplane.ts` 新增 `exportBrep/importBrep`（文本）与 `exportBin/importBin`（二进制），
 > 经 `src/index.ts` 导出。DEVIATION：上游这四个方法收/写 file-like 对象，而 .fai.js 镜像面无文件 IO，
 > 故改为内存字节/字符串载体（内核侧同为 OCCT `BRepTools` 读写，语义一致）。单测 `src/brep-io.test.ts` 冻结。
@@ -138,8 +143,31 @@ D binary round-trip:     bytes=4494 vol=1.0 f=6
 |---|---|---|---|
 | `kernel:sweep-aux-spine-mode` | 3 | `sweepFull` CE 是否给出上游 20218.347 | ❌ 17759.157（−12.163%，与 sweepAdvanced 逐位相同）→ §2.2 / T4 |
 | `kernel:boolean-near-coincident-bspline` | 4 | 若 aux-spine 解则同源解；否则是否需 `law` 驱动 twist | ❌ 不同源；`law` 仅缩放律，twist 需旋转律 → T4-4 |
-| `remove`（sew 子集） | 2 | `test_sewing__sh/res3`：`sew`/`sewAndSolidify`/`buildSolidFromFaces` 通道已可用（faijs `solidFromFaces`） | 与上游 sewing 语义对拍 |
-| `op:offset2D-multi-region` | 1 | faijs `offset2d` 只接 `offsetWire2D`，**未提供 MakeOffset2D 多区域语义**（`mark-blocked.ts:337-343`） | 判为**仍 block**，除非内核另有多区域通道 |
+| `remove`（sew 子集） | 2 | `test_sewing__sh/res3`：`sew`/`sewAndSolidify`/`buildSolidFromFaces` 通道已可用（faijs `solidFromFaces`） | 🟡 **一翻一留**：`sh` ✅ 已翻（新增 `shellFromFaces`，f5/e12/v8 逐位命中）；`res3` ❌ 仍 block，理由已换为非 `remove`（见下 `### 3.2.1`） |
+| `op:offset2D-multi-region` | 1 | faijs `offset2d` 只接 `offsetWire2D`，**未提供 MakeOffset2D 多区域语义**（`mark-blocked.ts:337-343`） | ❌ 2026-10-08 复核：装在本仓的 occt-wasm 声明里 2D 侧**只有** `offsetWire2D(wire, offset, joinType?)`（`index.d.ts:568`），没有任何 MakeOffset2D / 多区域 / 自交裁剪通道 ⇒ **仍 block** |
+
+### 3.2.1 `remove`（sew 子集）实测结论（2026-10-07）
+
+新增 `shellFromFaces`（`src/workplane.ts`）实现上游自由函数 `shell(*faces)` 的 `BRepBuilderAPI_Sewing`
+重载，与既有的抽壳 `shell()` 分开命名（上游同名分双 policies，本仓不可共用）。
+
+**`test_sewing__sh` 已翻 ported**（`sh = box(1,1,1).remove(face ">Z")`）：ReShape 未绑并不重要 ——
+去掉一个面后剩下的 5 个面交给 `kernel.sew`，逐位复得上 ref 的 **f5/e12/v8**（体积差 0）。
+变异测试：把被移除的顶面加回去 ⇒ 立刻翻红（f6/e12/v8，vol +25%），证明成件真在数据路径上。
+
+**`test_sewing__res3` 维持 block，但理由换了**：不是 sewing，是 STEP 写出丢面。
+
+| 环节 | 实测 |
+|---|---|
+| `shellFromFaces(7 面)` 内存结果 | **f7/e16/v12** —— 与上游 res3 逐位一致（已冻结：`src/shell-from-faces.test.ts`） |
+| 同一结果导出 STEP | **6 面**（只有那个 6 面闭壳），第 7 面（x+1 位移的帽面）消失 |
+| `compound(shell, face)` / `compound(face, shell)` | 两种子序都只写 shell 部分；`compound(face, face)` 则两个面都写 ✅ |
+
+根因：上游 `shell()` 会把 sewing 剩下来的散面用 `TopoDS_Builder.MakeShell + Add` 包成自己的 shell
+（`occ_impl/shapes.py`：*for one closed face sewing will not produce a shell, so a special treatment is needed*），
+ref STEP 因此有两个 `SHELL_BASED_SURFACE_MODEL`（6+1）。**内核没有这条路**：`sew([face])` 原样返回 `face`
+（`getShapeType` = `face`），`buildSolidFromFaces([face])` / `sewAndSolidify([face])` 同样，
+`makeSolid(face)` 抛 `TopoDS::Shell`。故新理由记为 `export:free-face-in-compound`（faijs 导出侧，非本轮内核接入面）。
 
 ### 3.3 仍 block（真缺口，共 77 条，不受本次 API 接入影响）
 

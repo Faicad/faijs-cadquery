@@ -462,6 +462,22 @@ const BY_KEY: Record<string, string> = {
   //   label, same class as the B1-3a polyline/threePointArc/findSolid closures.
   //   Mirrors written; gen-manifest now reports them ported. Removed from BY_KEY
   //   so regeneration keeps them ported (do NOT re-add).
+  // RE-ASSESSED 2026-10-07 (occt-wasm 5.6 unblock, §3.2 `remove` sew subset).
+  //   `remove`'s OTHER half — `test_sewing__sh` — is now PORTED: kernel.sew
+  //   reproduces ReShape's face accounting exactly (f5/e12/v8, volume diff 0),
+  //   so removing a face needs no ReShape once the faces are known.
+  //   `test_sewing__res3` is NOT, and the reason is downstream of the sewing:
+  //   sew gives the full f7/e16/v12 upstream count IN MEMORY (frozen by
+  //   src/shell-from-faces.test.ts), but the floating cap (ftop.moved(x=1))
+  //   stays a bare TopoDS_Face child of the compound and this repo's STEP
+  //   writer emits only the shell part — 6 faces written, 7 present. Upstream
+  //   wraps those leftovers with TopoDS_Builder.MakeShell + Add
+  //   (occ_impl/shapes.py, "for one closed face sewing will not produce a
+  //   shell"); no bound kernel call does that — sew([face]) and
+  //   buildSolidFromFaces([face]) hand the FACE straight back and
+  //   makeSolid(face) throws `TopoDS::Shell`. So block on the STEP face
+  //   wrapper, not on `remove`/`sew`.
+  'tests.test_free_functions:::test_sewing__res3': 'export:free-face-in-compound',
   // Shape operator overloads (faces(">Z") | faces("<Z") etc.) — operator
   // syntax unreachable in the .fai.js restricted subset.
   'tests.test_shapes:::test_set_ops__simple_box': 'op:shape-operator-overload',
