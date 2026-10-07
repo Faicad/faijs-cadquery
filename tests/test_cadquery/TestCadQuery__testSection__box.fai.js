@@ -3,6 +3,6 @@
 // U16: cq-compat Workplane() ignores the origin kwarg — offset applied with
 // translate() on the empty workplane (moves wp.origin).
 import * as cq from '@faicad/faijs-cadquery'
-let p = await cq.translate(cq.Workplane('XY'), [1, 2, 3])
-let box = await cq.box(p, 1, 1, 1)
+let p = await cq.box(cq.Workplane('XY'), 1, 1, 1)
+let box = await cq.translate(p, [1, 2, 3])
 let result = cq.val(box)

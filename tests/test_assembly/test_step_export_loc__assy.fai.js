@@ -7,8 +7,8 @@
 // (the exported-STEP location assert is not STEP-observable; only the compound is compared)
 // ref anchor: vol=1.9999999999999991, com (0.5,10,0.5), bbox (-0.5,9.5,0)..(1.5,10.5,1)
 import * as cq from '@faicad/faijs-cadquery'
-let b0 = await cq.translate(cq.Workplane(), [0, 10, 0.5])
-let p1 = await cq.box(b0, 1, 1, 1)
-let b1 = await cq.translate(cq.Workplane(), [1, 10, 0.5])
-let p2 = await cq.box(b1, 1, 1, 1)
+let b0 = await cq.box(cq.Workplane(), 1, 1, 1)
+let p1 = await cq.translate(b0, [0, 10, 0.5])
+let b1 = await cq.box(cq.Workplane(), 1, 1, 1)
+let p2 = await cq.translate(b1, [1, 10, 0.5])
 let result = cq.compound(cq.val(p1), cq.val(p2))

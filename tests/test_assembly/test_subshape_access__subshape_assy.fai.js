@@ -4,6 +4,6 @@
 // ref anchor: vol=1196.349540849362
 import * as cq from '@faicad/faijs-cadquery'
 let p1 = await cq.box(cq.Workplane(), 10, 10, 10)
-let c1 = await cq.translate(cq.Workplane(), [0, 0, -10])
-let p2 = await cq.cylinder(c1, 10, 2.5)
+let c1 = await cq.cylinder(cq.Workplane(), 10, 2.5)
+let p2 = await cq.translate(c1, [0, 0, -10])
 let result = cq.compound(cq.val(p1), cq.val(p2))

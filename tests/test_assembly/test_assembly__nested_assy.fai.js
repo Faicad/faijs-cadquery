@@ -6,10 +6,10 @@
 // ref anchor: vol=3, com (0,4,0), topo f24/e48/v32/s4
 import * as cq from '@faicad/faijs-cadquery'
 let p1 = await cq.box(cq.Workplane(), 1, 1, 1)
-let b2 = await cq.translate(cq.Workplane(), [0, 4, 0])
-let p2 = await cq.box(b2, 1, 1, 1)
-let b3a = await cq.translate(cq.Workplane(), [-2, 8, 0])
-let p3 = await cq.box(b3a, 1, 1, 0.5)
-let b3b = await cq.translate(cq.Workplane(), [2, 8, 0])
-let p4 = await cq.box(b3b, 1, 1, 0.5)
+let b2 = await cq.box(cq.Workplane(), 1, 1, 1)
+let p2 = await cq.translate(b2, [0, 4, 0])
+let b3a = await cq.box(cq.Workplane(), 1, 1, 0.5)
+let p3 = await cq.translate(b3a, [-2, 8, 0])
+let b3b = await cq.box(cq.Workplane(), 1, 1, 0.5)
+let p4 = await cq.translate(b3b, [2, 8, 0])
 let result = cq.compound(cq.val(p1), cq.val(p2), cq.val(p3), cq.val(p4))

@@ -4,6 +4,6 @@
 // (the tag/end asserts are non-geometry; only the box is compared)
 // ref anchor: vol=2, bbox x[0.5,1.5] y±0.5 z[-1,1], topo f6/e12/v8/s1
 import * as cq from '@faicad/faijs-cadquery'
-let wp0 = await cq.translate(cq.Workplane(), [1, 0, 0])
-let b = await cq.box(wp0, 1, 1, 2)
+let wp0 = await cq.box(cq.Workplane(), 1, 1, 2)
+let b = await cq.translate(wp0, [1, 0, 0])
 let result = cq.val(b)
