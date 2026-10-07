@@ -433,12 +433,17 @@ const BY_KEY: Record<string, string> = {
   'tests.test_assembly:::test_assembly_subshape_import__imported_assy': 'op:assembly-subshape-import',
   'tests.test_assembly:::test_assembly_multi_subshape_import__multi_subshape_assy': 'op:assembly-subshape-import',
   'tests.test_assembly:::test_assembly_multi_subshape_import__imported_assy': 'op:assembly-subshape-import',
-  // Real export gaps that stay blocked (future work):
-  //   - native/BREP export (test_native_export), STL variants (test_save_stl_formats)
+  // CLOSED 2026-10-07 (occt-wasm 5.6 unblock, T2-b): test_native_export /
+  //   test_save_stl_formats assert on FILE OUTPUT (XCAF-XML exists, STL
+  //   binary-vs-ASCII), which is not STEP-observable — exactly the class
+  //   test_export / test_save_raises / test_step_export already cover by
+  //   mirroring the fixture compound. Both now follow that convention and are
+  //   ported bitwise (f24/e48/v32 and f14/e30/v20, volume diff 0).
+  //   NOTE: the export FORMAT work itself (BREP/STL writers, the XCAF-XML
+  //   serializer) is still a real value-plane gap — it is simply not what
+  //   gates these two cases. Do NOT re-add.
   // Visualizer exporters (VRML / glTF / VTK.js) moved to `skipped` in manifest.json
   // (roadmap §2.3) — explicitly unsupported, like Workplane.plugin.
-  'tests.test_assembly:::test_native_export__simple_assy': 'export',
-  'tests.test_assembly:::test_save_stl_formats__nested_assy_sphere': 'export',
   // testCompoundCenter: Workplane.cyl monkeypatch over eachpoint (cylinder
   // placed at each construction-rect vertex, then unioned) — eachpoint is a
   // known gap.

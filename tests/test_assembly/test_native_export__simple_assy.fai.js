@@ -1,0 +1,19 @@
+// source: test_assembly.py::test_native_export (var simple_assy)
+// fixture: b1 = Solid.makeBox(1,1,1) at loc (2,-5,0)  (corner box -> centre (2.5,-4.5,0.5))
+//          b2 = Workplane().box(1,1,2) at loc (1,1,0); root loc (2,-5,0) folds in -> (3,-4,0)
+//          b3 = pushPoints([(0,0),(-2,-5)]).box(1,1,3) at loc (2,3,0) -> (4,-2,0) and (2,-7,0)
+// Upstream asserts `exportCAF(simple_assy, "assy.xml")` produced a file. The
+// XCAF-XML write is not STEP-observable, so — same convention as
+// test_export__nested_assy / test_save_raises__nested_assy — the mirror
+// captures the fixture compound the harness exports.
+// ref anchor: vol=9, com (2.9444,-4.3889,0.05556), topo f24/e48/v32/s4
+import * as cq from '@faicad/faijs-cadquery'
+let b1 = await cq.box(cq.Workplane(), 1, 1, 1)
+let p1 = await cq.translate(b1, [2.5, -4.5, 0.5])
+let b2 = await cq.box(cq.Workplane(), 1, 1, 2)
+let p2 = await cq.translate(b2, [3, -4, 0])
+let b3a = await cq.box(cq.Workplane(), 1, 1, 3)
+let p3 = await cq.translate(b3a, [4, -2, 0])
+let b3b = await cq.box(cq.Workplane(), 1, 1, 3)
+let p4 = await cq.translate(b3b, [2, -7, 0])
+let result = cq.compound(cq.val(p1), cq.val(p2), cq.val(p3), cq.val(p4))

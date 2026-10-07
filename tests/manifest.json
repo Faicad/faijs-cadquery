@@ -1387,10 +1387,9 @@
     "blockedBy": "getfixturevalue"
   },
   "tests.test_assembly:::test_native_export__simple_assy": {
-    "status": "blocked",
+    "status": "ported",
     "source": "tests.test_assembly:::test_native_export",
-    "blockedBy": "export",
-    "manual": true
+    "blockedBy": null
   },
   "tests.test_assembly:::test_vtkjs_export__nested_assy": {
     "status": "skipped",
@@ -1434,15 +1433,14 @@
     "reason": "out-of-scope: VTK.js visualization exporter (roadmap §2.3). Explicitly unsupported — faijs UI preview uses lightweight ghost/overlay rendering, not exported geometry."
   },
   "tests.test_assembly:::test_export_errors__nested_assy": {
-    "status": "blocked",
+    "status": "ported",
     "source": "tests.test_assembly:::test_export_errors",
-    "blockedBy": "export"
+    "blockedBy": null
   },
   "tests.test_assembly:::test_save_stl_formats__nested_assy_sphere": {
-    "status": "blocked",
+    "status": "ported",
     "source": "tests.test_assembly:::test_save_stl_formats",
-    "blockedBy": "export",
-    "manual": true
+    "blockedBy": null
   },
   "tests.test_assembly:::test_save_gltf__nested_assy_sphere": {
     "status": "skipped",

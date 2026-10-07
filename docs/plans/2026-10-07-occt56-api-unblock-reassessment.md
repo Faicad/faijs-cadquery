@@ -19,8 +19,9 @@
 
 > **进度（2026-10-07 夜）**：T1（shell joinType + 正厚度）已落地，6 条翻 ported
 > （`test_hollow__res2`、`test_hollow_open__res2`、`testSimpleShell__s1/s2/s3`、`testLegoBrick__s`）；
-> T2-a（`importBin` 二进制 BREP 通道）已落地，2 条翻 ported；blocked 99 → **91**。
-> `testLegoBrick__tmp` 仍缺镜像（U6 余 1 条）。下一批：T2-b（assembly 导出 3 条）、T4（aux-spine 探针 7 条）。
+> T2-a（`importBin` 二进制 BREP 通道）已落地，2 条翻 ported；
+> T2-b（assembly 导出 3 条）已落地，3 条翻 ported；blocked 99 → **88**。
+> `testLegoBrick__tmp` 仍缺镜像（U6 余 1 条）。下一批：T4（aux-spine 探针 7 条）。
 >
 > **T2-a 落地形态**：`src/workplane.ts` 新增 `exportBrep/importBrep`（文本）与 `exportBin/importBin`（二进制），
 > 经 `src/index.ts` 导出。DEVIATION：上游这四个方法收/写 file-like 对象，而 .fai.js 镜像面无文件 IO，
@@ -110,7 +111,7 @@ D binary round-trip:     bytes=4494 vol=1.0 f=6
 |---|---|---|---|---|---|---|
 | U1 | `kernel:hollow-intersection-join` | 2 | `test_hollow__res2`、`test_hollow_open__res2` | 探针 A（0.584 逐位） | `shell()` 增加 `joinType` 形参；`hollow` 走 Intersection | ✅ 已翻 ported（f12/e24/v16、f11/e24/v16，vol 差 0） |
 | U2 | `importBin` | 2 | `test_bin_import_export__b/r` | 探针 D | 新增 `toBrepBinary`/`fromBrepBinary` 通道 | ✅ 已翻 ported（`exportBin`/`importBin` + 文本 `exportBrep`/`importBrep`；往返 f6/e12/v8、vol 差 0；变异：导出几何改 2³ → r 翻红 vol +700%） |
-| U3 | `export` | 3 | `test_native_export__simple_assy`、`test_export_errors__nested_assy`、`test_save_stl_formats__nested_assy_sphere` | 探针 D + faijs `exportBrep`/`exportStl` | assembly 导出补 BREP/STL 分支 | ⏳ T2 |
+| U3 | `export` | 3 | `test_native_export__simple_assy`、`test_export_errors__nested_assy`、`test_save_stl_formats__nested_assy_sphere` | 探针 D + faijs `exportBrep`/`exportStl` | assembly 导出补 BREP/STL 分支 | ✅ 已翻 ported（沿用 `test_export`/`test_save_raises` 既有约定：file-exists 断言非 STEP 可观测，镜像只捕获 fixture compound；f24/e48/v32×2、f14/e30/v20，vol 差 0）。**导出格式本身（BREP/STL writer、XCAF-XML）仍是真实值面缺口**，只是不 gate 这三条 |
 | U4 | `kernel:shell-intersection-join` | 1 | `testSimpleShell__s2` | 探针 A | 同上 U1，s2 显式 Intersection | ✅ 已翻 ported（f5/e6/v4） |
 | U5 | `kernel:shell-outward-opening` | 2 | `testSimpleShell__s1/s3` | 探针 C | 去掉 throw，改直调正厚度 shell，再对拍 | ✅ 已翻 ported（s1 f23/e48/v28、s3 f6/e8/v5） |
 | U6 | `op:shell`（lego brick） | 2 | `testLegoBrick__s`、`testLegoBrick__tmp` | 探针 A/C + 上游默认 arc | 先按默认 arc 复跑，失败再试 Intersection | 🟡 `s` 已翻（f43/e72/v48）；`tmp` 缺镜像 |

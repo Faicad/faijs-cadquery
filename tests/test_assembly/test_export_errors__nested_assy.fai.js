@@ -1,0 +1,18 @@
+// source: test_assembly.py::test_export_errors (var nested_assy)
+// fixture nested_assy: b1 box(1,1,1) @ root loc (0,0,0) name TOP;
+//   b2 box(1,1,1) @ (0,4,0) name SECOND; b3 pushPoints([(-2,0),(2,0)]).box(1,1,0.5)
+//   @ loc (0,4,0) under SECOND -> centres (-2,8,0) and (2,8,0)
+// Upstream asserts ValueError for a bad extension / mode — a pure argument
+// validation error that never reaches the exporter, so no geometry is produced
+// by the branch. Same convention as test_save_raises__nested_assy: only the
+// fixture compound is captured.
+// ref anchor: vol=3.000000000000001
+import * as cq from '@faicad/faijs-cadquery'
+let p1 = await cq.box(cq.Workplane(), 1, 1, 1)
+let b2 = await cq.box(cq.Workplane(), 1, 1, 1)
+let p2 = await cq.translate(b2, [0, 4, 0])
+let b3a = await cq.box(cq.Workplane(), 1, 1, 0.5)
+let p3 = await cq.translate(b3a, [-2, 8, 0])
+let b3b = await cq.box(cq.Workplane(), 1, 1, 0.5)
+let p4 = await cq.translate(b3b, [2, 8, 0])
+let result = cq.compound(cq.val(p1), cq.val(p2), cq.val(p3), cq.val(p4))
