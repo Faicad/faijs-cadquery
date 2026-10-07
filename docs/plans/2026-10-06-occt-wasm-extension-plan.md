@@ -130,6 +130,41 @@ fillet3 chained=THREW: fillet: There are no suitable edges for chamfer or fillet
 
 > 顺带冻结的一个上游陷阱：`testEnclosure` 里 `topOfLid.rotateAboutCenter((1,0,0), 180)` **没有赋值**，CadQuery 返回新对象 ⇒ 旋转被丢弃（`topOfLid` 与 `cutlip` 的 bbox 逐位相同）。镜像必须同样丢弃。
 
+#### 连带影响：translate 语义修复迫使 24 条镜像迁移（2026-10-07，`05b0f94`）
+
+上表 b 的修复**有代价**：全量扫描一下把 **24 条既有绿色用例打红**（PASS 474→479 的同时 FAIL 22→42）。逐条 A/B（旧代码重导进 `out/cand-old`，再用 `out/ab-check.mjs` 单例判级）确认：旧代码下这 24 条是 **21 PASS + 3 PASS-NT**，是真回归，不是统计口径。
+
+根因是**镜像写法**：它们用 `cq.translate(cq.Workplane(), [loc])`（平移**空**工作平面）模拟上游的 `Workplane(origin=(...))` / `.moved(loc)`，恰好依赖了库的旧偏差。而上游 fixture 走的是 `cq.Assembly(...)` + `cq.Location(...)`（`test_assembly.py:48-96`），`origin=` 是**构造参数** ⇒ 正确等价写法是**先建体、再平移实体**（仓内更新的 `tests/test_free_functions/test_solid__*.fai.js` 本来就是这么写的，属反证）。
+
+| 类 | 条 | 改法 |
+|---|---|---|
+| `box` / `cylinder` 即时产出实体 | 21 | 建体 → `translate(实体, loc)` |
+| `moveTo` / `rect` 只产出 pending wire | 3 | 在原点建完 → 平移**成品**（待定 wire 无 shape 可平移） |
+| `section` 依赖**平面**位置 | 2 | `section` 切的是 `wp.origin + normal*height`，平面动不了 ⇒ 传**绝对高度**（3 / 3.5）而非平面相对值（0 / 0.5） |
+
+重新判级：24 条迁移项 + 9 条 testEnclosure 共 **30 PASS + 3 PASS-NT、0 FAIL、0 ERROR**。
+
+**全量扫描最终裁决**（`run-cand` 541 导出 / 7 失败 + `compare`）：
+
+| 口径 | P0-4 基线 | 现在 | Δ |
+|---|---|---|---|
+| PASS | 474 | **500** | +26 |
+| PASS-NT | 19 | **20** | +1 |
+| FAIL | 22 | **18** | −4 |
+| ERROR | 1 | 1 | = |
+| BLOCKED（ref 侧无 cand） | 135 | **112** | −23 |
+| parity | 75.85% | **80.00%** | +4.15 pt |
+
+判定：**零回归**（既有 PASS 无一翻红）。FAIL 集合逐条 diff：17 条仍是基线旧红；`baseline red now green` **6 条**（`testTwoWorkplanes__r/t`、`testMultiWireWorkplane__r`、`testCutToFaceOffsetNOTIMPLEMENTEDYET__r`、`testNestedCircle__s`、`testWorkplaneOnExistingSolid__c` —— 前 4 条正是 §2.5 里 `op:pendingWires` 那一根因的 `faceWithHoles` 侧收益）；`NEW RED` 仅 `testText__obj1/obj3`（上面已证与本轮无关）。7 条导出失败同样与基线逐条对应（`cqa.constraint` ×2、`cut` ×1、`fillet` ×1、`draftPrism` ×3）。
+
+**这个坑真正暴露的缺口是 U16**：本仓 `Workplane()` **不接受 `origin` 参数**（上游 `Workplane(inPlane="XY", origin=(0,0,0), obj=None)` 接受，落到 `self.plane = Plane.named(inPlane, origin)`），所以镜像只能靠 `translate` 绕；translate 修好之后绕不动了，`section` 那两条只能改成算术等价。**根治应给 `Workplane()` 加 `origin` 形参**——本方案未做（属独立项，且会改公开 API 面）。
+
+另外三个连带发现：
+
+- `testText__obj1/obj3` 现在红，但**与本轮无关**：用提交前的 `src/workplane.ts`（`git show 25aa3fc:src/workplane.ts`）重导后 FAIL 且数值**逐位相同**（volΔ 8.1e+0 / 1.3e+1）。它们此前是 BLOCKED——2026-10-06 的字体注入（`FAIJS_DEFAULT_FONT`）让导出成功，把「导出失败」变成了「导出成功但 parity 不过」。属既有 text parity 旧账。
+- `tests/` **顶层有 10 个 tracked 的死镜像**（`test_solid__{b,b1,b_large,b_small,s1,s2,sphere1,sphere2}`、`test_bin_import_export__{b,r}`）：`run-cand.ts:56-64`、`gen-manifest.ts:29-40`、`compare.ts` 与 `parity-smoke.test.ts` 都只扫**子目录**，所以这 10 个文件既不参与 parity 也不进 manifest。8 个 `test_solid__*` 与 `tests/test_free_functions/` 下的同名文件内容**不同**（是更早的旧写法），2 个 `test_bin_import_export__*` 没有对应子目录版。属数据卫生项，**未擅自删除**。
+- 两个一次性工具写在 `out/`（gitignored，不污染仓库）：`diff-baseline.mjs`（零回归判定）、`ab-check.mjs`（任意候选目录的单例判级）。**`compare.ts` 无论是否带 `--only` 都会覆写 `out/report.json` 与 `out/report.md`**——本轮已踩中（P0-4 聚合基线因此丢失，靠 post-occt56 计划里留档的 FAIL 清单恢复），下次跑 `--only` 前务必备份。
+
 ### 2.5 D 桶 · 与 occt-wasm 无关（38 条）
 
 | 标签 | 条 | 归属 | 为什么与内核无关 |
@@ -160,7 +195,7 @@ fillet3 chained=THREW: fillet: There are no suitable edges for chamfer or fillet
 ```
 
 > **两个分母别混**：`out/report.json` 的 135 BLOCKED 是「没有对应 cand 镜像的 ref 用例」（ref 侧口径）；`tests/manifest.json` 的 108 blocked 是「测试变量粒度」（镜像侧口径）。**本文 §2 全用 manifest 口径，P0-6 的对拍用 report 口径**，两者不可直接相减。
-> （顺带记录一处待核对：`report.json` 的 `474+19+22+1+135 = 651 ≠ 650`，怀疑有一个 ERROR 用例被重复计数；不影响本文结论，但下次重算 baseline 时应查证。）
+> （**2026-10-07 查证完毕**：`474+19+22+1+135 = 651 ≠ 650` 不是重复计数错误，而是 `compare.ts:153` 把 `compared` 定义为 `pass + passNt + fail`——**不含 ERROR**，而 `blocked = refCases - compared`（`:154`）⇒ 那个 ERROR 用例既算「已比对」又落进 BLOCKED。本轮重算同为 651（`500+20+18+1+112`），可直接用 `pass+passNt+fail+blocked` 得 650 验证。）
 
 **对齐到 parity 的意义**：当前 650 条 ref 上 PASS 474 + PASS-NT 19 = **75.85%**。A 桶 48 条全解 ⇒ 理论上限 **541/650 ≈ 83.2%**；含 B 桶则 **553/650 ≈ 85.1%**。
 注意这是**上限**：按本仓判定纪律，任何一条翻 ported 都必须「镜像存在 + parity 逐位通过 + 变异测试」，允许最终低于该数，但**不许高于**。
