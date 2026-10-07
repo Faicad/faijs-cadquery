@@ -21,10 +21,13 @@ const BY_KEY: Record<string, string> = {
   // CLOSED 2026-10-07 (occt-wasm 5.6 unblock, T1): `shell` honours the kernel's
   //   5th `joinType` arg and no longer throws on positive thickness + removed
   //   faces, so testLegoBrick__s is ported (f43/e72/v48 bitwise).
-  //   `__tmp` stays blocked: it is the SAME brick built through a sketch-based
-  //   path whose mirror has not been written yet (a pending:mirror, not a
-  //   kernel gap) — kept on `op:shell` only until that mirror exists.
-  'tests.test_cadquery::TestCadQuery::testLegoBrick__tmp': 'op:shell',
+  // CLOSED 2026-10-07 (T1 follow-up): `__tmp` was never a kernel gap — it is
+  //   the brick plus the 7 hollow posts, i.e. `faces("<Z").workplane(invert=
+  //   true).rarray(...,7,1).circle(3.25).circle(2.4).extrude(8.1)`. All of
+  //   that was already implemented; only the mirror was missing. Ported
+  //   bitwise (f71/e114/v76, volume diff 0); mutation (dropping the inner
+  //   circle) turns it red at +21.6% volume. `op:shell` is now empty — do NOT
+  //   re-add any lego brick entry.
   // construction rect + circles: upstream cuts inner wires as holes (10 faces);
   // cq-compat fuses every pending profile (single pendingRect/pendingCircle slot)
   'tests.test_cadquery::TestCadQuery::testConstructionWire__r': 'op:pendingWires',

@@ -2596,10 +2596,9 @@
     "blockedBy": null
   },
   "tests.test_cadquery::TestCadQuery::testLegoBrick__tmp": {
-    "status": "blocked",
+    "status": "ported",
     "source": "tests.test_cadquery::TestCadQuery::testLegoBrick",
-    "blockedBy": "op:shell",
-    "manual": true
+    "blockedBy": null
   },
   "tests.test_cadquery::TestCadQuery::testLocatedMoved__box": {
     "status": "ported",

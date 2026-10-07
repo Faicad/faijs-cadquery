@@ -22,8 +22,8 @@
 > T2-a（`importBin` 二进制 BREP 通道）已落地，2 条翻 ported；
 > T2-b（assembly 导出 3 条）已落地，3 条翻 ported；blocked 99 → **88**。
 > T4（aux-spine 探针）已判为**负结论**：`sweepFull` 与 `sweepAdvanced` 逐位相同，CE=true 仍差 −12.163%，
-> 7 条维持 blocked（已冻结为测试）。`testLegoBrick__tmp` 仍缺镜像（U6 余 1 条）。
-> 本轮可解项（U1–U6）至此全部处置完毕：blocked **99 → 88**。
+> 7 条维持 blocked（已冻结为测试）。`testLegoBrick__tmp` 也已补齐镜像（`op:shell` 标签清空）。
+> 本轮可解项（U1–U6）至此全部处置完毕：blocked **99 → 87**。
 >
 > **T2-a 落地形态**：`src/workplane.ts` 新增 `exportBrep/importBrep`（文本）与 `exportBin/importBin`（二进制），
 > 经 `src/index.ts` 导出。DEVIATION：上游这四个方法收/写 file-like 对象，而 .fai.js 镜像面无文件 IO，
@@ -128,7 +128,7 @@ D binary round-trip:     bytes=4494 vol=1.0 f=6
 | U3 | `export` | 3 | `test_native_export__simple_assy`、`test_export_errors__nested_assy`、`test_save_stl_formats__nested_assy_sphere` | 探针 D + faijs `exportBrep`/`exportStl` | assembly 导出补 BREP/STL 分支 | ✅ 已翻 ported（沿用 `test_export`/`test_save_raises` 既有约定：file-exists 断言非 STEP 可观测，镜像只捕获 fixture compound；f24/e48/v32×2、f14/e30/v20，vol 差 0）。**导出格式本身（BREP/STL writer、XCAF-XML）仍是真实值面缺口**，只是不 gate 这三条 |
 | U4 | `kernel:shell-intersection-join` | 1 | `testSimpleShell__s2` | 探针 A | 同上 U1，s2 显式 Intersection | ✅ 已翻 ported（f5/e6/v4） |
 | U5 | `kernel:shell-outward-opening` | 2 | `testSimpleShell__s1/s3` | 探针 C | 去掉 throw，改直调正厚度 shell，再对拍 | ✅ 已翻 ported（s1 f23/e48/v28、s3 f6/e8/v5） |
-| U6 | `op:shell`（lego brick） | 2 | `testLegoBrick__s`、`testLegoBrick__tmp` | 探针 A/C + 上游默认 arc | 先按默认 arc 复跑，失败再试 Intersection | 🟡 `s` 已翻（f43/e72/v48）；`tmp` 缺镜像 |
+| U6 | `op:shell`（lego brick） | 2 | `testLegoBrick__s`、`testLegoBrick__tmp` | 探针 A/C + 上游默认 arc | 先按默认 arc 复跑，失败再试 Intersection | ✅ 两条全翻（`s` f43/e72/v48；`tmp` f71/e114/v76，vol 差 0；变异：去掉 posts 内圈 → +21.6% 翻红） |
 
 > **U1 是本轮唯一「逐位命中」的项**，风险最低，建议第一个翻。U5/U6 通道确证但**上游真值未知**，必须先跑一次 Python 捕获（`C:\Users\ylt\cadquery-env`）冻结面数/体积，再翻。
 
@@ -203,6 +203,15 @@ D binary round-trip:     bytes=4494 vol=1.0 f=6
 ## 5. 硬门禁与风险
 
 1. **零回归**：与当前基线取 PASS/FAIL 集合 diff（不是 parity 数字），既有 PASS 不许翻红。
+   - **本轮实际取证范围（如实记录，未完成项）**：`shell`/`hollow` 的改动面按「调用者」收敛到 16 条镜像
+     （`testClosedShell`×5、`testLegoBrick`、`testOccBottle`、`testOpenCornerShell`、`testSimpleShell`×3、
+     `test_hollow*`×4、`test_hollow_open*`×2）全部重跑并逐位 PASS；**555 条全量重扫未跑**，
+     `out/report-final.json`（11:26，500/20/18/1/112）仍是 shell 改动**之前**的基线。
+     未做全量重扫的代价是：无法用 PASS/FAIL 集合 diff 证明「无间接回归」，只能证明受影响面无回归。
+     下次跑全量时须 §5.1 的 diff 判据复核。
+   - 已知非回归项：`TestCadQuery__testClosedShell__s3` 的 cut 失败经
+     `scripts/_analysis/probe-shell-s3-regression.mjs` 证明在**旧调用形态**（不传第 5 参）下同样发生
+     （内核返回空 inner），属既有缺口，与本次 joinType 改动无关。
 2. **翻 ported 三条件**：镜像存在 + parity 逐位 + 变异测试变红（沿用扩展方案 §6.2）。
 3. **一次性 Python 捕获优先**：U5/U6 与 T4 必须先捕获真值再下结论；捕获推翻纸面结论即回写本文件（`probe-occt56-unblock.mjs` 只作通道取证，不作真值）。
 4. **数据同步**：改判任意一条 ⇒ 同时更新 `tests/manifest.json`（走 `tests/mark-blocked.ts`）+ `tests/coverage.json` + 本文件 + 扩展方案 §2.2。
