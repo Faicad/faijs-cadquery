@@ -1,0 +1,22 @@
+﻿rustc => NOT FOUND
+cargo => NOT FOUND
+rustup => NOT FOUND
+emcc => NOT FOUND
+em++ => NOT FOUND
+docker => NOT FOUND
+ninja => NOT FOUND
+cmake => NOT FOUND
+wasm-opt => NOT FOUND
+emsdk => NOT FOUND
+python => C:\Users\ylt\cadquery-env\Scripts\python.exe
+MISSING: C:\Users\ylt\.cargo\bin\cargo.exe
+MISSING: C:\Users\ylt\.rustup\rustup.exe
+MISSING: C:\Users\ylt\emsdk\emsdk_env.bat
+MISSING: C:\Users\ylt\emsdk\upstream\emscripten\emcc.bat
+MISSING: C:\emsdk\emsdk_env.bat
+MISSING: D:\emsdk\emsdk_env.bat
+MISSING: C:\Program Files\Docker\Docker\resources\bin\docker.exe
+MISSING: C:\Program Files\CMake\bin\cmake.exe
+--- choco/scoop ---
+MISSING: C:\Users\ylt\scoop\shims
+EXISTS: C:\ProgramData\chocolatey\bin

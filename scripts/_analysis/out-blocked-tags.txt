@@ -1,0 +1,49 @@
+TOTAL=697
+STATUS_ported=534
+STATUS_blocked=108
+STATUS_skipped=55
+OTHER_STATUS=0
+BLOCKEDCOUNT=108
+DISTINCT_KEYS=41
+--- tag | count | sample names ---
+14	op:assembly-solve	tests.test_assembly:::test_constrain__simple_assy, tests.test_assembly:::test_constrain__nested_assy, tests.test_assembly:::test_constrain__subassy1, tests.test_assembly:::test_constrain__subassy2
+9	kernel:fillet-chain-reapply	tests.test_cadquery::TestCadQuery::testEnclosure__oshell, tests.test_cadquery::TestCadQuery::testEnclosure__ishell, tests.test_cadquery::TestCadQuery::testEnclosure__box, tests.test_cadquery::TestCadQuery::testEnclosure__lid
+5	kernel:sweep-multisection-pipe	tests.test_free_functions:::test_sweep__r5, tests.test_free_functions:::test_sweep__r7, tests.test_cadquery::TestCadQuery::testMultisectionSweep__specialSweep, tests.test_cadquery::TestCadQuery::testMultisectionSweep__arcSweep
+5	interpPlate	tests.test_cadquery::TestCadQuery::test_interpPlate__plate_1, tests.test_cadquery::TestCadQuery::test_interpPlate__plate_2, tests.test_cadquery::TestCadQuery::test_interpPlate__plate_3, tests.test_cadquery::TestCadQuery::test_interpPlate__plate_4
+5	getfixturevalue	tests.test_assembly:::test_assembly_step_import_roundtrip__assy_orig, tests.test_assembly:::test_assembly_step_import_roundtrip__assy, tests.test_assembly:::test_step_export_loc__o, tests.test_assembly:::test_colors_assy0__assy_i
+4	kernel:boolean-near-coincident-bspline	tests.test_cadquery::TestCadQuery::testMultisectionSweep__circletorectSweep, tests.test_cadquery::TestCadQuery::testTwistExtrude__r, tests.test_cadquery::TestCadQuery::testTwistExtrudeCombine__r, tests.test_cadquery::TestCadQuery::testTwistExtrudeCombineCut__cut
+4	op:assembly-subshape-import	tests.test_assembly:::test_assembly_subshape_import__subshape_assy, tests.test_assembly:::test_assembly_subshape_import__imported_assy, tests.test_assembly:::test_assembly_multi_subshape_import__multi_subshape_assy, tests.test_assembly:::test_assembly_multi_subshape_import__imported_assy
+4	op:extrude-until-face	tests.test_cadquery::TestCadQuery::testExtrudeUntilFace__wp_ref, tests.test_cadquery::TestCadQuery::testExtrudeUntilFace__wp_ref_extrude, tests.test_cadquery::TestCadQuery::testExtrudeUntilFace__part, tests.test_cadquery::TestCadQuery::testExtrudeUntilFace__part_section
+4	op:prism-from-face	tests.test_free_functions:::test_prism__res5, tests.test_free_functions:::test_prism__res6, tests.test_free_functions:::test_prism_taper__res3, tests.test_free_functions:::test_prism_taper__res5
+3	op:history-subshape	tests.test_free_functions:::test_history_extrude__sides, tests.test_free_functions:::test_history_sweep__side, tests.test_free_functions:::test_history_loft__side
+3	remove	tests.test_shapes:::test_remove__br, tests.test_free_functions:::test_sewing__sh, tests.test_free_functions:::test_sewing__res3
+3	export	tests.test_assembly:::test_native_export__simple_assy, tests.test_assembly:::test_export_errors__nested_assy, tests.test_assembly:::test_save_stl_formats__nested_assy_sphere
+3	kernel:sweep-aux-spine-mode	tests.test_free_functions:::test_sweep_aux__r1, tests.test_free_functions:::test_sweep_aux__r2, tests.test_cadquery::TestCadQuery::testSweep__result
+3	op:cutBlind.until-face	tests.test_cadquery::TestCadQuery::testCutBlindUntilFace__wp, tests.test_cadquery::TestCadQuery::testCutBlindUntilFace__wp_last, tests.test_cadquery::TestCadQuery::testCutBlindUntilFace__wp_next
+3	narrow:sphere-angles	tests.test_cadquery::TestCadQuery::testSphereCustom__s, tests.test_cadquery::TestCadQuery::testSphereCustom__s0, tests.test_cadquery::TestCadQuery::testSphereCustom__s1
+2	kernel:hollow-intersection-join	tests.test_free_functions:::test_hollow__res2, tests.test_free_functions:::test_hollow_open__res2
+2	history:images	tests.test_free_functions:::test_imprint__b1_imp, tests.test_free_functions:::test_imprint__b3_imp
+2	comparator:open-shell-volume	tests.test_free_functions:::test_text__r7, tests.test_free_functions:::test_text__r8
+2	project	tests.test_cadquery::TestCadQuery::test_project__res_ex, tests.test_cadquery::TestCadQuery::test_project__res_o_ex
+2	plane	tests.test_free_functions:::test_history_loft__res, tests.test_assembly:::test_name_geometries__assy
+2	op:project	tests.test_free_functions:::test_text__r9, tests.test_free_functions:::test_project__res
+2	parametricCurve	tests.test_cadquery::TestCadQuery::testParametricCurve__res_open, tests.test_cadquery::TestCadQuery::testParametricCurve__res_closed
+2	op:shell	tests.test_cadquery::TestCadQuery::testLegoBrick__s, tests.test_cadquery::TestCadQuery::testLegoBrick__tmp
+2	importBin	tests.test_shapes:::test_bin_import_export__b, tests.test_shapes:::test_bin_import_export__r
+2	kernel:shell-outward-opening	tests.test_cadquery::TestCadQuery::testSimpleShell__s1, tests.test_cadquery::TestCadQuery::testSimpleShell__s3
+1	ref:degenerate-compound-vertex	tests.test_cadquery::TestCadQuery::test_loft_to_vertex__c
+1	op:extrude-taper-sketch	tests.test_free_functions:::test_prism_taper__res2
+1	comparator:vertex-degenerate-compound	tests.test_assembly:::test_PointInPlane_param__box_and_vertex
+1	op:pendingWires	tests.test_cadquery::TestCadQuery::testConstructionWire__r
+1	kernel:ellipse-tall-axis	tests.test_selectors::TestCQSelectors::testEdgeTypesFilter__c
+1	op:shape-operator-overload	tests.test_shapes:::test_set_ops__simple_box
+1	op:faceOn	tests.test_free_functions:::test_faceOn__f2
+1	kernel:loft-coplanar-sections	tests.test_free_functions:::test_loft__r4
+1	kernel:crash-polygon-cutThruAll	tests.test_cadquery::TestCadQuery::testPolygonPlugin__s
+1	eachpoint	tests.test_cad_objects::TestCadObjects::testCompoundCenter__s
+1	op:parametricSurface	tests.test_cadquery::TestCadQuery::testParametricSurface__r2
+1	op:offset2D-multi-region	tests.test_cadquery::TestCadQuery::testOffset2D__s
+1	cast	tests.test_cadquery::TestCadQuery::testCompSolid__tool
+1	kernel:shell-intersection-join	tests.test_cadquery::TestCadQuery::testSimpleShell__s2
+1	op:sweep-sketch-sections	tests.test_cadquery::TestCadQuery::testSketch__r6
+1	op:prism-tilt	tests.test_free_functions:::test_prism__res3
