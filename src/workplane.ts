@@ -5877,11 +5877,19 @@ function edgeDihedralRad(
  * @param thickness - number (negative: inward hollow)
  * @returns Promise<Workplane>
  */
-export async function shell(wp: Workplane, thickness: number): Promise<Workplane> {
+export async function shell(
+  wp: Workplane,
+  thickness: number,
+  kind: 'arc' | 'intersection' = 'arc',
+): Promise<Workplane> {
   if (!baseSolid(wp)) return wp
   const handle = brepOf(baseSolid(wp)!)
   if (handle === undefined) return wp
   const kernel = getKernel() as unknown as OcctKernel
+  // occt-wasm 5.6 `shell`/`offset` 第 5/4 参 joinType（index.d.ts:172/188）。
+  // 上游 hollow() 默认 intersection、Workplane.shell() 默认 arc；此处由调用方
+  // 经 kind 显式给出，默认沿用 Workplane.shell 的 'arc'。
+  const joinType = kind === 'intersection' ? 2 : 0
   const facesToRemove: ShapeHandle[] = []
   if (wp.faceSel) {
     facesToRemove.push(
@@ -5892,36 +5900,47 @@ export async function shell(wp: Workplane, thickness: number): Promise<Workplane
   let shape: Shape
   if (thickness < 0) {
     if (facesToRemove.length > 0) {
-      // Walls inward with openings: the kernel call IS MakeThickSolidByJoin
-      // semantics (remove faces, offset remaining inward by |thickness|).
-      shape = fromHandle(kernel.shell(h, facesToRemove, -thickness, 1e-3))
+      // Walls inward with openings: kernel shell = MakeThickSolidByJoin semantics.
+      // 内核符号与上游相反 ⇒ 传 -thickness；joinType 决定移除面开口棱边圆角/尖锐。
+      shape = fromHandle(kernel.shell(h, facesToRemove, -thickness, 1e-3, joinType))
     } else {
       // Closed hollow (upstream Shape.hollow): kernel.shell with NO removed
-      // faces degenerates to the inward-offset solid (measured: box(2,2,2)
-      // +0.1 -> 1.8^3 = 5.832), so the wall solid is original minus offset.
-      const inner = fromHandle(kernel.shell(h, [], -thickness, 1e-3))
+      // faces degenerates to the inward-offset solid, so the wall solid is
+      // original minus offset.
+      const inner = fromHandle(kernel.shell(h, [], -thickness, 1e-3, joinType))
       shape = await cutShapes(baseSolid(wp)!, inner)
     }
   } else {
     if (facesToRemove.length > 0) {
-      // Walls outward with openings. Upstream routes this through
-      // MakeThickSolidByJoin (offset + remove + join), which the kernel does
-      // not expose: `offset` alone leaves the removed face closed. Cutting the
-      // swept slab off each removed face (the earlier heuristic here) produced
-      // geometry that does not match any upstream reference, so fail loudly
-      // rather than emit an approximation — see testSimpleShell__s1/s3 in
-      // tests/mark-blocked.ts.
-      throw new Error(
-        '[cq-compat] shell: positive thickness (walls outward) with removed faces is not supported',
-      )
+      // Walls outward with openings (upstream testSimpleShell / lego brick).
+      // 内核 shell 负厚度 = 外偏；joinType=Intersection 给出与上游逐位相等的开口壁
+      // （unit box +0.1：0.584，见 scripts/_analysis/probe-occt56-unblock.mjs）。
+      shape = fromHandle(kernel.shell(h, facesToRemove, -thickness, 1e-3, joinType))
+    } else {
+      // Closed outward hollow: outer offset minus the original solid. kernel.offset
+      // takes the thickness with upstream sign (+ = outward) and honours joinType
+      // (unit box +0.1：intersection 1.728 → wall 0.728 = 上游真值).
+      const outer = fromHandle(kernel.offset(h, thickness, 1e-3, joinType))
+      shape = await cutShapes(outer, baseSolid(wp)!)
     }
-    // Walls outward: rounded outward offset (arc-joined corners) minus the
-    // original solid (verified vs 2.8.0: box(2,2,2).shell(0.1) -> 32 faces,
-    // vol 2.592684356757526, bbox +-1.1).
-    const outer = fromHandle(kernel.offset(h, thickness, 1e-3))
-    shape = await cutShapes(outer, baseSolid(wp)!)
   }
   return clone(wp, { objects: [shape], faceSel: null, edgeSel: null, vertexSel: null, selChain: undefined })
+}
+
+/**
+ * hollow — upstream free function `hollow(s, faces, t, kind='intersection')`
+ * (cadquery 2.8.0 `occ_impl/shapes.py:7590`).
+ *
+ * 与 `shell` 的唯一差别是默认 join kind：上游 free `hollow` 默认
+ * `Intersection=True, Join=GeomAbs_Intersection`，而 `Workplane.shell` 默认
+ * `kind='arc'`。移除面经 `wp.faceSel` 携带（镜像写法 `cq.hollow(cq.faces(box, '>Z'), t)`）。
+ */
+export async function hollow(
+  wp: Workplane,
+  thickness: number,
+  kind: 'arc' | 'intersection' = 'intersection',
+): Promise<Workplane> {
+  return shell(wp, thickness, kind)
 }
 
 /**

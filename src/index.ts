@@ -88,7 +88,7 @@ export {
   chamfer,
   draft,
   shell,
-  shell as hollow,
+  hollow,
   val,
   vals,
   all,
