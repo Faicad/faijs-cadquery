@@ -2303,58 +2303,49 @@
     "blockedBy": null
   },
   "tests.test_cadquery::TestCadQuery::testEnclosure__oshell": {
-    "status": "blocked",
+    "status": "ported",
     "source": "tests.test_cadquery::TestCadQuery::testEnclosure",
-    "blockedBy": "kernel:fillet-chain-reapply",
-    "manual": true
+    "blockedBy": null
   },
   "tests.test_cadquery::TestCadQuery::testEnclosure__ishell": {
-    "status": "blocked",
+    "status": "ported",
     "source": "tests.test_cadquery::TestCadQuery::testEnclosure",
-    "blockedBy": "kernel:fillet-chain-reapply",
-    "manual": true
+    "blockedBy": null
   },
   "tests.test_cadquery::TestCadQuery::testEnclosure__box": {
-    "status": "blocked",
+    "status": "ported",
     "source": "tests.test_cadquery::TestCadQuery::testEnclosure",
-    "blockedBy": "kernel:fillet-chain-reapply",
-    "manual": true
+    "blockedBy": null
   },
   "tests.test_cadquery::TestCadQuery::testEnclosure__lid": {
-    "status": "blocked",
+    "status": "ported",
     "source": "tests.test_cadquery::TestCadQuery::testEnclosure",
-    "blockedBy": "kernel:fillet-chain-reapply",
-    "manual": true
+    "blockedBy": null
   },
   "tests.test_cadquery::TestCadQuery::testEnclosure__bottom": {
-    "status": "blocked",
+    "status": "ported",
     "source": "tests.test_cadquery::TestCadQuery::testEnclosure",
-    "blockedBy": "kernel:fillet-chain-reapply",
-    "manual": true
+    "blockedBy": null
   },
   "tests.test_cadquery::TestCadQuery::testEnclosure__lowerLid": {
-    "status": "blocked",
+    "status": "ported",
     "source": "tests.test_cadquery::TestCadQuery::testEnclosure",
-    "blockedBy": "kernel:fillet-chain-reapply",
-    "manual": true
+    "blockedBy": null
   },
   "tests.test_cadquery::TestCadQuery::testEnclosure__cutlip": {
-    "status": "blocked",
+    "status": "ported",
     "source": "tests.test_cadquery::TestCadQuery::testEnclosure",
-    "blockedBy": "kernel:fillet-chain-reapply",
-    "manual": true
+    "blockedBy": null
   },
   "tests.test_cadquery::TestCadQuery::testEnclosure__topOfLid": {
-    "status": "blocked",
+    "status": "ported",
     "source": "tests.test_cadquery::TestCadQuery::testEnclosure",
-    "blockedBy": "kernel:fillet-chain-reapply",
-    "manual": true
+    "blockedBy": null
   },
   "tests.test_cadquery::TestCadQuery::testEnclosure__result": {
-    "status": "blocked",
+    "status": "ported",
     "source": "tests.test_cadquery::TestCadQuery::testEnclosure",
-    "blockedBy": "kernel:fillet-chain-reapply",
-    "manual": true
+    "blockedBy": null
   },
   "tests.test_cadquery::TestCadQuery::testExplicitClean__s": {
     "status": "ported",
