@@ -342,22 +342,24 @@ const BY_KEY: Record<string, string> = {
   // dangling endpoints; makeFace on the sub-wire succeeds with the wrong
   // area). Needs the kernel's full multi-region offset semantics.
   'tests.test_cadquery::TestCadQuery::testOffset2D__s': 'op:offset2D-multi-region',
-  // testEnclosure needs `split(keepTop=, keepBottom=)` plus `.all()` to index
-  // the two halves as separate objects (lid / bottom). The faijs-side gap is
-  // CLOSED (split gained keepTop/keepBottom + partAt, 2026-10-01) — the chain
-  // is now blocked by the KERNEL: fillet REJECTS re-filleting a fillet output
-  // ("fillet: operation failed" / "fillet: TopoDS::Solid" on a still-1-solid
-  // TopoDS), and testEnclosure fillets twice (|Z r10 then #Z r2). Kernel-side,
-  // tracked in docs/analysis/2026-09-29-occt-wasm-gap-plan.md §10.1.
-  'tests.test_cadquery::TestCadQuery::testEnclosure__oshell': 'kernel:fillet-chain-reapply',
-  'tests.test_cadquery::TestCadQuery::testEnclosure__ishell': 'kernel:fillet-chain-reapply',
-  'tests.test_cadquery::TestCadQuery::testEnclosure__box': 'kernel:fillet-chain-reapply',
-  'tests.test_cadquery::TestCadQuery::testEnclosure__lid': 'kernel:fillet-chain-reapply',
-  'tests.test_cadquery::TestCadQuery::testEnclosure__bottom': 'kernel:fillet-chain-reapply',
-  'tests.test_cadquery::TestCadQuery::testEnclosure__lowerLid': 'kernel:fillet-chain-reapply',
-  'tests.test_cadquery::TestCadQuery::testEnclosure__cutlip': 'kernel:fillet-chain-reapply',
-  'tests.test_cadquery::TestCadQuery::testEnclosure__topOfLid': 'kernel:fillet-chain-reapply',
-  'tests.test_cadquery::TestCadQuery::testEnclosure__result': 'kernel:fillet-chain-reapply',
+  // CLOSED 2026-10-07 (C 桶误判标签，见 docs/plans/2026-10-06-occt-wasm-extension-plan.md
+  //   §2.4): the `kernel:fillet-chain-reapply` label was WRONG on two counts.
+  //   (1) The kernel half was already fixed upstream (`#288`, shipped in occt-wasm
+  //       5.6.0) — chained fillet works; `probe-fillet-chain.mjs` proves it.
+  //   (2) The real blockers were two cq-compat bugs, both found and fixed while
+  //       writing the mirrors:
+  //       a) `faceWithHoles` DISCARDED the return value of `addHolesInFace`
+  //          (which returns the holed face instead of mutating in place), so
+  //          every nested profile extruded solid — `circle(5).circle(2)` gave
+  //          785.398 (f3) where upstream gives the tube 659.734 (f4), and
+  //          `rect(10,10).rect(4,4).extrude(10)` gave 1000 (f6) vs 840 (f10).
+  //       b) `Workplane.translate` moved `wp.origin`. Upstream keeps the plane
+  //          (`newObject()` preserves `self.plane`), so `workplane()`'s default
+  //          ProjectedOrigin re-anchored to the translated centre and
+  //          `topOfLid` drilled 4 counterbores INTO the part (vol -352) where
+  //          upstream drills into empty space (topOfLid == cutlip, vol identical).
+  //   All 9 mirrors now exist and parity-PASS bit-for-bit (vol Δ ~1e-13).
+  //   => removed from BY_KEY 2026-10-07 so gen-manifest won't re-pin them to blocked.
   // extrude("next"/"last") — untilNextFace/untilLastFace — plus the indexed
   // face selector `faces(">X[1]")`. Neither exists. NOTE: the ref geometry also
   // disagrees with a straight reading of the source (wp_ref measures s3 /

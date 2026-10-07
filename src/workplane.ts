@@ -651,8 +651,14 @@ function polygonShape(pts: [number, number, number][]): Shape {
   return fromHandle(f as never)
 }
 function faceWithHoles(outer: unknown, holes: unknown[]): Shape {
-  const f = toShape(kern().makeFace(outer as BrepHandle))
-  if (holes.length > 0) kern().addHolesInFace(brepOf(f) as BrepHandle, holes as BrepHandle[])
+  let f = toShape(kern().makeFace(outer as BrepHandle))
+  // `addHolesInFace` RETURNS the holed face — it does not mutate the input in
+  // place. Discarding the return value silently produced hole-less profiles:
+  // `rect(10,10).rect(4,4).extrude(10)` gave 1000 (f6) where CadQuery 2.8.0
+  // gives 840 (f10), and `circle(5).circle(2).extrude(10)` gave a solid r=5
+  // cylinder (785.398) instead of the tube (659.734). Same correct usage as
+  // sketch.ts:1158 and text-solid.ts:227.
+  if (holes.length > 0) f = toShape(kern().addHolesInFace(brepOf(f) as BrepHandle, holes as BrepHandle[]))
   return f
 }
 
@@ -4896,9 +4902,17 @@ export async function translate(
   wp: Workplane,
   v: [number, number, number],
 ): Promise<Workplane> {
-  if (!wp.shape) return clone(wp, { origin: vadd(wp.origin, v) })
+  // GOTCHA (verified vs cadquery 2.8.0): `Workplane.translate` moves the OBJECTS
+  // but NOT the workplane plane — upstream's `newObject()` keeps `self.plane`,
+  // so `Workplane("XY").box(10,10,10).translate((100,0,0)).plane.origin` is still
+  // (0,0,0). Moving the origin here silently re-anchors every later
+  // `workplane()` (whose default centerOption is "ProjectedOrigin"), which puts
+  // subsequent profiles at the translated centre instead of the projected one —
+  // `testEnclosure__topOfLid` drilled 4 counterbores into the part (vol -352)
+  // where upstream drills into empty space (vol unchanged, topOfLid == cutlip).
+  if (!wp.shape) return clone(wp, {})
   const shape = await cad.translate(resolveInputShape(wp), { offset: v })
-  return clone(wp, { objects: [shape], origin: vadd(wp.origin, v) })
+  return clone(wp, { objects: [shape] })
 }
 
 /**

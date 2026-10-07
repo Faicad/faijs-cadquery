@@ -1,0 +1,21 @@
+// source: test_cadquery.py::TestCadQuery::testEnclosure (var bottom)
+// (lid, bottom) = ...split(keepTop=True, keepBottom=True).all() -- .all()[1] is the bottom half.
+// Upstream truth: vol 118431.48123308594, com (0,0,16.207), bbox [[-50,-75,0],[50,75,47]], f43/e88/v56
+import * as cq from '@faicad/faijs-cadquery'
+let oshell = cq.Workplane('XY')
+oshell = cq.rect(oshell, 100.0, 150.0)
+oshell = await cq.extrude(oshell, 50.0 + 1.0)
+oshell = await cq.fillet(cq.edges(oshell, '|Z'), 10.0)
+oshell = await cq.fillet(cq.edges(oshell, '#Z'), 2.0)
+let wp = await cq.workplane(cq.faces(oshell, '<Z'), { offset: 3.0, invert: true })
+let ishell = await cq.extrude(cq.rect(wp, 100.0 - 2.0 * 3.0, 150.0 - 2.0 * 3.0), 50.0 - 2.0 * 3.0, false)
+ishell = await cq.fillet(cq.edges(ishell, '|Z'), 10.0 - 3.0)
+let box = await cq.cut(oshell, ishell)
+let wp2 = await cq.workplane(cq.faces(box, '>Z'), { offset: -3.0 })
+let pts = cq.vertices(cq.rect(wp2, 100.0 - 2.0 * 12.0, 150.0 - 2.0 * 12.0, { forConstruction: true }))
+pts = cq.circle(pts, 10.0 / 2.0)
+pts = cq.circle(pts, 4.0 / 2.0)
+box = await cq.extrude(pts, (-1.0) * (50.0 + 1.0 - 3.0), true)
+let wp3 = await cq.workplane(cq.faces(box, '>Z'), { offset: -3.0 - 1.0 })
+let sp = await cq.split(wp3)
+let result = cq.val(cq.item(sp, 1))
