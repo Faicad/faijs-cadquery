@@ -17,6 +17,10 @@
 
 **本轮定性与 M-1/M-2/M-3 同类**：扩展方案对 npm 5.6.0 的参数面过期，不是新算法缺口。
 
+> **进度（2026-10-07 夜）**：T1（shell joinType + 正厚度）已落地并合入，6 条翻 ported
+> （`test_hollow__res2`、`test_hollow_open__res2`、`testSimpleShell__s1/s2/s3`、`testLegoBrick__s`），
+> blocked 99 → **93**。`testLegoBrick__tmp` 仍缺镜像（U6 余 1 条）。下一批：T2（BREP 通道，5 条）。
+
 ---
 
 ## 1. 事实基线（全部实测）
@@ -97,14 +101,14 @@ D binary round-trip:     bytes=4494 vol=1.0 f=6
 
 ### 3.1 已不 block（本轮可翻 ported，共 12 条）
 
-| # | 标签 | 条 | 用例 | 依据 | 落地动作 |
-|---|---|---|---|---|---|
-| U1 | `kernel:hollow-intersection-join` | 2 | `test_hollow__res2`、`test_hollow_open__res2` | 探针 A（0.584 逐位） | `shell()` 增加 `joinType` 形参；`hollow` 走 Intersection |
-| U2 | `importBin` | 2 | `test_bin_import_export__b/r` | 探针 D | 新增 `toBrepBinary`/`fromBrepBinary` 通道 |
-| U3 | `export` | 3 | `test_native_export__simple_assy`、`test_export_errors__nested_assy`、`test_save_stl_formats__nested_assy_sphere` | 探针 D + faijs `exportBrep`/`exportStl` | assembly 导出补 BREP/STL 分支 |
-| U4 | `kernel:shell-intersection-join` | 1 | `testSimpleShell__s2` | 探针 A | 同上 U1，s2 显式 Intersection |
-| U5 | `kernel:shell-outward-opening` | 2 | `testSimpleShell__s1/s3` | 探针 C | 去掉 throw，改直调正厚度 shell，再对拍 |
-| U6 | `op:shell`（lego brick） | 2 | `testLegoBrick__s`、`testLegoBrick__tmp` | 探针 A/C + 上游默认 arc | 先按默认 arc 复跑，失败再试 Intersection |
+| # | 标签 | 条 | 用例 | 依据 | 落地动作 | 状态 |
+|---|---|---|---|---|---|---|
+| U1 | `kernel:hollow-intersection-join` | 2 | `test_hollow__res2`、`test_hollow_open__res2` | 探针 A（0.584 逐位） | `shell()` 增加 `joinType` 形参；`hollow` 走 Intersection | ✅ 已翻 ported（f12/e24/v16、f11/e24/v16，vol 差 0） |
+| U2 | `importBin` | 2 | `test_bin_import_export__b/r` | 探针 D | 新增 `toBrepBinary`/`fromBrepBinary` 通道 | ⏳ T2 |
+| U3 | `export` | 3 | `test_native_export__simple_assy`、`test_export_errors__nested_assy`、`test_save_stl_formats__nested_assy_sphere` | 探针 D + faijs `exportBrep`/`exportStl` | assembly 导出补 BREP/STL 分支 | ⏳ T2 |
+| U4 | `kernel:shell-intersection-join` | 1 | `testSimpleShell__s2` | 探针 A | 同上 U1，s2 显式 Intersection | ✅ 已翻 ported（f5/e6/v4） |
+| U5 | `kernel:shell-outward-opening` | 2 | `testSimpleShell__s1/s3` | 探针 C | 去掉 throw，改直调正厚度 shell，再对拍 | ✅ 已翻 ported（s1 f23/e48/v28、s3 f6/e8/v5） |
+| U6 | `op:shell`（lego brick） | 2 | `testLegoBrick__s`、`testLegoBrick__tmp` | 探针 A/C + 上游默认 arc | 先按默认 arc 复跑，失败再试 Intersection | 🟡 `s` 已翻（f43/e72/v48）；`tmp` 缺镜像 |
 
 > **U1 是本轮唯一「逐位命中」的项**，风险最低，建议第一个翻。U5/U6 通道确证但**上游真值未知**，必须先跑一次 Python 捕获（`C:\Users\ylt\cadquery-env`）冻结面数/体积，再翻。
 

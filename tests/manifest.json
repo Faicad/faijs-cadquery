@@ -542,10 +542,9 @@
     "blockedBy": null
   },
   "tests.test_free_functions:::test_hollow__res2": {
-    "status": "blocked",
+    "status": "ported",
     "source": "tests.test_free_functions:::test_hollow",
-    "blockedBy": "kernel:hollow-intersection-join",
-    "manual": true
+    "blockedBy": null
   },
   "tests.test_free_functions:::test_hollow_open__box_shape": {
     "status": "ported",
@@ -558,10 +557,9 @@
     "blockedBy": null
   },
   "tests.test_free_functions:::test_hollow_open__res2": {
-    "status": "blocked",
+    "status": "ported",
     "source": "tests.test_free_functions:::test_hollow_open",
-    "blockedBy": "kernel:hollow-intersection-join",
-    "manual": true
+    "blockedBy": null
   },
   "tests.test_free_functions:::test_prism__box_shape": {
     "status": "ported",
@@ -1283,28 +1281,24 @@
     "status": "blocked",
     "source": "tests.test_assembly:::test_assembly_subshape_import",
     "blockedBy": "op:assembly-subshape-import",
-    "reason": "subshape-name-color-unavailable-via-step (P5-1: occt-wasm 5.6 reader does not map representation-item names to subshape TDataStd_Name; CadQuery 2.8.0 Assembly.importStep also returns empty _subshape_names for the same STEP) + layer-metadata-unavailable (X-3: XCAFDoc_LayerTool has no occt-wasm 5.6 binding, layer metadata is structurally unreadable); see plan §3.1 P5-1 / §3.5 X-3 / P5-3",
     "manual": true
   },
   "tests.test_assembly:::test_assembly_subshape_import__imported_assy": {
     "status": "blocked",
     "source": "tests.test_assembly:::test_assembly_subshape_import",
     "blockedBy": "op:assembly-subshape-import",
-    "reason": "subshape-name-color-unavailable-via-step (P5-1: occt-wasm 5.6 reader does not map representation-item names to subshape TDataStd_Name; CadQuery 2.8.0 Assembly.importStep also returns empty _subshape_names for the same STEP) + layer-metadata-unavailable (X-3: XCAFDoc_LayerTool has no occt-wasm 5.6 binding, layer metadata is structurally unreadable); see plan §3.1 P5-1 / §3.5 X-3 / P5-3",
     "manual": true
   },
   "tests.test_assembly:::test_assembly_multi_subshape_import__multi_subshape_assy": {
     "status": "blocked",
     "source": "tests.test_assembly:::test_assembly_multi_subshape_import",
     "blockedBy": "op:assembly-subshape-import",
-    "reason": "subshape-name-color-unavailable-via-step (P5-1: occt-wasm 5.6 reader does not map representation-item names to subshape TDataStd_Name; CadQuery 2.8.0 Assembly.importStep also returns empty _subshape_names for the same STEP) + layer-metadata-unavailable (X-3: XCAFDoc_LayerTool has no occt-wasm 5.6 binding, layer metadata is structurally unreadable); see plan §3.1 P5-1 / §3.5 X-3 / P5-3",
     "manual": true
   },
   "tests.test_assembly:::test_assembly_multi_subshape_import__imported_assy": {
     "status": "blocked",
     "source": "tests.test_assembly:::test_assembly_multi_subshape_import",
     "blockedBy": "op:assembly-subshape-import",
-    "reason": "subshape-name-color-unavailable-via-step (P5-1: occt-wasm 5.6 reader does not map representation-item names to subshape TDataStd_Name; CadQuery 2.8.0 Assembly.importStep also returns empty _subshape_names for the same STEP) + layer-metadata-unavailable (X-3: XCAFDoc_LayerTool has no occt-wasm 5.6 binding, layer metadata is structurally unreadable); see plan §3.1 P5-1 / §3.5 X-3 / P5-3",
     "manual": true
   },
   "tests.test_assembly:::test_plain_assembly_import__cube_1": {
@@ -2176,22 +2170,19 @@
     "status": "blocked",
     "source": "tests.test_cadquery::TestCadQuery::testCutBlindUntilFace",
     "blockedBy": "op:cutBlind.until-face",
-    "manual": true,
-    "reason": "until-face-primitive-unavailable (faijs 5.6 BrepEngineApi L1 has no facesIntersectedByLine / ray-face intersection primitive; CadQuery until='next'|'last'|Face all call facesIntersectedByLine(center,eDir,direction) — cq.py _extrude; only boolean intersect + planar sectionByPlane available, cannot compose; see plan §3.3 / §4 P6-a)"
+    "manual": true
   },
   "tests.test_cadquery::TestCadQuery::testCutBlindUntilFace__wp_last": {
     "status": "blocked",
     "source": "tests.test_cadquery::TestCadQuery::testCutBlindUntilFace",
     "blockedBy": "op:cutBlind.until-face",
-    "manual": true,
-    "reason": "until-face-primitive-unavailable (faijs 5.6 BrepEngineApi L1 has no facesIntersectedByLine / ray-face intersection primitive; CadQuery until='next'|'last'|Face all call facesIntersectedByLine(center,eDir,direction) — cq.py _extrude; only boolean intersect + planar sectionByPlane available, cannot compose; see plan §3.3 / §4 P6-a)"
+    "manual": true
   },
   "tests.test_cadquery::TestCadQuery::testCutBlindUntilFace__wp_next": {
     "status": "blocked",
     "source": "tests.test_cadquery::TestCadQuery::testCutBlindUntilFace",
     "blockedBy": "op:cutBlind.until-face",
-    "manual": true,
-    "reason": "until-face-primitive-unavailable (faijs 5.6 BrepEngineApi L1 has no facesIntersectedByLine / ray-face intersection primitive; CadQuery until='next'|'last'|Face all call facesIntersectedByLine(center,eDir,direction) — cq.py _extrude; only boolean intersect + planar sectionByPlane available, cannot compose; see plan §3.3 / §4 P6-a)"
+    "manual": true
   },
   "tests.test_cadquery::TestCadQuery::testCutEach__w": {
     "status": "ported",
@@ -2386,29 +2377,25 @@
     "status": "blocked",
     "source": "tests.test_cadquery::TestCadQuery::testExtrudeUntilFace",
     "blockedBy": "op:extrude-until-face",
-    "manual": true,
-    "reason": "until-face-primitive-unavailable (faijs 5.6 BrepEngineApi L1 has no facesIntersectedByLine / ray-face intersection primitive; CadQuery until='next'|'last'|Face all call facesIntersectedByLine(center,eDir,direction) — cq.py _extrude; only boolean intersect + planar sectionByPlane available, cannot compose; see plan §3.3 / §4 P6-a)"
+    "manual": true
   },
   "tests.test_cadquery::TestCadQuery::testExtrudeUntilFace__wp_ref_extrude": {
     "status": "blocked",
     "source": "tests.test_cadquery::TestCadQuery::testExtrudeUntilFace",
     "blockedBy": "op:extrude-until-face",
-    "manual": true,
-    "reason": "until-face-primitive-unavailable (faijs 5.6 BrepEngineApi L1 has no facesIntersectedByLine / ray-face intersection primitive; CadQuery until='next'|'last'|Face all call facesIntersectedByLine(center,eDir,direction) — cq.py _extrude; only boolean intersect + planar sectionByPlane available, cannot compose; see plan §3.3 / §4 P6-a)"
+    "manual": true
   },
   "tests.test_cadquery::TestCadQuery::testExtrudeUntilFace__part": {
     "status": "blocked",
     "source": "tests.test_cadquery::TestCadQuery::testExtrudeUntilFace",
     "blockedBy": "op:extrude-until-face",
-    "manual": true,
-    "reason": "until-face-primitive-unavailable (faijs 5.6 BrepEngineApi L1 has no facesIntersectedByLine / ray-face intersection primitive; CadQuery until='next'|'last'|Face all call facesIntersectedByLine(center,eDir,direction) — cq.py _extrude; only boolean intersect + planar sectionByPlane available, cannot compose; see plan §3.3 / §4 P6-a)"
+    "manual": true
   },
   "tests.test_cadquery::TestCadQuery::testExtrudeUntilFace__part_section": {
     "status": "blocked",
     "source": "tests.test_cadquery::TestCadQuery::testExtrudeUntilFace",
     "blockedBy": "op:extrude-until-face",
-    "manual": true,
-    "reason": "until-face-primitive-unavailable (faijs 5.6 BrepEngineApi L1 has no facesIntersectedByLine / ray-face intersection primitive; CadQuery until='next'|'last'|Face all call facesIntersectedByLine(center,eDir,direction) — cq.py _extrude; only boolean intersect + planar sectionByPlane available, cannot compose; see plan §3.3 / §4 P6-a)"
+    "manual": true
   },
   "tests.test_cadquery::TestCadQuery::testFaceIntersectedByLine__shape": {
     "status": "ported",
@@ -2606,10 +2593,9 @@
     "reason": "ref-no-step"
   },
   "tests.test_cadquery::TestCadQuery::testLegoBrick__s": {
-    "status": "blocked",
+    "status": "ported",
     "source": "tests.test_cadquery::TestCadQuery::testLegoBrick",
-    "blockedBy": "op:shell",
-    "manual": true
+    "blockedBy": null
   },
   "tests.test_cadquery::TestCadQuery::testLegoBrick__tmp": {
     "status": "blocked",
@@ -2927,22 +2913,19 @@
     "blockedBy": null
   },
   "tests.test_cadquery::TestCadQuery::testSimpleShell__s1": {
-    "status": "blocked",
+    "status": "ported",
     "source": "tests.test_cadquery::TestCadQuery::testSimpleShell",
-    "blockedBy": "kernel:shell-outward-opening",
-    "manual": true
+    "blockedBy": null
   },
   "tests.test_cadquery::TestCadQuery::testSimpleShell__s2": {
-    "status": "blocked",
+    "status": "ported",
     "source": "tests.test_cadquery::TestCadQuery::testSimpleShell",
-    "blockedBy": "kernel:shell-intersection-join",
-    "manual": true
+    "blockedBy": null
   },
   "tests.test_cadquery::TestCadQuery::testSimpleShell__s3": {
-    "status": "blocked",
+    "status": "ported",
     "source": "tests.test_cadquery::TestCadQuery::testSimpleShell",
-    "blockedBy": "kernel:shell-outward-opening",
-    "manual": true
+    "blockedBy": null
   },
   "tests.test_cadquery::TestCadQuery::testSimpleWorkplane__s": {
     "status": "skipped",

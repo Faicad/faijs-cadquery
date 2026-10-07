@@ -18,8 +18,12 @@ const MANIFEST = join(HERE, 'manifest.json')
 
 /** var-level: exact manifest key -> blockedBy */
 const BY_KEY: Record<string, string> = {
-  // shell: brepjs-compat has no `shell` projection; cq-compat's shell() silently no-ops
-  'tests.test_cadquery::TestCadQuery::testLegoBrick__s': 'op:shell',
+  // CLOSED 2026-10-07 (occt-wasm 5.6 unblock, T1): `shell` honours the kernel's
+  //   5th `joinType` arg and no longer throws on positive thickness + removed
+  //   faces, so testLegoBrick__s is ported (f43/e72/v48 bitwise).
+  //   `__tmp` stays blocked: it is the SAME brick built through a sketch-based
+  //   path whose mirror has not been written yet (a pending:mirror, not a
+  //   kernel gap) — kept on `op:shell` only until that mirror exists.
   'tests.test_cadquery::TestCadQuery::testLegoBrick__tmp': 'op:shell',
   // construction rect + circles: upstream cuts inner wires as holes (10 faces);
   // cq-compat fuses every pending profile (single pendingRect/pendingCircle slot)
@@ -102,14 +106,13 @@ const BY_KEY: Record<string, string> = {
   // boolean-difference probe fails on it ("cut: boolean operation failed"), so
   // no candidate can be graded.
   'tests.test_cadquery::TestCadQuery::test_loft_to_vertex__c': 'ref:degenerate-compound-vertex',
-  // Shell with POSITIVE thickness and removed faces (MakeThickSolidByJoin
-  // outward): the kernel only offers a rounded (arc) offset, and cutting the
-  // removed face's swept slab reproduces neither the opening nor the wall
-  // (s1: vol 1.047647 vs 1.031678, boolean diff 0.016, 30 faces vs 23;
-  //  s3: 410.235431 vs 332.597162). s2 additionally needs intersection join.
-  'tests.test_cadquery::TestCadQuery::testSimpleShell__s1': 'kernel:shell-outward-opening',
-  'tests.test_cadquery::TestCadQuery::testSimpleShell__s2': 'kernel:shell-intersection-join',
-  'tests.test_cadquery::TestCadQuery::testSimpleShell__s3': 'kernel:shell-outward-opening',
+  // CLOSED 2026-10-07 (occt-wasm 5.6 unblock, T1). The stale reason above claimed
+  //   the kernel only offers an arc offset — refuted by probe: occt-wasm 5.6
+  //   binds `shell(solid, faces, thickness, tol, joinType)` and
+  //   `offset(shape, t, tol, joinType)` (dist/index.d.ts:172/188). Positive
+  //   thickness + removed faces now routes through kernel.shell with the
+  //   upstream sign, and all three vars are ported bitwise
+  //   (s1 f23/e48/v28, s2 f5/e6/v4, s3 f6/e8/v5). Do NOT re-add.
   // "Tall" ellipse (y_radius > x_radius): the kernel lays the major axis on
   // global X and rejects major < minor ("gp_Elips: invalid construction
   // parameters"); every rotation entry point re-approximates the curve.
@@ -491,14 +494,14 @@ const BY_KEY: Record<string, string> = {
   // (written by an earlier script revision, then orphaned when their BY_KEY
   // entries were dropped — gen-manifest preserves `manual: true` annotations, so
   // the prose survived every regeneration). Normalised to tags:
-  //   · hollow(t>0) needs MakeThickSolidByJoin with an INTERSECTION join; the
-  //     occt-wasm offset is arc-join only (0.698/0.565 vs upstream 0.728/0.584
-  //     on the unit box) — kernel work, roadmap G-F9 / B6-2.
-  //   · test_name_geometries is blocked by the free `plane()` constructor
-  //     (roadmap G-C6 / B1-5); addSubshape was masking it until B0-4 fixed the
-  //     assembly surface.
-  'tests.test_free_functions:::test_hollow__res2': 'kernel:hollow-intersection-join',
-  'tests.test_free_functions:::test_hollow_open__res2': 'kernel:hollow-intersection-join',
+  // CLOSED 2026-10-07 (occt-wasm 5.6 unblock, T1): the "arc-join only" claim
+  //   above is refuted — kernel.offset takes joinType too, so `hollow` (which
+  //   defaults to 'intersection', unlike Workplane.shell's 'arc') reproduces
+  //   the upstream 0.728 wall volume. Both res2 vars are ported bitwise
+  //   (f12/e24/v16 and f11/e24/v16). Do NOT re-add.
+  // test_name_geometries is blocked by the free `plane()` constructor
+  //   (roadmap G-C6 / B1-5); addSubshape was masking it until B0-4 fixed the
+  //   assembly surface.
   'tests.test_assembly:::test_name_geometries__assy': 'plane',
   // imprint history images — the free-function imprint is now implemented
   // (roadmap B2-1, 2026-10-04), but b1_imp/b3_imp need History.images()
