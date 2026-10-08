@@ -2741,19 +2741,19 @@
     "blockedBy": null
   },
   "tests.test_cadquery::TestCadQuery::testParametricCurve__res_open": {
-    "status": "blocked",
+    "status": "ported",
     "source": "tests.test_cadquery::TestCadQuery::testParametricCurve",
-    "blockedBy": "parametricCurve"
+    "blockedBy": null
   },
   "tests.test_cadquery::TestCadQuery::testParametricCurve__res_closed": {
-    "status": "blocked",
+    "status": "ported",
     "source": "tests.test_cadquery::TestCadQuery::testParametricCurve",
-    "blockedBy": "parametricCurve"
+    "blockedBy": null
   },
   "tests.test_cadquery::TestCadQuery::testParametricSurface__r2": {
     "status": "blocked",
     "source": "tests.test_cadquery::TestCadQuery::testParametricSurface",
-    "blockedBy": "op:parametricSurface",
+    "blockedBy": "op:splitByFace",
     "manual": true
   },
   "tests.test_cadquery::TestCadQuery::testPlanes__s": {

@@ -7467,6 +7467,129 @@ export function splineWire3D(
 }
 
 /**
+ * parametricCurve — CadQuery `Workplane.parametricCurve(func, N, start, stop,
+ * ..., makeWire)` parity: sample f(t)→(x,y[,z]) at N+1 parameter values and
+ * build an approximating B-spline edge (cadquery's `Edge.makeSplineApprox`).
+ * With `makeWire` (default) the edge is wrapped in a wire and pushed as a
+ * pending wire (so `extrude` consumes it through `path.builtWire`); with
+ * `makeWire:false` it is kept as a pending edge only, matching cadquery's
+ * `_addPendingEdge` path.
+ *
+ * @param wp - Workplane carrier
+ * @param func - f(t) → [x,y] or [x,y,z]; sampled at start + (stop-start)*i/N
+ * @param opts - { N?; start?; stop?; tol?; makeWire? }; N default 400, start 0,
+ *   stop 1, tol 1e-6, makeWire true — cadquery defaults
+ * @returns Workplane with the curve (wire or edge) in `.objects` and the
+ *   matching pending slot populated
+ */
+export async function parametricCurve(
+  wp: Workplane,
+  func: (t: number) => [number, number] | [number, number, number],
+  opts?: { N?: number; start?: number; stop?: number; tol?: number; makeWire?: boolean },
+): Promise<Workplane> {
+  const N = opts?.N ?? 400
+  const start = opts?.start ?? 0
+  const stop = opts?.stop ?? 1
+  const tol = opts?.tol ?? 1e-6
+  const makeWire = opts?.makeWire ?? true
+  if (!Number.isInteger(N) || N < 1) throw new Error('[cq-compat] parametricCurve: N must be a positive integer')
+  const diff = stop - start
+  const pts: { x: number; y: number; z: number }[] = []
+  const local2d: [number, number][] = []
+  for (let i = 0; i <= N; i++) {
+    const t = start + (diff * i) / N
+    const p = func(t)
+    const z = p.length === 3 ? (p as unknown as [number, number, number])[2] : 0
+    pts.push({ x: p[0], y: p[1], z })
+    local2d.push([p[0], p[1]])
+  }
+  // Build the approximating B-spline edge through the sampled points with
+  // `getKernel()` (occt-wasm), which exposes `approximatePoints` / `makeWire` /
+  // `interpolatePoints`. `kern()` (the faijs BrepEngineApi) does NOT expose
+  // these — but it shares the underlying OCCT instance, so a getKernel handle
+  // stashed in `builtWire` is valid inside `kern().makeFace` (the same bridge
+  // `offset2D` relies on: it stores a getKernel offset handle as `builtWire`).
+  const kernel = getKernel() as unknown as OcctKernel & {
+    approximatePoints: (pts: { x: number; y: number; z: number }[], tol?: number) => ShapeHandle
+    makeWire: (edges: ShapeHandle[]) => ShapeHandle
+  }
+  const edge = kernel.approximatePoints(pts, tol)
+  if (makeWire) {
+    const wire = kernel.makeWire([edge])
+    // builtWire must be the raw kernel handle (NOT a toShape() wrapper):
+    // buildProfileWire returns it as-is and pendingPathPrism feeds it straight
+    // into makeFace — a Shape wrapper reads as handle id 0 ("Invalid shape ID").
+    // The curve is carried ONLY on the pending wire: putting it in `objects`
+    // would make `baseSolid()` (= wp.shape) treat it as the extrude base and try
+    // to fuse a wire with the prism (boolean op fails). CadQuery keeps the curve
+    // on the pending slot too, so consumers read it via the pending wire.
+    const pw: PendingWire = { kind: 'path', pts: [], edges: [], construction: false, builtWire: wire }
+    return clone(wp, { pendingWires: [...(wp.pendingWires ?? []), pw] })
+  }
+  const pe: PendingEdge = {
+    kind: 'spline',
+    from: local2d[0]!,
+    pts: local2d,
+    to: local2d[local2d.length - 1]!,
+    builtEdge: toShape(edge),
+  }
+  return clone(wp, { pendingEdges: [...(wp.pendingEdges ?? []), pe] })
+}
+
+/**
+ * parametricSurface — CadQuery `Workplane.parametricSurface(func, N, start,
+ * stop, tol, minDeg, maxDeg, smoothing)` parity: sample f(u,v)→(x,y,z) on a
+ * dense (N+1)×(N+1) grid and build an approximating B-spline surface
+ * (cadquery's `Face.makeSplineApprox`). The surface is returned as the single
+ * object on the workplane (`self.newObject([f])`).
+ *
+ * CadQuery's `Face.makeSplineApprox` is implemented over `GeomAPI_PointsToBSpline
+ * Surface` with explicit `(minDeg, maxDeg, tol, smoothing)`. The faijs kernel's
+ * `bsplineSurface` (used by `splineFace` strategy `'grid'`) exposes no
+ * DegMin/DegMax/Tol3D and runs with kernel defaults; the resulting face is a
+ * valid surface for the same grid (verified: r1 `cos(pi*u)*cos(pi*v)` saddle is
+ * a valid face). The extra cadquery knobs are accepted but currently forwarded
+ * only as documentation/defaults — see Task #2 note in the occt56 plan.
+ *
+ * @param wp - Workplane carrier
+ * @param func - f(u,v) → [x,y,z]; sampled at start + (stop-start)*i/N (row) and
+ *   start + (stop-start)*j/N (col), matching cadquery's row-major grid
+ * @param opts - { N?; start?; stop?; tol?; minDeg?; maxDeg?; smoothing? }; N
+ *   default 20, start 0, stop 1, tol 1e-2 — cadquery defaults
+ * @returns Workplane with the spline surface face as `objects[0]`
+ */
+export async function parametricSurface(
+  wp: Workplane,
+  func: (u: number, v: number) => [number, number, number],
+  opts?: {
+    N?: number
+    start?: number
+    stop?: number
+    tol?: number
+    minDeg?: number
+    maxDeg?: number
+    smoothing?: [number, number, number]
+  },
+): Promise<Workplane> {
+  const N = opts?.N ?? 20
+  const start = opts?.start ?? 0
+  const stop = opts?.stop ?? 1
+  const tol = opts?.tol ?? 1e-2
+  if (!Number.isInteger(N) || N < 1) throw new Error('[cq-compat] parametricSurface: N must be a positive integer')
+  const diff = stop - start
+  const grid: [number, number, number][] = []
+  for (let i = 0; i <= N; i++) {
+    for (let j = 0; j <= N; j++) {
+      const p = func(start + (diff * i) / N, start + (diff * j) / N)
+      grid.push([p[0], p[1], p[2]])
+    }
+  }
+  // Faithful analog of `Face.makeSplineApprox`: one-shot B-spline surface over
+  // the whole grid (`splineFace` strategy `'grid'` → getKernel().bsplineSurface).
+  return splineFace(wp, grid, { rows: N + 1, cols: N + 1, tolerance: tol, strategy: 'grid' })
+}
+
+/**
  * sweep — CadQuery `Workplane.sweep(path, multisection=…)` parity.
  *
  * Single section → raw-kernel `sweep` (BRepOffsetAPI_MakePipe). Multiple

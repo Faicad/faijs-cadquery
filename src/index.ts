@@ -111,6 +111,8 @@ export {
   transformed,
   setColor,
   splineFace,
+  parametricCurve,
+  parametricSurface,
   helix,
   splitFace,
   twistExtrude,

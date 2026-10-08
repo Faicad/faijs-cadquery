@@ -186,9 +186,11 @@ ref STEP 因此有两个 `SHELL_BASED_SURFACE_MODEL`（6+1）。**内核没有�
 | W5-a | `remove`（`test_remove__br`） | 1 | `BRepTools_ReShape` 未绑（`sew` 2 条已移入 §3.2 待探针） |
 | W5-e | `plane` | 2 | `BRepBuilderAPI_MakeFace(gp_Pln)` 无界面未绑（`makeFace` 仍只收 wire，`index.d.ts:252`） |
 | B 桶 | `kernel:loft-coplanar-sections` 1、`kernel:ellipse-tall-axis` 1、`kernel:crash-polygon-cutThruAll` 1 | 3 | `ThruSections` 参数、`makeEllipseEdge` 主轴、WASM trap |
-| D 桶 | `op:assembly-solve` 14、`getfixturevalue` 5、`export/import` 已列 3.1、`comparator:*` 3、`parametricCurve` 2、`op:parametricSurface` 1、`op:shape-operator-overload` 1、`eachpoint/cast/faceOn/op:pendingWires/op:sweep-sketch-sections/op:extrude-taper-sketch` 各 1 | 33 | 本仓值面 / 跨仓 / 语言层，与内核无关 |
+| D 桶 | `op:assembly-solve` 14、`getfixturevalue` 5、`export/import` 已列 3.1、`comparator:*` 3、`parametricCurve` 2（**已翻 ported，见下**）、`op:splitByFace` 1（`testParametricSurface__r2`，见下）、`op:shape-operator-overload` 1、`eachpoint/cast/faceOn/op:pendingWires/op:sweep-sketch-sections/op:extrude-taper-sketch` 各 1 | 33 | 本仓值面 / 跨仓 / 语言层，与内核无关 |
 
-> 其中 `op:parametricSurface`（`testParametricSurface__r2`）与 `parametricCurve`（2 条）虽标 D 桶，但 faijs 0.30.7 的 `surface`（`bsplineSurface`）与本仓既有 `splineFace`（`src/workplane.ts:6543`）已覆盖同一能力，**可一并作为本仓值面任务处理**，不依赖内核扩展。
+> **`parametricCurve`（2 条：res_open / res_closed）已翻 ported（2026-10-08）**：实现 `src/workplane.ts:parametricCurve`（采样 N+1 点 → `getKernel().approximatePoints` 近似 B 样条边 → `getKernel().makeWire` → 挂 `pendingWires[].builtWire`；`extrude` 经 `buildProfileWire` 走 `kern().makeFace`），单测 `src/parametric-curve.test.ts` 冻结 open→非法实体 / closed→合法实体+3 面 / makeWire=false→1 pending edge。`splineFace`（`src/workplane.ts`）的 `bsplineSurface` / `approximatePoints` 链为本仓值面能力，不依赖内核扩展。
+>
+> **`op:parametricSurface`（`testParametricSurface__r2`）的误判已修正（2026-10-08）**：原 §3.3 把 `testParametricSurface__r2` 整体归为本仓值面任务、blocker 记为 `op:parametricSurface`，这是不准确的。**`parametricSurface` 函数本身本仓可做**（采样 (N+1)² 网格 → `splineFace`/`bsplineSurface` → `objects[0]` 一个面；单测 `src/parametric-surface.test.ts` 已验证 r1 的 `cos(pi*u)*cos(pi*v)` 鞍形面是合法面）。**r2 的真正 blocker 是 `splitByFace`**：cadquery 的 `box(1,1,3).split(r1)` 是按「面」切割实体，而本仓 `split` / `splitFace` 仅支持**平面**（halfSpace / splitByPlane），**无按任意面切割的通道**（见 `src/workplane.ts:7363 split`、`:6729 splitFace`）。故 r2 维持 blocked，`blockedBy` 从 `op:parametricSurface` 改为 `op:splitByFace`，`manifest.json` 同步保留 `manual: true`。`parametricSurface` 函数能力已解锁，仅是 r2 的「切割」半步未解锁。
 
 ---
 
