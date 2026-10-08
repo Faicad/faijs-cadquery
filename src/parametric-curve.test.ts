@@ -15,16 +15,18 @@ import { describe, it, expect, beforeAll } from 'vitest'
 import { createRuntime, registerOcctBrepEngine } from '@faicad/faijs'
 import { createNodePorts } from '@faicad/faijs/node'
 import { brepOf } from '@faicad/faijs/shape'
-import { getKernel } from '@faicad/faijs/occt-kernel/occtKernel'
 import { getBrepApi } from '@faicad/faijs/brep/handle-bridge'
 import type { BrepHandle } from '@faicad/faijs/brep/engine/types'
 import * as cq from './index'
 
 /** faijs `Shape` (mesh wrapper) validity — mirrors CadQuery `Shape.isValid()`.
- *  The established pattern is `getKernel().isValid(brepOf(shape))`; `cq.isValidShape`
- *  only accepts the CqShape class-model wrapper, not the mesh `Shape`. */
+ *  `cq.isValidShape` now resolves all three representations (raw handle /
+ *  CqShape / faijs `Shape`) through `brepH`, so a DSL `Shape` can be passed
+ *  directly. The earlier footgun was routing a `Shape` through `unwrapShape`
+ *  (which only knows CqShape/raw handle) → the whole object became handle id 0
+ *  → "Invalid shape ID: 0". See `src/shape-class.ts` `isValidShape` / `brepH`. */
 function isValid(solid: unknown): boolean {
-  return (getKernel() as unknown as { isValid: (h: never) => boolean }).isValid(brepOf(solid as never) as never)
+  return cq.isValidShape(solid as never)
 }
 
 let runtime: ReturnType<typeof createRuntime>

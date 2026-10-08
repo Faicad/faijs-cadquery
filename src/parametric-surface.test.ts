@@ -12,7 +12,6 @@ import { describe, it, expect, beforeAll } from 'vitest'
 import { createRuntime, registerOcctBrepEngine } from '@faicad/faijs'
 import { createNodePorts } from '@faicad/faijs/node'
 import { brepOf } from '@faicad/faijs/shape'
-import { getKernel } from '@faicad/faijs/occt-kernel/occtKernel'
 import { getBrepApi } from '@faicad/faijs/brep/handle-bridge'
 import type { BrepHandle } from '@faicad/faijs/brep/engine/types'
 import * as cq from './index'
@@ -20,7 +19,9 @@ import * as cq from './index'
 let runtime: ReturnType<typeof createRuntime>
 
 function isValid(shape: unknown): boolean {
-  return (getKernel() as unknown as { isValid: (h: never) => boolean }).isValid(brepOf(shape as never) as never)
+  // `cq.isValidShape` resolves raw handle / CqShape / faijs `Shape` through `brepH`.
+  // The prior `getKernel().isValid(brepOf(shape))` workaround is no longer needed.
+  return cq.isValidShape(shape as never)
 }
 
 beforeAll(async () => {

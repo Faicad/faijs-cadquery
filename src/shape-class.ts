@@ -63,6 +63,15 @@ export function borrowShape(kind: CqShape['kind'], handle: ShapeHandle): CqShape
 
 /**
  * Extract the raw kernel handle from a class-model shape or a bare handle.
+ *
+ * NOTE: this only recognises the two representations that carry the handle
+ * inline — a raw `ShapeHandle` (number) or a `CqShape` (class-model wrapper
+ * with a `.handle` field). It does NOT understand the faijs mesh `Shape`
+ * wrapper, whose OCCT handle lives in a runtime slot looked up via `brepOf`.
+ * Passing a `Shape` here falls through to the raw-handle branch and hands the
+ * whole JS object to the kernel as handle id 0. When you are not certain which
+ * representation you hold, use `brepH` instead — it resolves all three.
+ *
  * @param s - a class-model wrapper or a bare kernel handle.
  * @returns the raw kernel handle.
  */
@@ -679,12 +688,26 @@ export function centerOfMassOf(s: CqShape | ShapeHandle): Pt3 {
 }
 
 /**
- * `Shape.isValid()`.
- * @param s - shape (wrapper or handle)
+ * `Shape.isValid()` — true when the underlying BREP is well-formed.
+ *
+ * Accepts ANY of the three shape representations the compat layer deals with:
+ *   - a raw OCCT handle (`ShapeHandle`, a number)
+ *   - the compat class-model wrapper (`CqShape`, carries `.handle`)
+ *   - the DSL mesh `Shape` wrapper (faijs `Shape`) whose OCCT handle lives in a
+ *     runtime slot and is resolved via `brepOf`
+ *
+ * Resolution is delegated to `brepH`, which handles all three. Do NOT route a
+ * faijs `Shape` through `unwrapShape`: `unwrapShape` only recognises the
+ * CqShape/raw-handle pair, so it falls through to the raw-handle branch and
+ * hands the whole `Shape` object to the kernel as handle id 0 — surfacing as
+ * `Invalid shape ID: 0`. That was the exact footgun hit while porting
+ * `parametricCurve`/`parametricSurface`; `brepH` is the single correct resolver.
+ *
+ * @param s - shape (raw handle | CqShape | faijs Shape)
  * @returns true when the underlying BREP is valid
  */
-export function isValidShape(s: CqShape | ShapeHandle): boolean {
-  return introspect().isValid(unwrapShape(s))
+export function isValidShape(s: CqShape | ShapeHandle | Shape): boolean {
+  return introspect().isValid(brepH(s))
 }
 
 /** Map occt-wasm `ShapeType` → CadQuery `geomType()` uppercase codes. */
