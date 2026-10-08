@@ -62,21 +62,25 @@ export function borrowShape(kind: CqShape['kind'], handle: ShapeHandle): CqShape
 }
 
 /**
- * Extract the raw kernel handle from a class-model shape or a bare handle.
+ * Resolve a shape to its raw OCCT handle.
  *
- * NOTE: this only recognises the two representations that carry the handle
- * inline — a raw `ShapeHandle` (number) or a `CqShape` (class-model wrapper
- * with a `.handle` field). It does NOT understand the faijs mesh `Shape`
- * wrapper, whose OCCT handle lives in a runtime slot looked up via `brepOf`.
- * Passing a `Shape` here falls through to the raw-handle branch and hands the
- * whole JS object to the kernel as handle id 0. When you are not certain which
- * representation you hold, use `brepH` instead — it resolves all three.
+ * Accepts any of the three representations the compat layer deals with:
+ *   - a raw `ShapeHandle` (number)
+ *   - a `CqShape` (class-model wrapper carrying `.handle`)
+ *   - a faijs mesh `Shape` (whose OCCT handle lives in a runtime slot,
+ *     recovered via `brepOf`)
  *
- * @param s - a class-model wrapper or a bare kernel handle.
+ * Delegates to `brepH`, the single handle resolver in this module. Previously
+ * this only recognised CqShape/raw handle and silently treated a faijs `Shape`
+ * as handle id 0 ("Invalid shape ID: 0") — that footgun is gone; it now throws
+ * a clear error instead of returning garbage when the input carries no
+ * resolvable handle.
+ *
+ * @param s - a raw handle | CqShape | faijs Shape
  * @returns the raw kernel handle.
  */
-export function unwrapShape(s: CqShape | ShapeHandle): ShapeHandle {
-  return s && typeof s === 'object' && 'handle' in s ? (s as CqShape).handle : (s as ShapeHandle)
+export function unwrapShape(s: CqShape | ShapeHandle | Shape): ShapeHandle {
+  return brepH(s)
 }
 
 /**
@@ -115,7 +119,7 @@ function brepH(x: unknown): ShapeHandle {
       if (h !== undefined) return h as unknown as ShapeHandle
     }
   }
-  throw new Error('splitShapeBy/replaceFacesOnSolid: cannot resolve a brep handle')
+  throw new Error('brepH: cannot resolve a brep handle from the given shape')
 }
 
 /** Expand a (possibly compound) shape into its face handles. */

@@ -44,12 +44,12 @@ function k(): OcctKernel {
  * The unit tests feed an occt `CqShape` / bare `ShapeHandle` directly (so the
  * function returns a `CqShape`, matching upstream's `Solid → Solid` shape). The
  * `.fai.js` mirror runtime, however, only produces mesh-backed `Workplane`s
- * (and `cq.val(wp)` returns a mesh `Shape`), never an occt `CqShape` — so the
- * raw `unwrapShape` path would treat the mesh object as a handle and fail with
- * "Invalid shape ID: 0". When a `Workplane` (or mesh `Shape`) is passed we
- * recover its brep handle via `brepOf`, transform it, and return a mesh `Shape`
- * (carrying the transformed handle) that the runtime can export. Both call
- * styles keep their original return type, so existing tests are untouched.
+ * (and `cq.val(wp)` returns a mesh `Shape`), never an occt `CqShape`. Mesh-backed
+ * inputs carry their handle in a runtime slot, so we recover it via `brepOf`,
+ * transform it, and return a mesh `Shape` (carrying the transformed handle) that
+ * the runtime can export. `unwrapShape` now resolves Shape too, but we still
+ * branch here to preserve the CqShape-vs-mesh return contract. Both call styles
+ * keep their original return type, so existing tests are untouched.
  */
 type PlaneTransformInput = CqShape | ShapeHandle | Workplane | Shape
 function resolveInputHandle(shape: PlaneTransformInput): { handle: ShapeHandle; fromWorkplane: boolean } {
@@ -67,8 +67,8 @@ function resolveInputHandle(shape: PlaneTransformInput): { handle: ShapeHandle; 
       }
     }
     // Bare core faijs Shape (e.g. the value returned by `cq.val(wp)`):
-    // recover its registered brep handle. `unwrapShape` would mistake the
-    // mesh object for a handle and fail with "Invalid shape ID: 0".
+    // recover its registered brep handle to preserve the mesh-backed return
+    // contract (`unwrapShape` itself now resolves Shape via brepH as well).
     if (isShape(shape)) {
       const h = brepOf(shape as Shape)
       if (h === undefined) {
