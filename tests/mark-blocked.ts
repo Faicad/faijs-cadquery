@@ -536,9 +536,22 @@ const BY_KEY: Record<string, string> = {
   // History sub-shape reflection.
   'tests.test_free_functions:::test_history_extrude__sides': 'op:history-subshape',
   'tests.test_free_functions:::test_history_loft__side': 'op:history-subshape',
-  // test_history_loft__res = loft([plane(1,1), face(circle(1)).moved(z=1)]) —
-  // needs the free-function plane() constructor (func-only gap).
-  'tests.test_free_functions:::test_history_loft__res': 'plane',
+  // CLOSED 2026-10-10 (N2-2): the entry above was wrong twice over. The subject
+  //   is `f1 = plane(1,1) - face(circle(0.1)); f2 = (plane(2,2) -
+  //   face(circle(0.1))).moved(z=1); res = loft(f1, f2)` — NOT
+  //   `face(circle(1)).moved(z=1)` — and `plane(w,l)` (free-function
+  //   constructor) has been implemented in src/workplane.ts all along. Capture
+  //   (out/probe-history-loft.py) also refutes §3.2's "上游是
+  //   BRepBuilderAPI_MakeFace(gp_Pln) 的无界面" premise: `plane(1,1)` is a
+  //   FINITE 1x1 face (bbox x/y[-0.5,0.5], f1/e4/w1/v4). The real gap was the
+  //   hole-carrying loft, and the already-ported test_loft__r6 decomposition
+  //   closes it with zero new src code: outer loft (rect 1x1 -> rect 2x2) minus
+  //   inner loft (circle 0.1 -> circle 0.1). Bitwise PASS on the harness —
+  //   volDelta 9.6e-14 %, comDelta 9.7e-17, bboxDelta 0, booleanDelta 0/0,
+  //   topo ref f7/e15/v10 == cand f7/e15/v10. Mutations: frustum 2x2 -> 1.5x1.5
+  //   => FAIL (vol 32.6 %), dropping the boolean => FAIL (vol 1.36 %, boolean
+  //   bMinusA = pi*0.01, topo f6/e12/v8). Entry removed so gen-manifest
+  //   re-derives it as ported; do NOT re-add.
   // testSketch r2 CLOSED (2026-10-01): extrude's taper branch now consumes
   // materialized sketch faces (draftPrism), mirror parity PASS (vol 0.835228,
   // machine-precision). The second .sketch() creates a fresh parent whose
@@ -591,10 +604,35 @@ const BY_KEY: Record<string, string> = {
   //   defaults to 'intersection', unlike Workplane.shell's 'arc') reproduces
   //   the upstream 0.728 wall volume. Both res2 vars are ported bitwise
   //   (f12/e24/v16 and f11/e24/v16). Do NOT re-add.
-  // test_name_geometries is blocked by the free `plane()` constructor
-  //   (roadmap G-C6 / B1-5); addSubshape was masking it until B0-4 fixed the
-  //   assembly surface.
-  'tests.test_assembly:::test_name_geometries__assy': 'plane',
+  // RE-LABELLED 2026-10-10 (N2-2): this is NOT a `plane` gap (that tag was
+  //   wrong — `plane(w,l)` exists, see the test_history_loft__res note above).
+  //   `test_name_geometries` (test_assembly.py:2581) asserts on STEP **TEXT**:
+  //   `len([l for l in lines if "top_face" in l]) == 2`, same for "plane_" /
+  //   "seg_" — i.e. its subject is `Assembly.save(name_geometries=True)` name
+  //   propagation, which the geometry-only comparator cannot express at all.
+  //   The ref product does not even carry the payload: the ref harness
+  //   (ref-harness/cq_step_plugin.py::_export) exports via
+  //   `Assembly.toCompound()` + `Shape.exportStep()`, and `Shape.exportStep`
+  //   has no `name_geometries` parameter — measured 0 occurrences of
+  //   top_face/plane_/seg_ in the ref STEP while all 3 children are present
+  //   (4 PRODUCTs, 3 NEXT_ASSEMBLY_USAGE_OCCURRENCE, 1 ADVANCED_BREP + 1
+  //   MANIFOLD_SURFACE/OPEN_SHELL + 1 GEOMETRICALLY_BOUNDED_WIREFRAME).
+  //   Independently, the ref is ungradeable by itself: compareStepFiles(ref,
+  //   ref) throws `OcctError: cut: boolean operation failed` at
+  //   step-compare.js (`kernel.cut(shapeA, shapeB)` on a self-pair). Root
+  //   cause bisected by the committed probes
+  //   tests/ref-harness/name-geometries-probe.py +
+  //   tests/_probe-mixed-dim-boolean.ts: all 4 variants of the scene throw
+  //   (v_full / v_noface / v_noedge / v_offfac), so it is NOT face
+  //   coincidence — it is a mixed-dimensionality compound whose lower-dim
+  //   member is embedded in / overlapping a 3D member (non-manifold boolean).
+  //   Controls that DO self-compare: solid-only, face-only, edges-only, and
+  //   solid+face where the members are disjoint (test_faceOn__f2,
+  //   test_constructors__c1) plus solid+edge (test_project__res). Same throw
+  //   as the already-D-class ref:degenerate-compound-vertex
+  //   (test_loft_to_vertex__c). ⇒ D-class, cross-repo judge-side; this repo is
+  //   forbidden from flipping it to ported on its own.
+  'tests.test_assembly:::test_name_geometries__assy': 'comparator:mixed-dim-boolean',
   // imprint history images — the free-function imprint is now implemented
   // (roadmap B2-1, 2026-10-04), but b1_imp/b3_imp need History.images()
   // (G-C18) to retrieve the post-imprint faces of the original shapes.

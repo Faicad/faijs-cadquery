@@ -17,12 +17,16 @@
 ## 0. 三句话结论
 
 1. **进度**：`tests/manifest.json` = **697 条 → 558 ported / 84 blocked / 55 skipped**（34 个 `blockedBy` 标签）；镜像 **563 个 `.fai.js` + 18 个 `.blocked`**；包内单测 **72 文件 / 680 用例**（实测 2026-10-10，1 条红，见 §1.3）；**已验证的 parity 基线仍是 2026-10-07 全量的 80.00%**（500 PASS + 20 PASS-NT / 650），此后 4 次提交**没有重扫**，尺子已过期。
-   > **2026-10-10 回写**：manifest 已推进到 **572 ported / 70 blocked / 55 skipped · 26 个 `blockedBy` 标签**
-   > （A 类 12/12 翻完，见 §3.1.1；B 类 N2 首项 `narrow:sphere-angles` 已翻，见 §3.1.1 ⑤）；N2-0 骨架已落地
+   > **2026-10-10 回写**：manifest 已推进到 **573 ported / 69 blocked / 55 skipped · 26 个 `blockedBy` 标签**
+   > （A 类 12/12 翻完，见 §3.1.1；B 类 N2 的 `narrow:sphere-angles` 与 `plane` 各 1 条已翻，见 §3.1.1 ⑤⑥）；N2-0 骨架已落地
    > （`src/kernel/` + `src/adapters/faijs.ts` + 边界探针）；单测 **76 文件 / 720 用例**，仍**只有 1 条红**
    > （§1.3 的 `TestCQSelectors__testShape__res4`，宿主策略，与本轮改动无关）；
    > parity 基线**仍未重扫**（§5 N0-3 待办）。
-   > 分类实况修订：**B 22 / C 43 / D 5**（原 B 24 / C 43 / D 4 —— 见 §3.5 的修订说明）。
+   > **分类实况（按 plan 时 manifest 逐标签重算，见 §3.5）**：A **11**（不是 12）/ B **25→余 20** /
+   > C **43** / D **6**（不是 5）；blocked **84 → 69**，**翻转 15 条** = A 11 + B 4。
+   > 校验：`0 + 20 + 43 + 6 = 69` = 实测 blocked ✅（N2-1 时点：`0 + 21 + 43 + 6 = 70` ✅）。
+   > §3.2 原文的 `14 + 1 + 4 + 2 + 1 + 1 = 22` 与 §3.4/§3.5 的 `D = 5` **两处各错一条且方向相反**，
+   > 恰好让 §3.5 的 `0 + 22 + 43 + 5 = 70` 靠抵消而「验算通过」——以本节重算值为准。
 2. **剩余 84 条能不能自己做**：真内核缺口 **42 条**（必须 fork occt-wasm，而本机 Rust/emsdk/cmake **至今一台都没装**，见 §1.4）；**可自造 ~24 条**（装配求解器 14 为首）；**本仓值面 ~14 条**；**不可控 4 条**（比较器/证据不足）。
 3. **关于「自己的扩展库」**：**能做，而且应该分层做**——faijs-gears 已经给出了可复制的模板（§4.1）。但推荐形态是**先在本仓内建 `src/kernel/`（内核原语层）+ `src/solver/`（自研求解器）**，把散落在 `workplane.ts` 里的直调收进一层；**等出现第二个消费方（faijs-freecad）再拆成独立包**，而不是现在就开新仓（理由见 §4.4）。
 
@@ -104,13 +108,14 @@ D:\Faicad\occt-wasm      git describe = v5.3.5（main），未切 v5.6.0，未�
 
 ### 3.1 A 类 · 本仓值面可做（**14 条，零新依赖**）
 
-> **2026-10-10 回写**：本表 14 条中 **12 条已翻 ported**；`op:faceOn` 与 `op:sweep-sketch-sections`
+> **2026-10-10 回写**：本表 14 条中 **11 条已翻 ported**（第 12 条 `test_assembly_step_import_roundtrip__assy`
+> 改判 D 类，见 §3.1.1 与 §3.5）；`op:faceOn` 与 `op:sweep-sketch-sections`
 > 经一次性捕获判定为**误判**，实为内核/算法缺口，已回写（见 §3.1.1）。manifest 现为
-> **571 ported / 71 blocked / 55 skipped**。
+> **573 ported / 69 blocked / 55 skipped**。
 
 | 标签 | 条 | 动作 | 判据 |
 |---|---|---|---|
-| `getfixturevalue` | 5 | ✅ **已翻**：内联 fixture 写镜像；3 条内存 export→importStep 往返（`exportBin/importBin`） | 往返体积/拓扑逐位 |
+| `getfixturevalue` | 5 | **4 已翻**（内联 fixture 写镜像；3 条内存 export→importStep 往返 `exportBin/importBin`）；第 5 条 `test_assembly_step_import_roundtrip__assy` **改判 D 类**（`ref:step-roundtrip-drops-part`，见 §3.4） | 往返体积/拓扑逐位 |
 | `op:shape-operator-overload` | 1 | ✅ **已翻**（`shapeUnion/Intersect/Difference` + `test_set_ops__*` 镜像 + 变异） | 集合语义（非布尔），面计数 |
 | `op:faceOn` / `eachpoint` / `cast` / `op:pendingWires` / `op:extrude-taper-sketch` / `op:sweep-sketch-sections` | 6 | λ 分发与值面通道 → **4 已翻，2 误判**（§3.1.1） | 一次性捕获真值 |
 | `op:prism-tilt` | 1 | ✅ **已翻 2026-10-10**：`cutBlind(wp, depth, { dir })`（本仓扩展）建**平移**斜棱柱作切具 | 逐位 PASS f7/e15/v10 |
@@ -118,7 +123,7 @@ D:\Faicad\occt-wasm      git describe = v5.3.5（main），未切 v5.6.0，未�
 
 #### 3.1.1 捕获回写（2026-10-10，以实测为准）
 
-判据纪律见 §5：「捕获推翻本文结论的，以捕获为准并回写 §3」。本轮 4 条结论如下。
+判据纪律见 §5：「捕获推翻本文结论的，以捕获为准并回写 §3」。本轮结论如下（①–⑥）。
 
 **① `op:prism-tilt`（`test_prism__res3`）— 已翻。** 本表原文「本仓 `extrude` 本就吃方向向量」
 只对了一半：核 `extrude(face, dx, dy, dz)` 是 `BRepPrimAPI_MakePrism` **平移**棱柱，方向向量一直
@@ -156,14 +161,18 @@ x[−0.700,0.713] × y[−0.386,0.398]。
 是**同一个内核缺口**（`MakePipeShell::Add` 多次调用未暴露），另加 frame-aware `placeSketch`。
 本仓现有 `sweepPipeShell` + fuse 只是近似，按 §4.5.4 不许冒充逐位。
 
-> **A 类修正结论**：可做 **12** 条（非 14）；`op:faceOn` 移入 N2、`op:sweep-sketch-sections`
-> 移入 C 类。§3.5 的 parity 上限相应下调 2 条。
+> **A 类修正结论**：两次声明式移出后 A 的范围是 **12** 条；其中 **11 条已翻 ported**，
+> 余下 1 条（`test_assembly_step_import_roundtrip__assy`，原挂 `getfixturevalue`）经 ref 证据判定
+> **改判 D 类**（`ref:step-roundtrip-drops-part`），故 A 的**余量仍是 0**。
+> `op:faceOn` 移入 N2、`op:sweep-sketch-sections` 移入 C 类。§3.5 的 parity 上限相应下调 2 条。
 
 **⑤ `narrow:sphere-angles`（`testCompSolid__tool`）— 已翻（N2-1），且原方案的两条判断都错。**
 一次性 Python 捕获（`out/probe-sphere-sweep.py` + `out/probe-sphere-dir.py`）钉死真值：
 
-- **标签条数错**：该标签实际只有 **1** 条（`testCompSolid__tool`），不是 3 条——
-  另两条 `testSphereCustom` 的镜像早已 ported。
+- **标签条数**：本条写的「该标签实际只有 **1** 条」**只在当时是对的** —— plan 时 manifest 里
+  `narrow:sphere-angles` 标的是 **3** 条 `TestCadQuery::testSphereCustom__s / __s0 / __s1`
+  （见 §3.2 修订；`23fea76` 才把 `cast` 重标到该标签，于是 N2-1 时点看到 1 条，属**同名不同物**）。
+  ⇒ 本节由此推出的「B 减 2」**不成立**，B 的初始值是 **25** 不是 22。几何结论（下面各条）不受影响。
 - **「`makeSphere(r)` 是单参」只对了一半**：raw 绑定确实是单参，但**上游 `Solid.makeSphere`
   是 6 参带默认值** —— `makeSphere(radius, pnt=(0,0,0), dir=(0,0,1), angleDegrees1=0, angleDegrees2=90,
   angleDegrees3=360)`，即**默认值给的是「上半球」而不是全球**；`Workplane.sphere` 的默认值却是
@@ -186,6 +195,47 @@ x[−0.700,0.713] × y[−0.386,0.398]。
 - 顺带修正 `src/workplane.ts` 里 `sphere` 的旧 JSDoc——它写着「partial sweeps are not expressible …
   upstream testSphereCustom stays blocked on that」，两半都已过时。
 
+**⑥ `plane`（2 条）— 1 翻 1 判 D，且 §3.2 的两条判断都错、`mark-blocked.ts` 的注释也错。**
+一次性 Python 捕获 `out/probe-history-loft.py`（cadquery 2.8.0）：
+
+- **`plane(w, l)` 是有限面，不是无界面**：`BRepBuilderAPI_MakeFace(gp_Pln(O,+Z), -w/2, w/2, -l/2, l/2)`
+  ⇒ `plane(1,1)` = `Face f1/e4/w1/v4`，bbox `x[-0.5,0.5] y[-0.5,0.5] z[0,0]`。§3.2 原文「上游是
+  `BRepBuilderAPI_MakeFace(gp_Pln)` 的**无界面**；自造只能用有限大面近似」**前提就不成立**
+  ⇒ 也**不需要**「先捕获上游无界面的 bbox 真值」——那个真值不存在。所谓「±1e60 冒充」的风险是伪风险。
+- **用例正文也被记错**：`mark-blocked.ts` 原注把 `test_history_loft__res` 写成
+  `loft([plane(1,1), face(circle(1)).moved(z=1)])`；真身是
+  `f1 = plane(1,1) - face(circle(0.1)); f2 = (plane(2,2) - face(circle(0.1))).moved(z=1); res = loft(f1, f2)`
+  （1×1 → 2×2 的**带直孔**锥台，vol `2.30191740679744` = 7/3 − π·0.01，`f7/e15/w9/v10`；
+  ref 的 ±1e-7 bbox 余量出自 `ThruSections` 自身，`loft(plane(1,1),plane(2,2))` 也带）。
+- **`plane` 早已实现**（`src/workplane.ts:5846`，只有无参的 ±1e60 重载故意抛错），所以「free-function
+  构造函数缺失」这个 blockedBy 标签是**陈旧误判**。真正缺的是**带孔的多 wire 放样**，而它在
+  `test_loft__r6`（早已 ported）里已经解决过：上游的 `solid(side, *sides, top, bot)`（缝合成型）**等价于
+  外放样 − 内放样**。⇒ `test_history_loft__res` 用现有算子写出镜像，**零行 src 新代码**即逐位 PASS：
+  volΔ `9.6e-14 %`、质心Δ `9.7e-17`、bboxΔ `0`、booleanΔ `0/0`、拓扑 ref `f7/e15/v10` == cand `f7/e15/v10`。
+  变异对照：锥台 2×2→1.5×1.5 ⇒ FAIL（vol 32.58 %）；去掉布尔 ⇒ FAIL（vol 1.36 %，boolean `b−a` = π·0.01，
+  拓扑退到 `f6/e12/v8`）。
+- **`test_name_geometries__assy` 不是几何判据，且 ref 自身不可判 ⇒ 判 D 类**（`comparator:mixed-dim-boolean`）：
+  - 它的判据是 **STEP 文本**（`len([l for l in lines if "top_face" in l]) == 2`），题目是
+    `Assembly.save(name_geometries=True)` 的**名字传播**，几何比较器**无法表达**；
+  - ref 产物连负载都没有：ref harness（`tests/ref-harness/cq_step_plugin.py::_export`）走
+    `Assembly.toCompound()` + `Shape.exportStep()`，而 `Shape.exportStep` **没有 `name_geometries` 参数**。
+    实测 ref STEP 里 `top_face`/`plane_`/`seg_` 各出现 **0** 次，而三个子件都在（4 个 PRODUCT、
+    3 个 `NEXT_ASSEMBLY_USAGE_OCCURRENCE`、1 `ADVANCED_BREP` + 1 `MANIFOLD_SURFACE/OPEN_SHELL` +
+    1 `GEOMETRICALLY_BOUNDED_WIREFRAME`）；
+  - 独立地，**ref 无法自比**：`compareStepFiles(ref, ref)` 在 `step-compare.js`
+    （`kernel.cut(shapeA, shapeB)`）抛 `OcctError: cut: boolean operation failed`。
+    已落成可重跑探针 `tests/_probe-mixed-dim-boolean.ts`（+ 变体生成器
+    `tests/ref-harness/name-geometries-probe.py`，出到 `out/_diag/`）：
+    实测该场景 4 个变体（`v_full` / `v_noface` / `v_noedge` / `v_offfac`）**全部抛**，
+    所以**不是**面共面/重合——是**量纲混合的 compound（低维成员嵌在/叠在 3D 成员里）触发的非流形布尔**。
+    对照（自比 OK）：纯实体（×2）、纯面（×2）、纯边、成员不相交的 solid+face（×2）、solid+edge
+    （`test_faceOn__f2`、`test_constructors__c1`、`test_project__res`）—— 探针末行打印
+    `CONFIRMED`。同一抛错的还有已判 D 的 `ref:degenerate-compound-vertex`（`test_loft_to_vertex__c`）。
+
+> **N2-2 结论**：`plane` 标签**清零**（1 翻 ported / 1 判 D），B 类由此 **23 → 余 20**、D 类 **5 → 6**，
+> blocked **70 → 69**。**没有新增任何 `src/` 代码** —— 这一项的全部价值是**纠正三处纸面错误**
+> （无界面前提、`plane` 缺失、用例正文），并复用既有分解范式。
+
 ### 3.2 B 类 · 可自造（**24 条，自有能力层的目标**）
 
 | 标签 | 条 | 自造路径 | 可行性/风险 |
@@ -193,14 +243,22 @@ x[−0.700,0.713] × y[−0.386,0.398]。
 | **`op:assembly-solve`** | **14** | **自研 pure-TS 全局 NLP 求解器**（LM + 解析雅可比），替换目前委托 `faijs-extra/editor-ops` 的 core solver；上游用 `casadi`，OCCT 无求解器 ⇒ 这本来就是算法缺口，不是绑定缺口 | **高可行性、大工作量**；这是 B 类的大头，也是唯一一条不受内核约束的 14 条批量项 |
 | `narrow:sphere-angles` | ~~3~~ **1** | ~~`makeSphere(r)` 是单参；用**布尔组合**造角度域球面（U 向=两半空间交，V 向=平面切 + 圆盘盖）~~ → 实况：**该标签实际只有 1 条**；`makeSphere(r)` 确实单参，但正解**不是布尔组合**而是**回转**（`makeSphere` 内部就是回转子午面）。见 §3.1.1 ⑤ | ✅ **已翻 2026-10-10**（N2-1）：逐位 PASS f4/e7/v4 |
 | `op:project` 2 + `project` 2 | 4 | **点→面/边**子集本仓可做（`projectPointOnFace/OnEdge` 已绑）；**边→面**用「离散取点 → 逐点投影 → `interpolatePoints` 拟合」近似 | 中；近似路径有**精度换可运行性**风险，必须与真值对拍，不达标就回写 blocked |
-| `plane` | 2 | 上游是 `BRepBuilderAPI_MakeFace(gp_Pln)` 的**无界面**；自造只能用有限大面近似 | 低中；先捕获上游 bbox 真值再判（无界面的 bbox 语义未知） |
+| `plane` | ~~2~~ **0** | ~~上游是 `BRepBuilderAPI_MakeFace(gp_Pln)` 的**无界面**；自造只能用有限大面近似~~ → 实况：`plane(w,l)` 是**有限** `w×l` 面且**早已实现**；真正缺的是**带孔多 wire 放样**，用 `test_loft__r6` 的「外放样 − 内放样」范式**零行 src 新代码**即逐位 PASS。见 §3.1.1 ⑥ | ✅ **1 条已翻 2026-10-10**（N2-2，`test_history_loft__res`，逐位 PASS `f7/e15/v10`）；另 1 条（`test_name_geometries__assy`）不是几何判据且 ref 不可自比 ⇒ **判 D 类** |
 | `export:free-face-in-compound` | 1 | **自造 STEP 写出**：`save.ts` 已经在用 raw occt-wasm XCAF 写装配，扩展到散面 compound 是同构小改；绕开 faijs 导出层 | 高；顺带验证 §1.3 那条宿主过滤能不能被旁路 |
 
-> **B 类期望值**：乐观 ~~24~~ **22** 条全翻，保守 **15–18 条**（`plane` 2 条与 `project` 的边→面 2 条最可能止步于「近似不达标」）。**任何一条都必须先捕获得真值再动手**（§6 判据 3）。
+> **B 类期望值**：乐观 ~~24~~ ~~22~~ **20** 条全翻，保守 **16–18 条**。**任何一条都必须先捕获得真值再动手**（§6 判据 3）。
+> 原始的「保守」理由（`plane` 2 条 + `project` 边→面 2 条最可能止步）已被 N2-2 削掉一半：`plane` 的 2 条一条翻 ported、一条判 D（**都不是近似不达标**），故保守下界上移到 16（只余 `project` 的边→面 2 条存疑）。
 >
-> **2026-10-10 修订**：本表原列 24 条，实际是 **22 条**——`narrow:sphere-angles` 是 **1** 条不是 3
-> （另 2 条 `testSphereCustom` 镜像早在 N1 前就已 ported），而 `op:faceOn` 由 A 类移入 B 的 N2 范围（+1）：
-> `14 + 1 + 4 + 2 + 1 + 1 = 22`。其中已翻 **1**（sphere-angles），**余 21**。
+> **2026-10-10 修订（原文两处算错，以逐标签重算为准）**：
+> - 本表原列 **24** 条，`narrow:sphere-angles` **确实是 3 条**（plan 时 manifest 实测就是
+>   `TestCadQuery::testSphereCustom__s / __s0 / __s1` 三个变量，**不是** §3.1.1 ⑤ 说的 1 条——
+>   ⑤ 看到的 「1 条」是 `23fea76` 把 `cast` 重标到该标签**之后**的快照，属**同名不同物**）；
+>   三条 `testSphereCustom` 在 `23fea76` 一次翻完。故 sphere-angles **不减** B 的分母。
+> - `op:faceOn` 由 A 类移入（+1）⇒ B 的真实初始值是 **25**（`24 + 1`），不是 22 也不是 23。
+>   原文写的 `14 + 1 + 4 + 2 + 1 + 1 = 22` 本身就**算错**（实为 23）。
+> - **2026-10-10（N2-2 之后）**：B 已翻 **4**（`narrow:sphere-angles` 3 + `plane` 1），
+>   移出到 D **1**（`plane`/`test_name_geometries__assy`），**余 20** =
+>   `op:assembly-solve` 14 + `op:project` 2 + `project` 2 + `export:free-face-in-compound` 1 + `op:faceOn` 1。
 
 ### 3.3 C 类 · 真内核缺口（**42 条 → 修正为 43 条，本机无通路**）
 
@@ -221,9 +279,23 @@ x[−0.700,0.713] × y[−0.386,0.398]。
 | `kernel:loft-coplanar-sections` | 1 | `ThruSections` 参数面未暴露 | ❌ |
 | `kernel:crash-polygon-cutThruAll` | 1 | 疑 WASM trap，未复现定位 | 待诊断 |
 
-### 3.4 D 类 · 不可控（**4 条**）
+### 3.4 D 类 · 不可控（**4 条 → 修正为 6 条**）
 
-`comparator:open-shell-volume` 2 + `comparator:vertex-degenerate-compound` 1（判卷人在 `@faicad/cq-compat-compare`，跨仓，本仓禁止自行翻 ported）；`ref:degenerate-compound-vertex` 1 + `ref:step-roundtrip-drops-part` 1（ref 侧产物/证据问题，不归类）—— **共 5 条**（原文漏列 `ref:step-roundtrip-drops-part`）。
+原文把 D 写成 4 条、且只列 3 条标签，**两次漏/错**；按 plan 时 manifest 逐标签重算的实况是 **6** 条：
+
+| 标签 | 条 | 来源 | 为什么本仓做不到 |
+|---|---|---|---|
+| `comparator:open-shell-volume` | 2 | 原文已列 | 判卷人在 `@faicad/cq-compat-compare`（**跨仓**），本仓禁止自行翻 ported |
+| `comparator:vertex-degenerate-compound` | 1 | 原文已列 | 同上 |
+| `comparator:mixed-dim-boolean` | 1 | **N2-2 新增**（`tests.test_assembly:::test_name_geometries__assy`，原挂 `plane`） | ① 题目是 STEP **文本**里的 `name_geometries` 名字传播，几何比较器无法表达；② ref 产物**根本没有名字负载**（harness 走 `Assembly.toCompound() + Shape.exportStep()`，而 `Shape.exportStep` 无 `name_geometries` 参数，实测 `top_face/plane_/seg_` 各出现 0 次）；③ 独立地 ref 自身不可自比：`compareStepFiles(ref, ref)` 在 `kernel.cut` 抛 `OcctError: boolean operation failed`（量纲混合 compound 的非流形布尔，已用 4 变体二分 + 4 个对照坐实）。见 §3.1.1 ⑥ |
+| `ref:degenerate-compound-vertex` | 1 | 原文已列 | ref 侧产物/证据问题 |
+| `ref:step-roundtrip-drops-part` | 1 | **原文漏列**（`tests.test_assembly:::test_assembly_step_import_roundtrip__assy`，plan 时挂 `getfixturevalue` 因而被算进 A 类） | ref 的 STEP 往返丢了部件，判据不成立 |
+
+> **实计数 = 6 条用例 / 5 个标签**：`2 + 1 + 1 + 1 + 1 = 6`。
+> 上表 `comparator:mixed-dim-boolean` 一行的 ①②③ 是**同一用例的三条独立缺陷**，只算 1 条。
+>
+> **修订轨迹**：`4`（原文）→ `5`（`f643aac` 补 `ref:step-roundtrip-drops-part`）→ **`6`**（N2-2 把
+> `plane`/`name_geometries` 从 B 判入 D）。每一步都用 `0 + B余 + 43 + D = blocked 实测` 反验。
 
 ### 3.5 汇总与 parity 上限
 
@@ -235,30 +307,46 @@ x[−0.700,0.713] × y[−0.386,0.398]。
 └─ D 不可控          4  █ 4.8%
 ```
 
-> **2026-10-10 回写**：A 类实际可做 **12**（`op:faceOn` → N2，`op:sweep-sketch-sections` → C 类，
-> 见 §3.1.1），其中 **12/12 已翻**。当前 manifest：**70 blocked** = A 余 0 + B 余 21 + C 43 + D 5
-> （B 的 22 里已翻 1，即 `narrow:sphere-angles`；D 由 4 修正为 5，见下）。
+> **2026-10-10 回写（N2-2 后重算，以 plan 时 manifest 逐标签为准）**：两次声明式移出后 A 的范围是 **12**，
+> 其中 **11 条已翻**、1 条（`test_assembly_step_import_roundtrip__assy`）改判 D 类 ⇒ A 余 **0**。
+> 当前 manifest：**69 blocked** = **A 余 0 + B 余 20 + C 43 + D 6** ✅（N2-1 时点：`0 + 21 + 43 + 6 = 70` ✅）。
 
-> **分母修订（2026-10-10，以 manifest 实测为准）**：原表把 D 记为 4 条、B 记为 24 条，
-> 二者各错 1 条方向相反：
-> - **D 实为 5**：除 `comparator:open-shell-volume` 2 + `comparator:vertex-degenerate-compound` 1 +
->   `ref:degenerate-compound-vertex` 1 之外，还有 **`ref:step-roundtrip-drops-part` 1**（原文漏列）。
-> - **B 实为 22**：`narrow:sphere-angles` 是 1 条（不是 3），`op:faceOn` 由 A 移入（+1）。
-> - 校验：`0 (A) + 22 (B) + 43 (C) + 5 (D) = 70` ✅ = manifest 实测 blocked 数。
+> **分母修订（2026-10-10，逐标签重算，取代原文的「B 22 / D 5」）**：原文两处各错一条且方向相反，
+> 恰好让 `0 + 22 + 43 + 5 = 70` 靠**抵消**显示为「验算通过」。逐标签重算如下：
+>
+> | 类 | plan 时 | 声明式移出 | 判入 D | 已翻 | 余 |
+> |---|---|---|---|---|---|
+> | A | 14 | −2（`op:faceOn`→B、`op:sweep-sketch-sections`→C） | −1（`…roundtrip__assy`） | −11 | **0** |
+> | B | 24 | +1（`op:faceOn`）＝**25** | −1（`…name_geometries__assy`） | −4（`narrow:sphere-angles` 3 + `plane` 1） | **20** |
+> | C | 42 | +1（`op:sweep-sketch-sections`）＝**43** | 0 | 0 | **43** |
+> | D | 4 | 0 | +2 | 0 | **6** |
+> | 合计 | 84 | — | — | −15 | **69** ✅ |
+>
+> - **B 的初始值是 25，不是 22/23**：`narrow:sphere-angles` 在 plan 时确实是 **3** 条
+>   （`TestCadQuery::testSphereCustom__s/__s0/__s1`），三条在 `23fea76` 一次翻完，故**不减**；
+>   `op:faceOn` 由 A 移入 +1 ⇒ `24 + 1 = 25`。原文 `14 + 1 + 4 + 2 + 1 + 1 = 22` 本身就是算错的加法（＝23）。
+> - **D 是 6，不是 5**：`ref:step-roundtrip-drops-part`（plan 时挂 `getfixturevalue`，被算进 A）
+>   **加上** N2-2 判入的 `comparator:mixed-dim-boolean`（原挂 `plane`，属 B）。
+> - **翻转总数 = 15** = A 11 + B 4（84 → 69）。
 
 | 场景 | parity |
 |---|---|
 | 计划时基线（2026-10-07 全量） | **80.00%**（520/650） |
-| A 类（修正后可做 12 条）全翻 —— **已达成** | **81.85%**（532/650） |
-| + B 保守（15/22） | **84.15%**（547/650） |
-| + B 全翻（22/22） | **85.23%**（554/650） |
-| + C 类 43 条（需完整内核扩展） | **91.85%**（597/650） —— 不现实，仅作天花板参照 |
-| + D 类 5 条 | 92.6%（602/650） —— 本仓做不到（跨仓/证据不足，见 §3.4） |
+| **实测累计（2026-10-10，已翻 15 条：A 11 + B 4）** | **82.31%**（535/650） |
+| + B 余 20 保守（≈ 18/20，仅 `project` 边→面 2 条存疑） | 85.08%（553/650） |
+| + B 余 20 全翻 | **85.38%**（555/650） |
+| + C 类 43 条（需完整内核扩展） | **92.00%**（598/650） —— 不现实，仅作天花板参照 |
+| + D 类 6 条 | 92.92%（604/650） —— 本仓做不到（跨仓/证据不足，见 §3.4） |
 
-> **2026-10-10 重算**：原表三行（532 / 545 / 550 / 607）与自洽的加法对不上——按
-> `parity = (520 + 已翻) / 650` 重算如上，并改用 B=22、C=43 的新分母。
+> **2026-10-10 重算**：原表各行（532 / 547 / 554 / 597 / 602）由过期分母（B 22 / D 5）推出，已作废。
+> 现按 `parity = (520 + 已翻) / 650` 且 **B 25 / C 43 / D 6** 重算如上。
 > 分母纪律：**BLOCKED 计入分母**；`compare.ts` 的 `compared = pass + passNt + fail` 不含 ERROR，
 > 故 `pass+passNt+fail+blocked = 650` 才对（refCases 实测 650，且 `parity = (pass+passNt)/refCaseCount`）。
+> 校验链：`520 + 15 + 20 + 43 + 6 = 604`（= 650 − 46）。
+> ⚠ **这是投影不是实测**：按本文口径 `parity = (520 + 已翻)/650`，前提是「每条已翻的 blocked 都会变成
+> PASS 或 PASS-NT」。真值只能由 **N0-3 全量重扫**给出（§7 R1）。另记一条**既有**口径毛刺：
+> `out/report-final.json` 的 `counts` 是 `500+20+18+1+112 = 651`，而 `refCases` = 650、`out/ref/*.step` = **651** 个
+> —— 基线自身有 1 条对不上，**与本次改动无关**，此处仅登记。
 
 ---
 
@@ -343,32 +431,38 @@ x[−0.700,0.713] × y[−0.386,0.398]。
 | N0-4 | 与旧基线做**集合 diff**：`out/diff-baseline.mjs`（已有工具） | 明确「新增绿 / 新红 / 既有红」三张清单；新红必须逐条归因（faijs 升级？本仓提交？ref 漂移？） |
 | N0-5 | 把新基线数字回写本文 §1.1，并把三份旧计划的排期标记为「已被本文取代」 | 文档与实测一致 |
 
-### N1 · A 类本仓值面（14 条 → 修正为 12 条）
+### N1 · A 类本仓值面（14 条 → 修正为 12 条，其中 11 条翻 ported + 1 条判 D）
 
 顺序：`getfixturevalue` 5（通道已就绪，最稳）→ `op:shape-operator-overload` 1（WIP）→ `eachpoint/cast/faceOn/pendingWires/extrude-taper-sketch/sweep-sketch-sections` 6 → `op:prism-tilt` 1 → `kernel:ellipse-tall-axis` 1（先做判别探针）。每条：一次性 Python 捕获 → 镜像 → parity 逐位 → 变异测试 → manifest 翻 ported。
 
-> **2026-10-10 状态：N1 收口。** 12 条全部翻 ported（5 + 1 + 4 + 1 + 1）；`op:faceOn` 移交 N2、
+> **2026-10-10 状态：N1 收口。** 12 条里 **11 条翻 ported**（4 + 1 + 4 + 1 + 1），第 12 条
+> `test_assembly_step_import_roundtrip__assy`（原挂 `getfixturevalue`）**改判 D 类**
+> （`ref:step-roundtrip-drops-part`，§3.4）⇒ A 余 0；`op:faceOn` 移交 N2、
 > `op:sweep-sketch-sections` 移交 C 类（§3.1.1 ③④）。产出提交：`a56353d`（set ops）、
 > `39db559`/`627c67f`（getfixturevalue + eachpoint/pendingWires）、`f14c2ec`（draftPrism 句柄回归修复）、
 > `b188cf7`（taper PASS-NT）、`23fea76`（sphere 批）、`eab936d`（prism-tilt + ellipse-tall-axis）。
 
 ### N2 · 自有内核原语层（骨架 + 4 个自造项）
 
-> **2026-10-10 状态：N2-0 与 N2-1 已落地。**
+> **2026-10-10 状态：N2-0 / N2-1 / N2-2 已落地。**
 > - **N2-0**（`a3a2e8b`）：`src/kernel/index.ts`（唯一 `occt-wasm` / faijs occt-kernel 入口，
 >   `getCqKernel()` + `CqKernel`）+ `src/adapters/faijs.ts`（`@faicad/faijs` 深子路径收口，纯 re-export）；
 >   `workplane.ts` 等 7 个模块的 66+7 处 `getKernel()` 迁到 `getCqKernel()`；
 >   新增 `src/kernel.probe.test.ts`（71 个 raw 绑定运行时探针 + 静态边界守卫，已做变异对照）。
 > - **N2-1**（见 §3.1.1 ⑤）：`narrow:sphere-angles` 翻 ported（manifest 71 → **70 blocked**），
 >   `sphere` 增加 `direct/angle1/angle2/angle3`，走**回转**而非布尔；`src/sphere-angles.test.ts` 28 条。
-> - **N2-2/N2-3/N2-4 未开工**：`plane` 2 / `project` 4 / `export:free-face-in-compound` 1。
+> - **N2-2**（见 §3.1.1 ⑥）：`plane` **清零** —— 1 条翻 ported（`test_history_loft__res`，**零行 src 新代码**，
+>   复用 `test_loft__r6` 的「外放样 − 内放样」范式，逐位 PASS `f7/e15/v10`，两个变异均翻红）；
+>   1 条判 D（`test_name_geometries__assy` → `comparator:mixed-dim-boolean`）。
+>   manifest **70 → 69 blocked**（573 ported / 69 blocked / 55 skipped）。
+> - **N2-3/N2-4 未开工**：`project` 4 / `export:free-face-in-compound` 1。
 > - 顺带修正：`op:faceOn` 仍是 1 条 blocked（标签未改名，见 §3.1.1 ③），归本批。
 
 | 序 | 项 | 判据 |
 |---|---|---|
 | N2-0 | 建 `src/kernel/`（唯一 occt 直调口）+ `src/adapters/faijs.ts`（深子路径收口）+ `CqKernel` 类型 + 能力面探针测试；把 `workplane.ts` 的 `getKernel()` 散点迁移过去 | ✅ 零回归（1 failed / 691 passed，唯一红为既有 §1.3）；探针 5/5 绿 |
 | N2-1 | `narrow:sphere-angles` 1 条：角度域球面 | ✅ 逐位 PASS f4/e7/v4；10 组角三元组 + 10 组 `dir` 与上游 ~1e-15 对拍；变异 8/28 翻红 |
-| N2-2 | `plane` 2 条：**先捕获上游无界面的 bbox/面积真值**，再决定「有限大面」能否过关 | 不达标即回写 blocked（不许用 ±1e60 冒充） |
+| N2-2 | `plane` 2 条：**先捕获上游无界面的 bbox/面积真值**，再决定「有限大面」能否过关 | ✅ **结论与判据都推翻**：上游是**有限** `w×l` 面（无界面前提不成立，不需要那个真值）；1 条翻 ported（逐位 PASS `f7/e15/v10`，**零行 src 新代码**，两个变异翻红），1 条不是几何判据且 ref 不可自比 ⇒ 判 D 类。见 §3.1.1 ⑥ |
 | N2-3 | `project` 4 条：先做点投影子集（2 条），边→面走离散+拟合并**显式评级** | 近似项若非逐位，只允许记 PASS-NT 且写 reason |
 | N2-4 | `export:free-face-in-compound` 1 条：复用 `save.ts` 的 raw XCAF 通路写散面 compound | 7 面全写出（现状只写 6） |
 
@@ -446,6 +540,13 @@ which rustc cargo emcc cmake ninja ; cd /d/Faicad/occt-wasm && git describe --ta
 
 # faijs 宿主策略归因（§1.3）
 grep -n "nothing to export as a 3D part" -B 25 node_modules/@faicad/faijs/dist/node-host/cli.js
+
+# D 类 · comparator:mixed-dim-boolean 复现（§3.1.1 ⑥ / §3.4）
+C:/Users/ylt/cadquery-env/Scripts/python.exe tests/ref-harness/name-geometries-probe.py
+npx tsx tests/_probe-mixed-dim-boolean.ts   # 末行应打印 CONFIRMED
+
+# 分类分母反验（§3.5）：0 + B余 + 43 + D 必须等于实测 blocked
+node -e "const m=require('./tests/manifest.json');const v=Object.values(m);const s={};for(const e of v)s[e.status]=(s[e.status]||0)+1;console.log(s)"
 ```
 
 **实测快照（2026-10-10）**：manifest 558/84/55 · 34 标签 · 镜像 563+18 · 单测 680/72 文件（1 红：`TestCQSelectors__testShape__res4`）· lint 绿 · tsc 绿 · parity 基线 80.00%（10-07，未重扫）· Rust/emsdk/cmake 全缺 · occt-wasm clone 仍 v5.3.5。
@@ -453,3 +554,5 @@ grep -n "nothing to export as a 3D part" -B 25 node_modules/@faicad/faijs/dist/n
 **实测快照（2026-10-10 · N1 收口后）**：manifest **571/71/55 · 27 标签 · 镜像 585 个 `.fai.js` + 19 个 `.blocked`** · 单测 **686 用例 / 73 文件**（vitest 收集数；仍 1 红：同上）· lint 绿 · tsc 绿 · parity 基线仍 80.00%（10-07，未重扫）。A 类 12 条全翻；余：B 24（含装配求解器 14）· C 43 · D 4。
 
 **实测快照（2026-10-10 · N2-0 骨架 + N2-1 sphere-angles 后）**：manifest **572 ported / 70 blocked / 55 skipped · 26 标签 · 镜像 586 个 `.fai.js` + 19 个 `.blocked`** · 单测 **720 用例 / 76 文件**（仍 1 红：同上 §1.3）· lint 绿 · tsc 绿 · parity 基线仍 80.00%（10-07，未重扫）。分类实况 **A 余 0 · B 余 21 · C 43 · D 5**；N2 余：`plane` 2 · `project` 4 · `export:free-face-in-compound` 1 · `op:faceOn` 1。
+
+**实测快照（2026-10-10 · N2-2 `plane` 后）**：manifest **573 ported / 69 blocked / 55 skipped · 26 标签 · 镜像 587 个 `.fai.js` + 19 个 `.blocked`** · 单测 **720 用例 / 76 文件**（仍 1 红：同上 §1.3）· lint 绿 · tsc 绿 · parity 基线仍 80.00%（10-07，未重扫；**投影** 82.31%）。分类实况 **A 余 0 · B 余 20 · C 43 · D 6**（`0+20+43+6 = 69` ✅）；N2 余：`project` 4 · `export:free-face-in-compound` 1 · `op:faceOn` 1（`plane` 清零）。本轮翻转 1 条（`test_history_loft__res`，零行 src 新代码）；`plane` 的另一条判入 D，并顺带纠正 §3.2/§3.4/§3.5 三处算错的分母。
