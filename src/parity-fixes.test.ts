@@ -167,6 +167,55 @@ describe('cq-compat parity fixes', () => {
     expect(volume(shape)).toBeCloseTo(expected, 1)
   }, 60000)
 
+  it('cutBlind({ dir }) cuts an OBLIQUE (sheared) prism — translation, not rotation', async () => {
+    // Upstream `prism(ctx, base, profile, t, dir, additive=False)` builds a
+    // `BRepFeat_MakePrism`: the profile is swept as a TRANSLATION prism, so the
+    // cross-section is sheared and the removed volume stays πr²·h whatever the
+    // tilt. Anchors are the one-shot capture of test_prism res3
+    // (box 1×1×1 z∈[0,1], circle r=0.2 on >Z, dir=(0, 0.1, 1)):
+    //   vol 0.874336359635, com.y 0.00718622774873.
+    // com.y = −(removed vol · removed com.y)/(box − removed) =
+    //   −(0.1256637·(−0.05))/0.8743363 = +0.0071862 ✓ — the tool runs from the
+    // profile plane straight to the target plane along (0, −0.1, −1).
+    const shape = await runShape([
+      "let wp = cq.Workplane('XY')",
+      'let wp0 = cq.box(wp, 1, 1, 1, { centered: [true, true, false] })',
+      "let wp1 = cq.faces(wp0, '>Z')",
+      'let wp2 = cq.workplane(wp1)',
+      'let wp3 = cq.circle(wp2, 0.2)',
+      'let wp_out = cq.cutBlind(wp3, -1.1, { dir: [0, -0.1, -1] })',
+    ])
+    expect(solidCount(shape)).toBe(1)
+    expect(volume(shape)).toBeCloseTo(0.874336359635, 7)
+    const com = getBrepApi().getCenterOfMass(brepOf(shape) as BrepHandle) as {
+      x: number
+      y: number
+      z: number
+    }
+    expect(com.y).toBeCloseTo(0.00718622774873, 6)
+    // A rotated cylinder (makeCylinderAt-style) instead of a translation prism
+    // would remove πr²·|dir| = π·0.04·1.00499 — 0.5 % MORE volume — and leave
+    // com.y at exactly ±0.05. The tolerances above (5e-8 / 5e-7) reject both
+    // failure modes by four orders of magnitude; the measured kernel scatter is
+    // ~1e-8 in volume, which is why the precision is not tighter.
+    expect(Math.abs(com.y)).toBeLessThan(0.01)
+  }, 60000)
+
+  it('cutBlind({ dir }) mutation: flipping the tilt sign moves the removed mass', async () => {
+    // Negative control for the guard above — same volume, mirrored centroid.
+    const shape = await runShape([
+      "let wp = cq.Workplane('XY')",
+      'let wp0 = cq.box(wp, 1, 1, 1, { centered: [true, true, false] })',
+      "let wp1 = cq.faces(wp0, '>Z')",
+      'let wp2 = cq.workplane(wp1)',
+      'let wp3 = cq.circle(wp2, 0.2)',
+      'let wp_out = cq.cutBlind(wp3, -1.1, { dir: [0, 0.1, -1] })',
+    ])
+    expect(volume(shape)).toBeCloseTo(0.874336359635, 7)
+    const com = getBrepApi().getCenterOfMass(brepOf(shape) as BrepHandle) as { y: number }
+    expect(com.y).toBeCloseTo(-0.00718622774873, 6)
+  }, 60000)
+
   it('cskHole cuts a conical countersink', async () => {
     // Through hole φ4 + 90° countersink to φ8: cone depth = 4/tan(45°) = 4.
     const shape = await runShape([

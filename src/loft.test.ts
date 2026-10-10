@@ -149,22 +149,36 @@ describe('cq-compat F3 loft', () => {
 })
 
 describe('cq-compat ellipse orientation', () => {
-  // The kernel builds every ellipse with the major axis on GLOBAL X and rejects
-  // major < minor ("gp_Elips: invalid construction parameters"), so a "tall"
-  // ellipse can only be produced by rotating a wide one — and every rotation
-  // entry point re-approximates the curve (applyMatrix: +0.4% volume; plain
-  // transform/rotate: `makeFace` rejects the wire as non-planar). cq-compat
-  // fails loudly instead of emitting an approximated ellipse.
-  it('ellipse with y_radius > x_radius fails loudly (kernel limitation)', async () => {
-    const code = [
-      "import * as cq from '@faicad/faijs-cadquery'",
+  // `makeEllipseEdge` REJECTS major < minor ("gp_Elips: invalid construction
+  // parameters") and puts the major axis on `gp_Ax2(centre, normal)`'s DEFAULT
+  // X direction. So a "tall" ellipse (y_radius > x_radius) is built with the
+  // major axis at y_radius and turned onto the plane's +Y by a RIGID rotation —
+  // which preserves the analytic curve (probed in
+  // src/ellipse-axis.probe.test.ts). The earlier note here ("every rotation
+  // re-approximates the curve") was wrong: only the MATRIX path degrades an
+  // ellipse to a B-spline; `rotate` does not.
+  it('ellipse with y_radius > x_radius is a tall ellipse, not a loud failure', async () => {
+    const s = await runShape([
       "let w1 = cq.ellipse(cq.Workplane('XY'), 3, 4)",
       'let wp_out = await cq.extrude(w1, 1)',
-      'let result = cq.val(wp_out)',
-    ].join('\n')
-    const res = await runtime.execute(code)
-    expect(res.failedAt).toBeDefined()
-  })
+    ])
+    // Area π·3·4 — identical to the wide case, so the VOLUME alone cannot tell
+    // the two orientations apart (that is exactly how this stayed broken);
+    // the bounding box can.
+    expect(volume(s)).toBeCloseTo(Math.PI * 3 * 4 * 1, 5)
+    const bb = getBrepApi().getBoundingBox(brepOf(s) as BrepHandle) as {
+      xmin: number
+      xmax: number
+      ymin: number
+      ymax: number
+      zmin: number
+      zmax: number
+    }
+    expect(bb.xmax - bb.xmin).toBeCloseTo(6, 6)
+    expect(bb.ymax - bb.ymin).toBeCloseTo(8, 6)
+    expect(bb.zmax - bb.zmin).toBeCloseTo(1, 6)
+    expect(faceCount(s)).toBe(3)
+  }, 60000)
 
   it('ellipse with x_radius > y_radius keeps the major axis on X', async () => {
     const s = await runShape([
@@ -172,6 +186,14 @@ describe('cq-compat ellipse orientation', () => {
       'let wp_out = await cq.extrude(w1, 1)',
     ])
     expect(volume(s)).toBeCloseTo(Math.PI * 4 * 2 * 1, 5)
+    const bb = getBrepApi().getBoundingBox(brepOf(s) as BrepHandle) as {
+      xmax: number
+      xmin: number
+      ymax: number
+      ymin: number
+    }
+    expect(bb.xmax - bb.xmin).toBeCloseTo(8, 6)
+    expect(bb.ymax - bb.ymin).toBeCloseTo(4, 6)
     expect(faceCount(s)).toBe(3)
   }, 60000)
 })

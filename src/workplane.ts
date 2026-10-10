@@ -385,6 +385,17 @@ function vsub(a: [number, number, number], b: [number, number, number]): [number
   return [a[0] - b[0], a[1] - b[1], a[2] - b[2]]
 }
 
+function vcross(
+  a: [number, number, number],
+  b: [number, number, number],
+): [number, number, number] {
+  return [
+    a[1] * b[2] - a[2] * b[1],
+    a[2] * b[0] - a[0] * b[2],
+    a[0] * b[1] - a[1] * b[0],
+  ]
+}
+
 /**
  * Local → world mapping for axis-aligned workplane normals, verified against
  * installed CadQuery 2.8.0 (`faces(sel).workplane(...).plane.xDir`):
@@ -1781,10 +1792,17 @@ export function circle(wp: Workplane, radius: number): Workplane {
  *
  * `x_radius` lies on the workplane X axis and `y_radius` on Y — upstream puts
  * no ordering constraint on them (`testEdgeTypesFilter` uses `ellipse(3, 4)`).
- * The kernel's `makeEllipseEdge` requires major >= minor, ignores the plane's
- * own axes and lays the major axis on the global X direction, so a "tall"
- * ellipse is built as a wide one and then rotated 90° about the workplane
- * normal through its centre (see `buildProfileWire`).
+ * The kernel's `makeEllipseEdge` requires major >= minor, so a "tall" ellipse
+ * is built with the major axis at `y_radius` and then rigidly rotated about the
+ * workplane normal onto the plane's Y direction; the rotation is exact (the
+ * curve stays an analytic `ellipse`), see `buildProfileWire`.
+ *
+ * NOTE the asymmetry left in place deliberately: the non-flip branch still
+ * feeds the radii straight to `makeEllipseEdge` without aligning the major axis
+ * to the plane's X direction. For a ±Z normal the kernel's default major
+ * direction IS +X, so that path is exact for every mirrored case; for an
+ * oblique normal it would be off. Aligning both branches is a separate change
+ * (it would touch every ported ellipse case and needs its own parity rescan).
  *
  * @param wp - Workplane
  * @param x_radius - radius along the workplane X axis
@@ -2724,19 +2742,62 @@ async function buildProfileWire(wp: Workplane, w: PendingWire): Promise<unknown>
   if (w.kind === 'ellipse') {
     const center = localToWorld(pl, w.cx, w.cy)
     if (w.flip) {
-      // "Tall" ellipse (y_radius > x_radius) — NOT reproducible today.
+      // "Tall" ellipse (y_radius > x_radius). Two kernel facts, both probed in
+      // src/ellipse-axis.probe.test.ts, drive this implementation:
       //
-      // The kernel lays the major axis on the GLOBAL X direction, ignores the
-      // plane's own axes, and rejects major < minor ("gp_Elips: invalid
-      // construction parameters"), so the only way to a tall ellipse is to
-      // rotate a wide one. Every rotation path available re-approximates the
-      // curve: `applyMatrix`/`generalTransformWithHistory` drifts 0.4% in
-      // volume (testEdgeTypesFilter), and the plain `transform` / `rotate`
-      // kernel entries produce a wire `makeFace` then rejects as non-planar.
-      // Failing loudly instead of silently emitting an approximated ellipse.
-      throw new Error(
-        '[cq-compat] ellipse: y_radius > x_radius is not reproducible (kernel ellipse is always major-on-X and rotations re-approximate it)',
+      //  1. `makeEllipseEdge` rejects major < minor ("gp_Elips() - invalid
+      //     construction parameters"), so the radii cannot simply be swapped —
+      //     the edge must be built with the major axis at y_radius and then
+      //     turned onto the plane's Y direction.
+      //  2. The earlier note here ("kernel ellipse is always major-on-X and
+      //     rotations re-approximate it") is WRONG on both halves:
+      //     - the major axis goes on `gp_Ax2(center, normal)`'s DEFAULT X
+      //       direction, which depends on the normal (+Z→+X, -Z→-X, ±X→±Z,
+      //       ±Y→±Z, (1,1,0)→(1,-1,0)/√2, (1,1,1)→(1,0,-1)/√2 …), so it is not
+      //       pinned to global X and cannot be predicted from the call shape;
+      //     - a RIGID rotation preserves the analytic curve — `curveType()`
+      //       still reports "ellipse", the bbox stays exact and the extruded
+      //       volume is π·major·minor to machine precision. Only the *matrix*
+      //       path (`transform` / `generalTransform`) degrades it to a
+      //       B-spline, which is where the old 0.4 % volume drift came from.
+      //
+      // So: build the wide edge, MEASURE its major direction, and rotate it
+      // about the plane normal onto the plane's own Y direction. The major
+      // endpoint is read off the curve rather than derived from a rule: an OCC
+      // `Geom_Ellipse` parameterises u = FirstParameter exactly on the major
+      // axis (`Value(u) = centre + major·cos(u)·XDir + minor·sin(u)·YDir`).
+      const kernel = getKernel() as unknown as OcctKernel
+      const edge = kernel.makeEllipseEdge(vec3(center), vec3(n), w.majorRadius, w.minorRadius)
+      const { first } = kernel.curveParameters(edge)
+      const p0 = kernel.curvePointAtParam(edge, first)
+      const dMajor: [number, number, number] = [
+        p0.x - center[0],
+        p0.y - center[1],
+        p0.z - center[2],
+      ]
+      const lenMajor = Math.hypot(dMajor[0], dMajor[1], dMajor[2])
+      if (!(lenMajor > 0)) {
+        // Unreachable for a non-degenerate ellipse; keep the unrotated edge
+        // rather than dividing by zero and emitting NaN geometry.
+        return kern().makeWire([edge as unknown as BrepHandle])
+      }
+      const uMajor: [number, number, number] = vscale(dMajor, 1 / lenMajor)
+      const yDir: [number, number, number] = Array.isArray(pl.yDir)
+        ? (pl.yDir as [number, number, number])
+        : ([0, 1, 0] as [number, number, number])
+      // Signed angle from uMajor to the plane's +Y about the plane normal.
+      const angle = Math.atan2(vdot(n, vcross(uMajor, yDir)), vdot(uMajor, yDir))
+      if (Math.abs(angle) < 1e-12) {
+        // Already aligned — return the kernel edge untouched so the rotated
+        // path cannot perturb the geometry.
+        return kern().makeWire([edge as unknown as BrepHandle])
+      }
+      const rotated = kernel.rotate(
+        edge,
+        { point: vec3(center), direction: vec3(n) },
+        angle,
       )
+      return kern().makeWire([rotated as unknown as BrepHandle])
     }
     const edge = getKernel().makeEllipseEdge(vec3(center), vec3(n), w.majorRadius, w.minorRadius)
     return kern().makeWire([edge as unknown as BrepHandle])
@@ -3620,14 +3681,23 @@ export async function loft(wp: Workplane, ...rest: (Workplane | LoftOptions)[]):
  * @param wp - Workplane
  * @param depth - number
  * @param opts - { w?: number; d?: number; radius?: number; taper?: number;
- *   both?: boolean } `both` cuts ±depth about the profile plane (CadQuery
- *   passes `both` straight through to `_extrude`, cq.py:3575-3577)
+ *   both?: boolean; dir?: number[] } `both` cuts ±depth about the profile plane
+ *   (CadQuery passes `both` straight through to `_extrude`, cq.py:3575-3577).
+ *   `dir` (this repo's extension, NOT upstream API) advances the tool along an
+ *   explicit direction instead of the workplane normal — see the branch below.
  * @returns Promise<Workplane>
  */
 export async function cutBlind(
   wp: Workplane,
   depth: number,
-  opts?: { w?: number; d?: number; radius?: number; taper?: number; both?: boolean },
+  opts?: {
+    w?: number
+    d?: number
+    radius?: number
+    taper?: number
+    both?: boolean
+    dir?: [number, number, number]
+  },
 ): Promise<Workplane> {
   if (!baseSolid(wp)) return wp
   const base = baseSolid(wp)!
@@ -3649,6 +3719,57 @@ export async function cutBlind(
   // caller passes a negative depth.
   const cutDir: [number, number, number] = depth < 0 ? invNormal : n
   let result = base
+  // `dir`: oblique (tilted) subtractive prism. Upstream's `prism(ctx, base,
+  // profile, t, dir, additive=False)` overload builds a `BRepFeat_MakePrism`
+  // whose tool travels along `dir` — a TRANSLATION prism of the profile
+  // (`BRepPrimAPI_MakePrism`), so the profile plane is unchanged and the
+  // cross-section is SHEARED, not rotated: the removed volume stays πr²·h
+  // whatever the tilt. One-shot capture of test_prism res3 confirmed it
+  // (removed volume 0.125663640365 = π·0.2²·1 exactly, and the removed mass
+  // centroid sits at the profile-plane/bottom-plane midpoint — i.e. the tool
+  // runs from the profile straight to the target plane). `depth` is the tool
+  // LENGTH along the (normalised) direction; over-running the target plane is
+  // harmless because the surplus lies outside the base solid.
+  if (opts?.dir) {
+    if (opts.taper || both) {
+      throw new Error('[cq-compat] cutBlind: dir cannot be combined with taper/both')
+    }
+    const len = Math.abs(depth)
+    if (!(len > 0)) {
+      throw new Error('[cq-compat] cutBlind: dir requires a non-zero depth (tool length)')
+    }
+    const dl = Math.hypot(opts.dir[0], opts.dir[1], opts.dir[2])
+    if (!(dl > 0)) throw new Error('[cq-compat] cutBlind: dir must be a non-zero vector')
+    const dir: [number, number, number] = [opts.dir[0] / dl, opts.dir[1] / dl, opts.dir[2] / dl]
+    const solidWires = (wp.pendingWires ?? []).filter((w) => !w.construction)
+    if (solidWires.length === 0) {
+      throw new Error('[cq-compat] cutBlind: dir requires a pending profile wire')
+    }
+    const k = kern() as unknown as {
+      extrude: (face: BrepHandle, dx: number, dy: number, dz: number) => BrepHandle
+    }
+    for (const w of solidWires) {
+      // buildProfileWire handles every profile kind (circle / ellipse / rect /
+      // polygon / drafted path) and already replays eachpoint multiplicity.
+      const wire = await buildProfileWire(wp, w)
+      const face = toShape(kern().makeFace(wire as BrepHandle))
+      const tool = toShape(
+        k.extrude(brepOf(face) as BrepHandle, dir[0] * len, dir[1] * len, dir[2] * len),
+      )
+      result = await cutShapes(result, tool)
+    }
+    return clone(wp, {
+      objects: [result],
+      faceSel: null,
+      edgeSel: null,
+      selChain: undefined,
+      pts: [],
+      pendingWires: [],
+      pendingRect: undefined,
+      pendingCircle: undefined,
+      pendingPolygon: undefined,
+    })
+  }
   if (opts?.taper) {
     // Tapered pocket via kernel draftPrism (same sign convention as extrude:
     // positive angle narrows along the extrusion direction, i.e. the pocket

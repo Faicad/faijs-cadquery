@@ -119,10 +119,21 @@ const BY_KEY: Record<string, string> = {
   //   thickness + removed faces now routes through kernel.shell with the
   //   upstream sign, and all three vars are ported bitwise
   //   (s1 f23/e48/v28, s2 f5/e6/v4, s3 f6/e8/v5). Do NOT re-add.
-  // "Tall" ellipse (y_radius > x_radius): the kernel lays the major axis on
-  // global X and rejects major < minor ("gp_Elips: invalid construction
-  // parameters"); every rotation entry point re-approximates the curve.
-  'tests.test_selectors::TestCQSelectors::testEdgeTypesFilter__c': 'kernel:ellipse-tall-axis',
+  // CLOSED 2026-10-10 (N1 / A-class): "the kernel lays the major axis on global
+  //   X and every rotation re-approximates the curve" was wrong on both counts —
+  //   probed in src/ellipse-axis.probe.test.ts. `makeEllipseEdge` puts the major
+  //   axis on gp_Ax2(center, normal)'s DEFAULT X direction, which depends on the
+  //   normal (+Z→+X, -Z→-X, ±X→±Z, ±Y→±Z, (1,1,0)→(1,-1,0)/√2,
+  //   (1,1,1)→(1,0,-1)/√2), and a RIGID `rotate` keeps the analytic ellipse
+  //   (curveType still "ellipse", volume π·major·minor to machine precision) —
+  //   only the matrix path degrades it. It still rejects major < minor, so
+  //   buildProfileWire now builds the wide edge, MEASURES the major direction
+  //   (curvePointAtParam at FirstParameter = the major endpoint) and rotates it
+  //   about the plane normal onto the plane's +Y. Mirror is PASS: volΔ 0,
+  //   bboxΔ 0, topo f4/e6/v4, centroidΔ 6.7e-5 (the REF's artefact — its own
+  //   com.y is +6.71e-5 for a solid that is symmetric about y=0). Mutation gate:
+  //   swapping the radii keeps the volume but pushes bboxΔ to 1 → FAIL.
+  //   Entry removed so gen-manifest re-derives ported.
   // ---------------------------------------------------------------------------
   // Sweep family — RECLASSIFIED 2026-10-04 (roadmap B2-3 completion)
   // ---------------------------------------------------------------------------
@@ -536,9 +547,19 @@ const BY_KEY: Record<string, string> = {
   // prism/solid free-function batch (2026-10-01) — the plain-geometry vars are
   // mirrored and pass; these need genuine new geometry paths:
   // ---------------------------------------------------------------------------
-  // prism with a TILTED direction (0,0.1,1) from the bottom face — extrude
-  // along a non-normal direction from a face is not supported.
-  'tests.test_free_functions:::test_prism__res3': 'op:prism-tilt',
+  // CLOSED 2026-10-10 (N1 / A-class): the label said "extrude along a
+  //   non-normal direction from a face is not supported", but the kernel's
+  //   `extrude(face, dx, dy, dz)` is a `BRepPrimAPI_MakePrism` TRANSLATION — it
+  //   always took a direction vector; what was missing was the cut-side wiring.
+  //   `cutBlind(..., { dir })` (this repo's extension, src/workplane.ts) now
+  //   advances the tool along an explicit direction, which is exactly upstream's
+  //   `prism(ctx, base, profile, t, dir, additive=False)` oblique subtractive
+  //   prism. One-shot capture pinned the semantics: `dir=(0, 0.1, 1)` is the
+  //   ADD side, so with `additive=False` the tool runs along (0, -0.1, -1); the
+  //   removed volume stays πr²·h (sheared, not rotated). Mirror is a true PASS:
+  //   volΔ 1.1e-6 %, centroidΔ 4.1e-9, bboxΔ 0, booleanΔ 0, topo f7/e15/v10.
+  //   Mutation gate: flipping the tilt sign keeps the volume but moves the
+  //   centroid 0.0144 → FAIL. Entry removed so gen-manifest re-derives ported.
   // prism FROM/TO faces (loft between two extended faces, or a triangular
   // section swept face-to-face) — a face-to-face loft op does not exist.
   'tests.test_free_functions:::test_prism__res5': 'op:prism-from-face',
