@@ -515,14 +515,20 @@ x[−0.700,0.713] × y[−0.386,0.398]。
 > 3. **嵌套子装配**：`CqAssembly` 是扁平结构（`traverse()` 行 633-635 明示「members 为 Shape 叶子，无嵌套子装配」），`solveGlobal` 入参亦为扁平数组——无法表达 CQ 递归子装配。
 > 4. **表达式语法选择器**：`test_expression_grammar__nested_assy` 需要 `constrain` 选择器支持轴/表达式 token。
 
+> **⚠️ 边界声明（2026-10-10 用户澄清）**：本 N3 节**只描述 `faijs-cadquery` 的 cq-compat 兼容层工作**。**任何求解算法 / 装配内核改动都归 faijs 独立计划** `../faijs/docs/plans/2026-10/2026-10-10-assembly-solver-extend.md`，**绝不在本仓写**：
+> - P3 的世界锚定约束类型（`fixedPoint`/`fixedAxis`/`FixedRotation`）→ faijs 独立计划 §3；
+> - P4 的嵌套树 flatten + 再组合求解 → faijs 独立计划 §4；
+> - P5 的实体解析器健壮性 → faijs 独立计划 §5。
+> 本仓只做：5 参 `constrain` DSL 暴露 / 嵌套 `AssemblyNode` 构造 / 镜像 / manifest / 回归——**纯翻译与编排，不含求解算法**。
+
 #### N3-0 · 14 条缺口聚类（决定工作量与解锁顺序）
 
 | 集群 | 条 | 上游约束/结构 | 缺口 | 解法 | 难度 |
 |---|---|---|---|---|---|
 | P1 `PointInPlane` | 2（`test_PointInPlane_constraint__*`、`test_PointInPlane_3_parts__*`） | `assy.constrain(pnt, plane, 'PointInPlane', param=0)` | cq-compat 无 5 参 DSL；求解器其实能算（point+plane→`point_in_plane`） | 补构造器，转 `coincident`(point, plane) | 低 |
 | P2 `PointOnLine` | 3（`test_point_on_line__*`） | `assy.constrain(pnt, line, 'PointOnLine')` | 同上，point→axis | 补构造器，转 `coincident`(point, axis) | 低 |
-| P3 `FixedPoint`/`FixedAxis`/`FixedRotation` | 3（`test_unary_constraints__*`） | `assy.constrain("b2","FixedPoint",(0,0,-3))` / `"FixedAxis",(0,1,1)` | cq-compat 无构造器 + 求解器无世界锚定约束类型 | 补构造器 + 给 global-solver 加 3 类型 + 解析器 | 中 |
-| P4 嵌套子装配 | 5（`*nested_assy*` / `*subassy*`） | 成员可为子 `Assembly`，`solve()` 递归 | 扁平结构，无树/递归 | cq-compat 建装配树 + 递归求解 | 高 |
+| P3 `FixedPoint`/`FixedAxis`/`FixedRotation` | 3（`test_unary_constraints__*`） | `assy.constrain("b2","FixedPoint",(0,0,-3))` / `"FixedAxis",(0,1,1)` | cq-compat 无构造器 + faijs 求解器无世界锚定约束类型 | **cq-compat 暴露透传 DSL**；**内核 3 类型归 faijs 独立计划 §3** | 中 |
+| P4 嵌套子装配 | 5（`*nested_assy*` / `*subassy*`） | 成员可为子 `Assembly`，`solve()` 递归 | 扁平结构，无树/递归 | **cq-compat 构造嵌套 `AssemblyNode` + 调 faijs `solveAssemblyTree`**；**递归求解归 faijs 独立计划 §4** | 高 |
 | P5 表达式语法 | 1（`test_expression_grammar__nested_assy`） | 选择器含轴/表达式 token | 选择器未覆盖 | 扩展 selectors（与 P4 同批） | 中 |
 
 > **优先解锁项**：`test_constrain__simple_assy`（只用到 `Plane`+`Fixed`，cq-compat 已支持）一旦写镜像很可能已能 PASS，**不必等 N3 全做完**——属 P4 之外的「已有能力项」，可最先翻。14 条目前**全部无 `.fai.js` 镜像**（整类预防性 block），逐条解锁前需先写镜像。
@@ -540,16 +546,15 @@ x[−0.700,0.713] × y[−0.386,0.398]。
 - 同步给 `CqAssembly` 暴露 `constrain(...)` 方法（对齐 CQ `Assembly.constrain`），内部转 `constraintEx` 并入 `constraints`。
 - 门禁：构造器单测 + 与真值逐位。
 
-#### N3-3 · 给 faijs global-solver 补 3 个世界锚定约束类型（P3，解锁 3 条）
-- `global-solver.js` 的 `termResidual`（行 80-119）+ 约束 switch（行 190-232）增：`fixedPoint`（成员字面点 → 世界系固定点）、`fixedAxis`（成员轴 → 世界系固定方向）、`fixedRotation`（成员固定旋转）；解析器取字面向量（参考 `resolveMarker` 的 point/axis 分支 + 新增字面源）。
-- ⚠️ 此项需改 faijs 内核（非本仓）⇒ 优先在**本仓 `src/solver/` 做覆盖式薄封装**（注入自定义约束类型，绕过 core），避免改上游发布链；若覆盖式不可行再走 `@faicad/faijs` PR。
-- 门禁：3 类各一个单测 + 与真值逐位。
+#### N3-3 · cq-compat 暴露 P3 透传 DSL（依赖 faijs 独立计划 §3，解锁 3 条）
+- **本仓不写求解算法**（见顶部边界声明）。faijs 侧的世界锚定约束类型（`fixedPoint`/`fixedAxis`/`fixedRotation`）由独立计划 `../faijs/docs/plans/2026-10/2026-10-10-assembly-solver-extend.md` §3 实现并发布新版 `@faicad/faijs`。
+- cq-compat 侧只做 DSL 暴露：`constraintEx` / `CqAssembly.constrain` 的 5 参形态把 CQ `FixedPoint(part, (x,y,z))` / `FixedAxis(part, (x,y,z))` / `FixedRotation(part)` **直译为 faijs 的 `FixedPointConstraint` / `FixedAxisConstraint` / `FixedRotationConstraint`**（透传字面向量，不重写代价项、不碰 `global-solver.ts`）。
+- 门禁：构造器单测（断言产出的 `AssemblyConstraint` 形态正确）+ 与真值逐位（依赖 faijs 发布后跑通）。
 
-#### N3-4 · 嵌套子装配树 + 递归求解（P4，解锁 5 条）
-- `CqAssembly` 成员允许是子 `CqAssembly`（改 `AssemblyAddArg` 联合类型）；`solve()` 先解子装配得 per-member 局部位姿，再作为整体参与父装配（CQ `Assembly.solve()` 语义：`subAssembly.loc` 叠加）。
-- 求解器侧：`solveGlobal` 入参扁平，优先在 **cq-compat 侧递归**（压平为「带父变换的扁平成员列表」后多次调用），不动 faijs 内核。
-- `traverse()` 改为真正自底向上遍历（行 633-635 现状是占位）。
-- 门禁：5 个嵌套用例逐位 + 既有扁平装配零回归。
+#### N3-4 · cq-compat 构造嵌套树（依赖 faijs 独立计划 §4，解锁 5 条）
+- **本仓不写递归求解算法**（见顶部边界声明）。嵌套树 flatten + 再组合变换由 faijs 侧 `solveAssemblyTree`（独立计划 §4）实现并发布。
+- cq-compat 侧：把 `CqAssembly` 成员允许为子 `CqAssembly`，用 faijs 已有的 `createAssemblyNode` / `addChild` 树原语构造 `AssemblyNode` 树，整体传给 faijs 的 `solveAssemblyTree`（**而非本仓自写递归**）。`traverse()` 改为真正自底向上遍历（行 633-635 现状占位）以产出合格 member 列表。
+- 门禁：5 个嵌套用例逐位（依赖 faijs 发布后）+ 既有扁平装配零回归。
 
 #### N3-5 · 表达式语法选择器（P5，1 条）
 - `test_expression_grammar__nested_assy` 选择器含轴/表达式 token（如 `'X'`、`'-Y'`、`'#expr'`）。确认 `resolveFaceSelector`/`resolveSolverEntity` 覆盖度；缺则扩展。与 P4 同批（该用例本身嵌套）。
