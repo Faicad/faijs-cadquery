@@ -19,13 +19,13 @@
  * constructed explicitly (`new AndSelector(a, b)`).
  */
 
-import { getKernel } from '@faicad/faijs/occt-kernel/occtKernel'
-import type { OcctKernel, ShapeHandle } from 'occt-wasm'
+import { getCqKernel } from './kernel'
+import type { OcctKernel, ShapeHandle } from './kernel'
 import type { CqShape, Pt3, Selector } from './shape-class'
 import { areaOf, boundingBoxOf, centerOf, lengthOf, radiusOf, shapeTypeOf, unwrapShape } from './shape-class'
 
 function kernel(): OcctKernel {
-  return getKernel() as unknown as OcctKernel
+  return getCqKernel()
 }
 
 /** Deduplicate by wrapper identity, preserving first-appearance order. */

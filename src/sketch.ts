@@ -16,8 +16,8 @@
  * face-level fuse/cut/common (verified working on faces, see probe_2d).
  */
 
-import { getKernel } from '@faicad/faijs/occt-kernel/occtKernel'
-import { fromHandle } from '@faicad/faijs/sdk'
+import { getCqKernel } from './kernel'
+import { fromHandle } from './adapters/faijs'
 import {
   solveSketch, type SolveSketchOptions,
   // 形状坐标数学的唯一实现（库面）——本兼容层只做 CadQuery 语法适配，不再自己算一套。
@@ -27,7 +27,7 @@ import {
 import type {
   SketchConstraint as CanonicalConstraint, SketchConstraintKind, SketchGeom,
 } from '@faicad/faijs-sketch'
-import type { OcctKernel, ShapeHandle, Vec3 } from 'occt-wasm'
+import type { OcctKernel, ShapeHandle, Vec3 } from './kernel'
 import { centerOf } from './shape-class'
 
 /** Canonical sketch geometry type re-exported for the package surface. */
@@ -111,7 +111,7 @@ export interface SketchEdgeOpts {
 }
 
 function kernel(): OcctKernel {
-  return getKernel() as unknown as OcctKernel
+  return getCqKernel() as unknown as OcctKernel
 }
 
 /** Vec3 literal helper (avoids TS tuple-inference noise). */

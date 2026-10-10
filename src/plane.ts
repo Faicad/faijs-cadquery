@@ -12,12 +12,11 @@
  * (x,y,z) the new coordinate of row i is `m[i*4..i*4+2] · (x,y,z) + m[i*4+3]`.
  */
 
-import { getKernel } from '@faicad/faijs/occt-kernel/occtKernel'
-import type { OcctKernel, ShapeHandle } from 'occt-wasm'
+import { getCqKernel } from './kernel'
+import type { OcctKernel, ShapeHandle } from './kernel'
 
-import { brepOf, isShape } from '@faicad/faijs/shape'
-import { fromHandle } from '@faicad/faijs/sdk'
-import type { Shape } from '@faicad/faijs/mesh/types'
+import { brepOf, fromHandle, isShape } from './adapters/faijs'
+import type { Shape } from './adapters/faijs'
 import type { Workplane } from './workplane'
 
 import { unwrapShape, wrapShape, type CqShape } from './shape-class'
@@ -35,7 +34,7 @@ export interface CqPlane {
 }
 
 function k(): OcctKernel {
-  return getKernel() as unknown as OcctKernel
+  return getCqKernel() as unknown as OcctKernel
 }
 
 /**

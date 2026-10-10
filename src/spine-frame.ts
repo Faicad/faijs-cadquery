@@ -53,8 +53,8 @@
  * curves and the search is done on the correct side of the anchor.
  */
 
-import { getKernel } from '@faicad/faijs/occt-kernel/occtKernel'
-import type { OcctKernel, ShapeHandle, Vec3 } from 'occt-wasm'
+import { getCqKernel } from './kernel'
+import type { OcctKernel, ShapeHandle, Vec3 } from './kernel'
 
 /** Row-major 3×4 affine: `[r0c0..r0c3, r1c0..r1c3, r2c0..r2c3]` (kernel `transform` layout). */
 export type Affine34 = [
@@ -73,7 +73,7 @@ interface CurveKernel {
 }
 
 function ck(): CurveKernel {
-  return getKernel() as unknown as CurveKernel & OcctKernel
+  return getCqKernel() as unknown as CurveKernel & OcctKernel
 }
 
 function sub(a: Vec3, b: Vec3): Vec3 {

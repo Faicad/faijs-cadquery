@@ -1,7 +1,7 @@
 /**
  * Shared harness for the E1–E4 gear-extension ops.
  *
- * These ops call the occt-wasm kernel directly via `getKernel()` (the native
+ * These ops call the occt-wasm kernel directly via `getCqKernel()` (the native
  * singleton that `registerOcctBrepEngine()` initializes) and wrap results with
  * `fromHandle`. `fromHandle` needs `getBackends().kernel.brep` to be a MESHABLE
  * kernel. Since the 2026-09-24 narrowing (D12), `kernel.brep` must be the **L1
@@ -15,12 +15,18 @@
  * This file is NOT a test (no `*.test.ts`); it is imported by the E1–E4 specs.
  */
 
-import { registerOcctBrepEngine, configureBackends, getBrepEngine, CONTRACT_VERSION, OCCT_BREP_ENGINE_ID } from '@faicad/faijs'
-import { getKernel } from '@faicad/faijs/occt-kernel/occtKernel'
-import { brepOf } from '@faicad/faijs/shape'
+import {
+  CONTRACT_VERSION,
+  OCCT_BREP_ENGINE_ID,
+  brepOf,
+  configureBackends,
+  getBrepEngine,
+  registerOcctBrepEngine,
+} from './adapters/faijs'
 export { brepOf }
-import type { OcctKernel, ShapeHandle } from 'occt-wasm'
-import type { Shape } from '@faicad/faijs/mesh/types'
+import type { Shape } from './adapters/faijs'
+import { getCqKernel } from './kernel'
+import type { OcctKernel, ShapeHandle } from './kernel'
 import type { Workplane } from './workplane'
 
 /**
@@ -62,13 +68,13 @@ export async function setupNativeKernel(): Promise<void> {
 /**
  * Return the shared native occt-wasm kernel singleton.
  *
- * The same instance the E1–E4 ops obtain internally via `getKernel()`, so
+ * The same instance the E1–E4 ops obtain internally via `getCqKernel()`, so
  * fixtures built here and op outputs share one handle space.
  *
  * @returns the live `OcctKernel` instance (valid after {@link setupNativeKernel})
  */
 export function kernel(): OcctKernel {
-  return getKernel() as unknown as OcctKernel
+  return getCqKernel() as unknown as OcctKernel
 }
 
 /**

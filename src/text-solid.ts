@@ -42,15 +42,9 @@
  * parts); the combine/placement half lives in `workplane.text`.
  */
 
-import type { BrepBoundingBox, BrepHandle } from '@faicad/faijs/brep/engine/types'
-import type { BrepEngineApi } from '@faicad/faijs/brep/engine/primitives'
+import type { BrepBoundingBox, BrepEngineApi, BrepHandle, Shape } from './adapters/faijs'
 import type { Font } from 'opentype.js'
-import { textBlueprints } from '@faicad/faijs/brep/text/text-to-solid'
-import { ensureFont } from '@faicad/faijs/brep/text/fontRegistry'
-import { getBrepApi } from '@faicad/faijs/brep/handle-bridge'
-import { solidToShape } from '@faicad/faijs/brep/brep-ops'
-import { fromBrep } from '@faicad/faijs/shape'
-import type { Shape } from '@faicad/faijs/mesh/types'
+import { ensureFont, fromBrep, getBrepApi, solidToShape, textBlueprints } from './adapters/faijs'
 
 /** CadQuery horizontal text alignment. */
 export type HAlign = 'center' | 'left' | 'right'

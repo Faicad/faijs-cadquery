@@ -24,23 +24,12 @@
  * - "Revolute" → fixed (placeholder until joints mechanism lands)
  */
 
-import type { Shape } from '@faicad/faijs/mesh/types'
+import type { AssemblyConstraint, AssemblyTransform, BrepEngineApi, BrepHandle, CompoundShape, EntityRef, Shape } from '../adapters/faijs'
 // D1 (2026-09-24) moved the `assembly` op out of core's platform namespace into
 // the extension library — import it directly instead of probing `cad.assembly`
 // (which no longer exists on `createApiNamespace()`).
 import { assembly as assemblyOp } from '@faicad/faijs-extra/editor-ops'
-import type {
-  AssemblyConstraint,
-  EntityRef,
-} from '@faicad/faijs/api/assembly/types'
-import type { CompoundShape } from '@faicad/faijs/shape'
-import { getSlot, brepOf, ensureSlot } from '@faicad/faijs/shape'
-import { getBackends } from '@faicad/faijs/runtime-state'
-import { applyTransform } from '@faicad/faijs/mesh/rigid-transform'
-import { applyTransformBrep } from '@faicad/faijs/brep/brep-ops'
-import type { BrepEngineApi } from '@faicad/faijs/brep/engine/primitives'
-import type { BrepHandle } from '@faicad/faijs/brep/engine/types'
-import type { AssemblyTransform } from '@faicad/faijs/runtime-state'
+import { applyTransform, applyTransformBrep, brepOf, ensureSlot, getBackends, getSlot } from '../adapters/faijs'
 import type { RGB } from '../workplane'
 import { resolveFaceSelector, asBrepShape } from '../workplane'
 

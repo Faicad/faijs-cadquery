@@ -10,9 +10,9 @@
  * adoption pattern (no double release).
  */
 
-import { getKernel } from '@faicad/faijs/occt-kernel/occtKernel'
-import type { OcctKernel, ShapeHandle, Vec3 } from 'occt-wasm'
-import type { Shape } from '@faicad/faijs/mesh/types'
+import { getCqKernel } from './kernel'
+import type { OcctKernel, ShapeHandle, Vec3 } from './kernel'
+import type { Shape } from './adapters/faijs'
 
 /** A 3D point (mirrors geom-types Vec3 shape without importing it). */
 export interface Pt3 {
@@ -34,7 +34,7 @@ export interface CqShape extends ShapeClassBase {
 }
 
 function kernel(): OcctKernel {
-  return getKernel() as unknown as OcctKernel
+  return getCqKernel() as unknown as OcctKernel
 }
 
 function v3(x: number, y: number, z: number): Vec3 {
@@ -104,8 +104,7 @@ export function disposeShape(s: CqShape): void {
 // The geometry work is 100% OCCT — "mesh" only names the wrapper type the DSL
 // passes around; there is no mesh geometry backend doing the cutting/sewing.
 
-import { brepOf, isShape } from '@faicad/faijs/shape'
-import { fromHandle } from '@faicad/faijs/sdk'
+import { brepOf, fromHandle, isShape } from './adapters/faijs'
 
 /** Resolve an OCCT handle from any accepted input. */
 function brepH(x: unknown): ShapeHandle {

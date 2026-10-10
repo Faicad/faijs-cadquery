@@ -9,33 +9,33 @@
  * Design doc: docs/plans/2026-09-06-cadquery-compat-and-multifile-faijs.md
  */
 
-import { createApiNamespace } from '@faicad/faijs/api/api-namespace'
-import { fromHandle } from '@faicad/faijs/sdk'
-import { brepOf, isShape } from '@faicad/faijs/shape'
-import { setName, nameOf } from '@faicad/faijs'
-import { getKernel } from '@faicad/faijs/occt-kernel/occtKernel'
-import { getBrepApi } from '@faicad/faijs/brep/handle-bridge'
-// 拓扑选择器子系统已上移至 core（等价搬运，见 core/src/api/cadquery-selectors/）。
-// 本包仅薄封装 re-export，不再维护选择器解析逻辑。
-import {
-  resolveFaceSelector,
-  resolveEdgeSelection,
-  resolveFaceEdgeSelection,
-  resolveSelection,
-} from '@faicad/faijs/api/cadquery-selectors'
-import type { SelStep } from '@faicad/faijs/api/cadquery-selectors'
-export { resolveFaceSelector }
+// faijs host surface — funnelled through ../adapters/faijs; the raw kernel is
+// reached only through ../kernel (see both modules' headers).
 import {
   angleBetweenNormals,
+  applyMatrixBrep,
+  brepOf,
   chamferAngleFromDistances,
+  createApiNamespace,
+  fromHandle,
+  getBrepApi,
+  isShape,
   materialDihedralFromNormalAngle,
-} from '@faicad/faijs/api/chamfer-math'
-import { applyMatrixBrep } from '@faicad/faijs/api/brep-mirror/topologyFns'
-import type { BrepHandle } from '@faicad/faijs/brep/engine/types'
-import type { BrepEngineApi } from '@faicad/faijs/brep/engine/primitives'
-import { rotateBrep, translateBrep } from '@faicad/faijs/brep/brep-ops'
-import type { OcctKernel, ShapeHandle, Vec3 } from 'occt-wasm'
-import type { Shape } from '@faicad/faijs/mesh/types'
+  nameOf,
+  resolveEdgeSelection,
+  resolveFaceEdgeSelection,
+  resolveFaceSelector,
+  resolveSelection,
+  rotateBrep,
+  setName,
+  translateBrep,
+} from './adapters/faijs'
+import type { BrepEngineApi, BrepHandle, SelStep, Shape } from './adapters/faijs'
+import { getCqKernel } from './kernel'
+import type { OcctKernel, ShapeHandle, Vec3 } from './kernel'
+// 拓扑选择器子系统已上移至 core（等价搬运，见 core/src/api/cadquery-selectors/）。
+// 本包仅薄封装 re-export，不再维护选择器解析逻辑。
+export { resolveFaceSelector }
 // 子形状提取统一走 shape-class.ts 的 solids/wiresOf/shells/compounds——
 // 它们内部经 unwrapShape + getSubShapes，且（关键）其 import 副作用会把
 // occt-wasm 的 OcctKernel 符号钉进 getSubShapes 闭包。本模块直接调
@@ -583,7 +583,7 @@ function clone(wp: Workplane, overrides: Partial<Workplane>): Workplane {
  * @param wp - Workplane to dispose
  */
 export function dispose(wp: Workplane): void {
-  const kh = getKernel() as unknown as OcctKernel
+  const kh = getCqKernel() as unknown as OcctKernel
   for (const h of wp.ownedHandles ?? []) kh.release(h as never)
 }
 
@@ -638,7 +638,7 @@ function unwrapBrepResult(result: unknown): unknown {
   return result
 }
 
-/** core 直连 helpers（cq-compat 改写：vendored 兼容面 → getBrepApi/getKernel，裁决 3）。 */
+/** core 直连 helpers（cq-compat 改写：vendored 兼容面 → getBrepApi/getCqKernel，裁决 3）。 */
 function kern(): BrepEngineApi {
   return getBrepApi()
 }
@@ -655,7 +655,7 @@ function vec3(
   return p
 }
 function polygonShape(pts: [number, number, number][]): Shape {
-  const k = getKernel()
+  const k = getCqKernel()
   const edges = pts.map((p, i) => k.makeLineEdge(vec3(p), vec3(pts[(i + 1) % pts.length]!)))
   const w = k.makeWire(edges)
   const f = k.makeFace(w)
@@ -675,7 +675,7 @@ function faceWithHoles(outer: unknown, holes: unknown[]): Shape {
 
 /** Merge same-domain faces/edges after a boolean (CadQuery `clean=True`). */
 async function cleanShapes(shape: Shape): Promise<Shape> {
-  return toShape(getKernel().simplify(ownHandle(shape) as never))
+  return toShape(getCqKernel().simplify(ownHandle(shape) as never))
 }
 
 /**
@@ -746,7 +746,7 @@ export function booleanOpBase(
   options?: { glue?: number; fuzzyValue?: number },
 ): { shape: Shape; evolution: { modified: unknown[]; generated: unknown[]; deleted: unknown[] } } {
   if (!args.length) throw new Error('[cq-compat] booleanOp: no argument shapes')
-  const k = getKernel() as unknown as {
+  const k = getCqKernel() as unknown as {
     booleanOp: (
       op: number,
       args: BrepHandle[],
@@ -768,7 +768,7 @@ export function booleanOpBase(
   // PROBE (scripts/probe-fuzzy-clean.mts): simplify takes the RAW booleanOp
   // handle — a fromHandle→brepOf roundtrip before simplify yields a dead
   // handle downstream ("Invalid shape ID: 0").
-  const kernel = getKernel() as unknown as {
+  const kernel = getCqKernel() as unknown as {
     isSolid: (s: BrepHandle) => boolean
     getSubShapes: (s: BrepHandle, kind: string) => BrepHandle[]
     simplify: (s: BrepHandle) => BrepHandle
@@ -1310,7 +1310,7 @@ export async function textOnSpine(
   }
   const spineHandle = unwrapShape(spineEdges[0]!)
   // Upstream `L = spine.Length()`; for a one-edge wire this is the edge's own length.
-  const L = getKernel().curveLength(spineHandle)
+  const L = getCqKernel().curveLength(spineHandle)
   const rot = eulerExtrinsicXYZ(opts?.planar ? -90 : 0, -90, 0)
   const parts: Array<CqShape | ShapeHandle> = []
   for (const glyph of scFacesOf(brepOf(flat) as never)) {
@@ -1451,7 +1451,7 @@ export async function wedge(
     // Verified vs cadquery 2.8.0: `Workplane("XY").wedge(10,10,10,5,5,5,5)` ->
     // vol 1000/3, 5 faces (1 quad base + 4 triangular sides), 5 vertices.
     const apex = p3(ox + xmin, oy + dy, oz + zmin)
-    const ka = getKernel() as unknown as {
+    const ka = getCqKernel() as unknown as {
       makeVertex: (x: number, y: number, z: number) => BrepHandle
       loftWithVertices: (
         wires: unknown[],
@@ -1475,7 +1475,7 @@ export async function wedge(
       p3(ox + xmax, oy + dy, oz + zmax),
       p3(ox + xmin, oy + dy, oz + zmax),
     ])
-    solid = toShape(getKernel().loft([bottom as never, top as never], true, true)) as Shape
+    solid = toShape(getCqKernel().loft([bottom as never, top as never], true, true)) as Shape
   }
   const points = eachPoints(wp)
   const shapes: Shape[] = []
@@ -2279,7 +2279,7 @@ export function spline(
     return clone(wp, { currentPoint: end })
   }
   const world = all.map(([x, y]) => localToWorld(wp, x, y))
-  const builtEdge = toShape(getKernel().interpolatePoints(world.map((p) => vec3(p)) as never, false))
+  const builtEdge = toShape(getCqKernel().interpolatePoints(world.map((p) => vec3(p)) as never, false))
   const endTgt = splineEndTangent(builtEdge, wp)
   const edges: PendingEdge[] = [
     ...(wp.pendingEdges ?? []),
@@ -2547,7 +2547,7 @@ export function bezier(
     return clone(wp, { currentPoint: to })
   }
   const world = points.map(([x, y]) => localToWorld(wp, x, y))
-  const builtEdge = toShape(getKernel().makeBezierEdge(world.map((p) => vec3(p)) as never))
+  const builtEdge = toShape(getCqKernel().makeBezierEdge(world.map((p) => vec3(p)) as never))
   const endTgt = splineEndTangent(builtEdge, wp)
   const edges: PendingEdge[] = [
     ...(wp.pendingEdges ?? []),
@@ -2766,7 +2766,7 @@ async function buildProfileWire(wp: Workplane, w: PendingWire): Promise<unknown>
       // endpoint is read off the curve rather than derived from a rule: an OCC
       // `Geom_Ellipse` parameterises u = FirstParameter exactly on the major
       // axis (`Value(u) = centre + major·cos(u)·XDir + minor·sin(u)·YDir`).
-      const kernel = getKernel() as unknown as OcctKernel
+      const kernel = getCqKernel() as unknown as OcctKernel
       const edge = kernel.makeEllipseEdge(vec3(center), vec3(n), w.majorRadius, w.minorRadius)
       const { first } = kernel.curveParameters(edge)
       const p0 = kernel.curvePointAtParam(edge, first)
@@ -2799,7 +2799,7 @@ async function buildProfileWire(wp: Workplane, w: PendingWire): Promise<unknown>
       )
       return kern().makeWire([rotated as unknown as BrepHandle])
     }
-    const edge = getKernel().makeEllipseEdge(vec3(center), vec3(n), w.majorRadius, w.minorRadius)
+    const edge = getCqKernel().makeEllipseEdge(vec3(center), vec3(n), w.majorRadius, w.minorRadius)
     return kern().makeWire([edge as unknown as BrepHandle])
   }
   if (w.kind === 'path') {
@@ -2825,7 +2825,7 @@ async function buildProfileWire(wp: Workplane, w: PendingWire): Promise<unknown>
           )
         } else if (e.kind === 'arc3') {
           edges.push(
-            getKernel().makeArcEdge(
+            getCqKernel().makeArcEdge(
               vec3(localToWorld(pl, e.from[0], e.from[1])),
               vec3(localToWorld(pl, e.mid[0], e.mid[1])),
               vec3(localToWorld(pl, e.to[0], e.to[1])),
@@ -2839,7 +2839,7 @@ async function buildProfileWire(wp: Workplane, w: PendingWire): Promise<unknown>
             (pl.xDir[2] * e.tgt[0] + pl.yDir[2] * e.tgt[1]) / tLen,
           ]
           edges.push(
-            getKernel().makeTangentArc(
+            getCqKernel().makeTangentArc(
               vec3(localToWorld(pl, e.from[0], e.from[1])),
               vec3(t),
               vec3(localToWorld(pl, e.to[0], e.to[1])),
@@ -2851,7 +2851,7 @@ async function buildProfileWire(wp: Workplane, w: PendingWire): Promise<unknown>
         } else {
           // spline
           const world = e.pts.map(([x, y]) => localToWorld(pl, x, y))
-          edges.push(getKernel().interpolatePoints(world.map((p) => vec3(p)) as never, false))
+          edges.push(getCqKernel().interpolatePoints(world.map((p) => vec3(p)) as never, false))
         }
       }
     } else {
@@ -3090,7 +3090,7 @@ export async function extrude(
       const base = baseSolid(wp)
       wp = await applyPendingFacePlane(wp)
       const n = Array.isArray(wp.normal) ? wp.normal : ([0, 0, 1] as [number, number, number])
-      const kernel = getKernel() as unknown as {
+      const kernel = getCqKernel() as unknown as {
         draftPrism: (face: BrepHandle, dx: number, dy: number, dz: number, angleDeg: number) => BrepHandle
       }
       let prism: Shape | null = null
@@ -3129,7 +3129,7 @@ export async function extrude(
       return outwardTaperPrism(wp, base, profile, height, taper, combine)
     }
     const face = toShape(kern().makeFace(profile as BrepHandle))
-    const kernel = getKernel() as unknown as OcctKernel
+    const kernel = getCqKernel() as unknown as OcctKernel
     const n = Array.isArray(wp.normal) ? wp.normal : ([0, 0, 1] as [number, number, number])
     const raw = (
       kernel as unknown as {
@@ -3347,7 +3347,7 @@ async function outwardTaperPrism(
   taper: number,
   combine: boolean,
 ): Promise<Workplane> {
-  const kernel = getKernel() as unknown as OcctKernel
+  const kernel = getCqKernel() as unknown as OcctKernel
   const k = kernel as unknown as {
     makeFace: (wire: ShapeHandle) => ShapeHandle
     offsetWire2D: (wire: ShapeHandle, dist: number, joinType: number) => ShapeHandle
@@ -3587,7 +3587,7 @@ async function collectLoftSections(wp: Workplane, sections: unknown[]): Promise<
   // outer wires — upstream `_getFaces` yields the sketch faces and the loft
   // sections from their outer wires (holes dropped, same as stacked faces).
   if (wp.pendingFaces && wp.pendingFaces.length > 0) {
-    const kernel = getKernel() as unknown as {
+    const kernel = getCqKernel() as unknown as {
       outerWire: (face: BrepHandle) => BrepHandle
     }
     for (const fh of wp.pendingFaces) {
@@ -3645,11 +3645,11 @@ export async function loft(wp: Workplane, ...rest: (Workplane | LoftOptions)[]):
   const startPt = loftCfg.startPoint !== undefined ? v3(loftCfg.startPoint as never) : null
   const endPt = loftCfg.endPoint !== undefined ? v3(loftCfg.endPoint as never) : null
   const ruled = (loftCfg?.ruled as boolean) ?? false
-  const startV = startPt !== null ? getKernel().makeVertex(startPt.x, startPt.y, startPt.z) : 0
-  const endV = endPt !== null ? getKernel().makeVertex(endPt.x, endPt.y, endPt.z) : 0
+  const startV = startPt !== null ? getCqKernel().makeVertex(startPt.x, startPt.y, startPt.z) : 0
+  const endV = endPt !== null ? getCqKernel().makeVertex(endPt.x, endPt.y, endPt.z) : 0
   const solid = (startV !== 0 || endV !== 0
-    ? toShape(getKernel().loftWithVertices(wireHandles, true, ruled, startV as never, endV as never))
-    : toShape(getKernel().loft(wireHandles, true, ruled))
+    ? toShape(getCqKernel().loftWithVertices(wireHandles, true, ruled, startV as never, endV as never))
+    : toShape(getCqKernel().loft(wireHandles, true, ruled))
   ) as Shape
 
   const base = baseSolid(wp)
@@ -3782,7 +3782,7 @@ export async function cutBlind(
     }
     const profile = await buildProfileWire(wp, solidWires[0])
     const face = toShape(kern().makeFace(profile as BrepHandle))
-    const kernel = getKernel() as unknown as OcctKernel
+    const kernel = getCqKernel() as unknown as OcctKernel
     const raw = (
       kernel as unknown as {
         draftPrism: (
@@ -4220,7 +4220,7 @@ export async function siblings(
   kind: 'Edge' | 'Vertex' | 'Face',
   level: number | number[],
 ): Promise<Workplane> {
-  const kernel = getKernel() as unknown as OcctKernel
+  const kernel = getCqKernel() as unknown as OcctKernel
   const ctx = asBrepShape(resolveInputShape(ctxShape))
   const ctxH = brepOf(ctx) as ShapeHandle | undefined
   if (!ctxH) throw new Error('[cq-compat] siblings: ctx shape has no BREP handle')
@@ -4466,7 +4466,7 @@ export function vertices(
  * object contributes any.
  *
  * GOTCHA (cost a full probe session to pin down): `selectKindHandles` MUST NOT
- * call `getKernel().getSubShapes(h, kind)` directly from this module. Doing so
+ * call `getCqKernel().getSubShapes(h, kind)` directly from this module. Doing so
  * throws `Cannot read properties of undefined (reading 'OcctKernel')` — the
  * occt-wasm wasm glue closes `getSubShapes` over the module-level `OcctKernel`
  * symbol, and that symbol is only bound once `shape-class.ts` is on the import
@@ -4492,7 +4492,7 @@ function selectKindHandles(
   kind: 'solid' | 'wire' | 'shell' | 'compound',
 ): ShapeHandle[] | null {
   if (wp.objects.length === 0) return null
-  const kernel = getKernel() as unknown as OcctKernel
+  const kernel = getCqKernel() as unknown as OcctKernel
   const extract = (obj: Shape): CqShape[] => {
     const h = brepOf(obj) as unknown as ShapeHandle
     if (h === undefined) return []
@@ -4572,7 +4572,7 @@ function pushKindSubShapes(wp: Workplane, handles: ShapeHandle[]): Workplane {
  */
 function selectOnStack(wp: Workplane, kind: 'face' | 'edge' | 'vertex', sel: string): ShapeHandle[] {
   if (wp.objects.length === 0) return []
-  const kernel = getKernel() as unknown as OcctKernel
+  const kernel = getCqKernel() as unknown as OcctKernel
   const src: ShapeHandle[] = []
   for (const obj of wp.objects) {
     const h = brepOf(obj) as unknown as ShapeHandle | undefined
@@ -4685,7 +4685,7 @@ export function sketch(wp: Workplane): Sketch {
  * release the local handles. Unbound sketches are returned as-is.
  */
 function materializeSketch(sk: Sketch): ShapeHandle[] {
-  const kernel = getKernel() as unknown as BrepEngineApi
+  const kernel = getCqKernel() as unknown as BrepEngineApi
   const plane = sk.plane
   return sk.faces.map((f) => {
     if (!plane) return f
@@ -4747,7 +4747,7 @@ export function placeSketch(wp: Workplane, ...sks: Sketch[]): Workplane {
  * @returns the translated handle (owned by the caller)
  */
 function translateHandle(h: BrepHandle, dx: number, dy: number, dz: number): BrepHandle {
-  const k = getKernel() as unknown as {
+  const k = getCqKernel() as unknown as {
     translate: (h: BrepHandle, dx: number, dy: number, dz: number) => BrepHandle
   }
   return k.translate(h, dx, dy, dz)
@@ -4779,7 +4779,7 @@ function eachpointLocations(wp: Workplane): [number, number, number][] {
     // single `shapeHandle`) is what makes the multi-object case correct, whereas
     // re-resolving the chain against `wp.shape` would only see the first object.
     const bbox = (h: unknown): { xmin: number; xmax: number; ymin: number; ymax: number; zmin: number; zmax: number } =>
-      (getKernel() as unknown as { getBoundingBox: (h: unknown) => { xmin: number; xmax: number; ymin: number; ymax: number; zmin: number; zmax: number } }).getBoundingBox(h)
+      (getCqKernel() as unknown as { getBoundingBox: (h: unknown) => { xmin: number; xmax: number; ymin: number; ymax: number; zmin: number; zmax: number } }).getBoundingBox(h)
     for (const obj of wp.objects) {
       const h = brepOf(obj)
       if (h === undefined) continue
@@ -5792,7 +5792,7 @@ export function imprint(...shapes: (Workplane | Shape | null | undefined)[]): Sh
     throw new Error('[cq-compat] imprint: no shape with a BREP handle')
   }
   if (handles.length === 1) return fromHandle(handles[0]!) as Shape
-  return fromHandle((getKernel() as unknown as OcctKernel).fuseAll(handles)) as Shape
+  return fromHandle((getCqKernel() as unknown as OcctKernel).fuseAll(handles)) as Shape
 }
 
 /**
@@ -6074,7 +6074,7 @@ export async function shell(
   if (!baseSolid(wp)) return wp
   const handle = brepOf(baseSolid(wp)!)
   if (handle === undefined) return wp
-  const kernel = getKernel() as unknown as OcctKernel
+  const kernel = getCqKernel() as unknown as OcctKernel
   // occt-wasm 5.6 `shell`/`offset` 第 5/4 参 joinType（index.d.ts:172/188）。
   // 上游 hollow() 默认 intersection、Workplane.shell() 默认 arc；此处由调用方
   // 经 kind 显式给出，默认沿用 Workplane.shell 的 'arc'。
@@ -6170,7 +6170,7 @@ function kernelHandleOf(shape: Shape, op: string): ShapeHandle {
  * @returns BREP 文本
  */
 export async function exportBrep(wp: Workplane): Promise<string> {
-  const kernel = getKernel() as unknown as OcctKernel
+  const kernel = getCqKernel() as unknown as OcctKernel
   return kernel.toBREP(kernelHandleOf(exportTarget(wp, 'exportBrep'), 'exportBrep'))
 }
 
@@ -6183,7 +6183,7 @@ export async function exportBrep(wp: Workplane): Promise<string> {
  * @returns 承载导入形状的 Workplane
  */
 export async function importBrep(data: string): Promise<Workplane> {
-  const kernel = getKernel() as unknown as OcctKernel
+  const kernel = getCqKernel() as unknown as OcctKernel
   return workplaneFromObject(fromHandle(kernel.fromBREP(data)))
 }
 
@@ -6194,7 +6194,7 @@ export async function importBrep(data: string): Promise<Workplane> {
  * @returns 二进制 BREP 字节
  */
 export async function exportBin(wp: Workplane): Promise<Uint8Array> {
-  const kernel = getKernel() as unknown as OcctKernel
+  const kernel = getCqKernel() as unknown as OcctKernel
   return kernel.toBREPBinary(kernelHandleOf(exportTarget(wp, 'exportBin'), 'exportBin'))
 }
 
@@ -6206,7 +6206,7 @@ export async function exportBin(wp: Workplane): Promise<Uint8Array> {
  * @returns 承载导入形状的 Workplane
  */
 export async function importBin(data: Uint8Array): Promise<Workplane> {
-  const kernel = getKernel() as unknown as OcctKernel
+  const kernel = getCqKernel() as unknown as OcctKernel
   return workplaneFromObject(fromHandle(kernel.fromBREPBinary(data)))
 }
 
@@ -6250,7 +6250,7 @@ export async function offset(
   }
   if (wp.objects.length === 0) throw new Error('[cq-compat] offset: empty stack')
   const tol = opts?.tol ?? 1e-6
-  const kernel = getKernel() as unknown as OcctKernel
+  const kernel = getCqKernel() as unknown as OcctKernel
 
   const els: ShapeHandle[] = []
   for (const obj of wp.objects) {
@@ -6742,7 +6742,7 @@ export function setColor(wp: Workplane, color: RGB): Workplane {
 // ── Gear-extension primitives (E1–E4) ───────────────────────────────────────
 // These four ops are required by the faijs-gears port (see
 // docs/plans/2026-09-11-cq-compat-gears-extensions-e1-e4.md). All call the
-// occt-wasm kernel directly via `getKernel()` — the same singleton faijs-gears
+// occt-wasm kernel directly via `getCqKernel()` — the same singleton faijs-gears
 // uses — so their `ShapeHandle`s are compatible with the rest of cq-compat.
 // occt-wasm already exposes `bsplineSurface` / `makeHelixWire` / `split` /
 // `halfSpace` natively (node_modules/occt-wasm/dist/index.d.ts:77/112/189/390),
@@ -6808,7 +6808,7 @@ export async function splineFace(
       `[cq-compat] splineFace: grid length ${grid.length} != rows*cols (${rows * cols})`,
     )
   }
-  const kernel = getKernel() as unknown as OcctKernel
+  const kernel = getCqKernel() as unknown as OcctKernel
   const k = kernel as unknown as {
     bsplineSurface: (
       pts: { x: number; y: number; z: number }[],
@@ -6879,7 +6879,7 @@ export async function helix(
   radius: number,
   opts?: { leftHanded?: boolean },
 ): Promise<Workplane> {
-  const kernel = getKernel() as unknown as OcctKernel
+  const kernel = getCqKernel() as unknown as OcctKernel
   const raw = (
     kernel as unknown as {
       makeHelixWireHanded: (
@@ -6923,7 +6923,7 @@ export async function splitFace(
   if (!wp.shape) throw new Error('[cq-compat] splitFace: wp.shape is required')
   const handle = brepOf(wp.shape)
   if (!handle) throw new Error('[cq-compat] splitFace: BREP unavailable')
-  const kernel = getKernel() as unknown as OcctKernel
+  const kernel = getCqKernel() as unknown as OcctKernel
   const n = plane.normal
   const nLen = Math.hypot(n[0], n[1], n[2]) || 1
   const un: [number, number, number] = [n[0] / nLen, n[1] / nLen, n[2] / nLen]
@@ -7004,7 +7004,7 @@ export async function twistExtrude(
   const handle = raw as unknown as ShapeHandle
   const steps = opts?.steps ?? Math.max(8, Math.ceil(Math.abs(angle) / 15))
   const axis = src.normal
-  const kernel = getKernel() as unknown as OcctKernel
+  const kernel = getCqKernel() as unknown as OcctKernel
   const k = kernel as unknown as {
     copy: (s: ShapeHandle) => ShapeHandle
     rotate: (
@@ -7050,7 +7050,7 @@ export function faceFromPoints(wp: Workplane, pts: [number, number, number][]): 
   const last = ring[ring.length - 1]!
   if (Math.hypot(first[0] - last[0], first[1] - last[1], first[2] - last[2]) < 1e-12) ring.pop()
   if (ring.length < 3) throw new Error('[cq-compat] faceFromPoints: degenerate ring after closure')
-  const k = getKernel() as unknown as {
+  const k = getCqKernel() as unknown as {
     makeLineEdge: (a: Vec3, b: Vec3) => ShapeHandle
     makeWire: (edges: ShapeHandle[]) => ShapeHandle
     makeFace: (wire: ShapeHandle) => ShapeHandle
@@ -7076,7 +7076,7 @@ export function faceFromPoints(wp: Workplane, pts: [number, number, number][]): 
  * aggregate itself (`occ_impl/shapes.py:6060`).
  */
 function sewingFaceHandles(h: ShapeHandle): ShapeHandle[] {
-  const k = getKernel() as unknown as {
+  const k = getCqKernel() as unknown as {
     getShapeType: (s: ShapeHandle) => string
     getSubShapes: (s: ShapeHandle, kind: string) => ShapeHandle[]
   }
@@ -7131,7 +7131,7 @@ export async function shellFromFaces(
   if (handles.length === 0) {
     throw new Error('[cq-compat] shellFromFaces: no face-shaped input to sew')
   }
-  const kernel = getKernel() as unknown as OcctKernel
+  const kernel = getCqKernel() as unknown as OcctKernel
   const sewed = kernel.sew(handles, opts?.tolerance ?? 1e-6)
   return clone(wp, { objects: [fromHandle(sewed)], pendingWires: [] })
 }
@@ -7168,7 +7168,7 @@ export async function solidFromFaces(
     if (h === undefined) throw new Error(`[cq-compat] solidFromFaces: faces[${i}] BREP unavailable`)
     return h as unknown as ShapeHandle
   })
-  const kernel = getKernel() as unknown as OcctKernel
+  const kernel = getCqKernel() as unknown as OcctKernel
   const k = kernel as unknown as {
     sew: (shapes: ShapeHandle[], tolerance?: number) => ShapeHandle
     makeSolid: (shell: ShapeHandle) => ShapeHandle
@@ -7230,7 +7230,7 @@ function collectHandles(input: Workplane | Shape | null | undefined): ShapeHandl
 export function solid(...inputs: (Workplane | Shape | null | undefined)[]): Shape {
   const handles = inputs.flatMap(collectHandles)
   if (handles.length === 0) throw new Error('[cq-compat] solid: no face/shape with a BREP handle')
-  const k = getKernel() as unknown as OcctKernel
+  const k = getCqKernel() as unknown as OcctKernel
   const sewed = k.sew(handles, 1e-6)
   // Single shell or solid — wrap directly.
   if (k.isShell(sewed) || k.isSolid(sewed)) {
@@ -7272,7 +7272,7 @@ export function solidWithInner(
   outer: Workplane | Shape,
   inner: (Workplane | Shape | null | undefined)[],
 ): Shape {
-  const k = getKernel() as unknown as OcctKernel
+  const k = getCqKernel() as unknown as OcctKernel
   const outerHandles = collectHandles(outer)
   if (outerHandles.length === 0) throw new Error('[cq-compat] solidWithInner: no outer face')
   const outerShell = k.sew(outerHandles, 1e-6)
@@ -7344,7 +7344,7 @@ export async function addCavity(
   wp: Workplane,
   ...cavities: (Workplane | Shape)[]
 ): Promise<Workplane> {
-  const k = getKernel() as unknown as OcctKernel
+  const k = getCqKernel() as unknown as OcctKernel
   const kcut = k as unknown as {
     cut: (a: ShapeHandle, b: ShapeHandle) => ShapeHandle
     getBoundingBox: (s: ShapeHandle) => { xmin: number; ymin: number; zmin: number; xmax: number; ymax: number; zmax: number }
@@ -7430,7 +7430,7 @@ export async function planarCap(
   opts?: { combineTolerance?: number; pickTolerance?: number },
 ): Promise<Workplane> {
   if (faces.length === 0) throw new Error('[cq-compat] planarCap: faces must be non-empty')
-  const kernel = getKernel() as unknown as OcctKernel
+  const kernel = getCqKernel() as unknown as OcctKernel
   const k = kernel as unknown as {
     getSubShapes: (s: ShapeHandle, type: 'edge' | 'vertex') => ShapeHandle[]
     getBoundingBox: (s: ShapeHandle) => { xmin: number; xmax: number; ymin: number; ymax: number; zmin: number; zmax: number }
@@ -7625,7 +7625,7 @@ export async function section(wp: Workplane, height = 0, normal?: [number, numbe
   if (!curves || !curves.length) {
     throw new Error('[cq-compat] section: plane does not intersect the shape')
   }
-  const comp = curves.length === 1 ? curves[0] : getKernel().makeCompound(curves as never)
+  const comp = curves.length === 1 ? curves[0] : getCqKernel().makeCompound(curves as never)
   return clone(wp, { objects: [toShape(comp) ]})
 }
 
@@ -7642,7 +7642,7 @@ export function splineWire3D(
   points: [number, number, number][],
   tangents?: [[number, number, number], [number, number, number]],
 ): Workplane {
-  const k = getKernel() as unknown as OcctKernel & {
+  const k = getCqKernel() as unknown as OcctKernel & {
     interpolatePoints: (pts: { x: number; y: number; z: number }[], periodic?: boolean) => ShapeHandle
     interpolatePointsWithTangents: (pts: { x: number; y: number; z: number }[], start: { x: number; y: number; z: number }, end: { x: number; y: number; z: number }) => ShapeHandle
     makeWire: (edges: ShapeHandle[]) => ShapeHandle
@@ -7693,12 +7693,12 @@ export async function parametricCurve(
     local2d.push([p[0], p[1]])
   }
   // Build the approximating B-spline edge through the sampled points with
-  // `getKernel()` (occt-wasm), which exposes `approximatePoints` / `makeWire` /
+  // `getCqKernel()` (occt-wasm), which exposes `approximatePoints` / `makeWire` /
   // `interpolatePoints`. `kern()` (the faijs BrepEngineApi) does NOT expose
-  // these — but it shares the underlying OCCT instance, so a getKernel handle
+  // these — but it shares the underlying OCCT instance, so a getCqKernel handle
   // stashed in `builtWire` is valid inside `kern().makeFace` (the same bridge
-  // `offset2D` relies on: it stores a getKernel offset handle as `builtWire`).
-  const kernel = getKernel() as unknown as OcctKernel & {
+  // `offset2D` relies on: it stores a getCqKernel offset handle as `builtWire`).
+  const kernel = getCqKernel() as unknown as OcctKernel & {
     approximatePoints: (pts: { x: number; y: number; z: number }[], tol?: number) => ShapeHandle
     makeWire: (edges: ShapeHandle[]) => ShapeHandle
   }
@@ -7774,7 +7774,7 @@ export async function parametricSurface(
     }
   }
   // Faithful analog of `Face.makeSplineApprox`: one-shot B-spline surface over
-  // the whole grid (`splineFace` strategy `'grid'` → getKernel().bsplineSurface).
+  // the whole grid (`splineFace` strategy `'grid'` → getCqKernel().bsplineSurface).
   return splineFace(wp, grid, { rows: N + 1, cols: N + 1, tolerance: tol, strategy: 'grid' })
 }
 
@@ -7858,7 +7858,7 @@ export async function sweep(
   const spine = path.shape
     ? ownHandle(path.shape)
     : ((await buildProfileWire(path, (path.pendingWires ?? []).filter((w) => !w.construction)[0])) as BrepHandle)
-  const k = getKernel() as unknown as OcctKernel & {
+  const k = getCqKernel() as unknown as OcctKernel & {
     sweepPipeShell: (profile: ShapeHandle, spine: ShapeHandle, freenet?: boolean, smooth?: boolean) => ShapeHandle
     sweep: (profile: ShapeHandle, spine: ShapeHandle, transitionMode?: number) => ShapeHandle
     sweepOriented: (profile: ShapeHandle, spine: ShapeHandle, mode?: number, up?: { x: number; y: number; z: number }) => ShapeHandle
@@ -7972,7 +7972,7 @@ export async function sweep(
  * drafted paths) the cap is the profile translated to each end.
  */
 async function spineEndWires(spine: BrepHandle, profileWire: unknown): Promise<unknown[]> {
-  const k = getKernel() as unknown as OcctKernel
+  const k = getCqKernel() as unknown as OcctKernel
   const verts = k.getSubShapes(spine as unknown as ShapeHandle, 'vertex') as unknown as ShapeHandle[]
   if (verts.length < 2) return []
   const profBb = k.getBoundingBox(profileWire as never)
@@ -8012,7 +8012,7 @@ export async function offset2D(
   const out: PendingWire[] = []
   for (const w of all) {
     const wire = await buildProfileWire(wp, w)
-    let offset = getKernel().offsetWire2D(wire as never, d, joinKind[kind] ?? 0)
+    let offset = getCqKernel().offsetWire2D(wire as never, d, joinKind[kind] ?? 0)
     offset = closeOpenOffsetWire(offset)
     out.push({
       kind: 'path',
@@ -8034,7 +8034,7 @@ export async function offset2D(
  * wire. Closed inputs pass through untouched.
  */
 function closeOpenOffsetWire(wire: ShapeHandle): ShapeHandle {
-  const k = getKernel() as unknown as {
+  const k = getCqKernel() as unknown as {
     getSubShapes: (h: ShapeHandle, t: string) => ShapeHandle[]
     makeLineEdge: (a: Vec3, b: Vec3) => ShapeHandle
     makeWire: (edges: ShapeHandle[]) => ShapeHandle
@@ -8044,7 +8044,7 @@ function closeOpenOffsetWire(wire: ShapeHandle): ShapeHandle {
   if (edges.length === 0) return wire
   // vertex degree count: an edge endpoint shared by two edges has degree 2
   const pos = (v: ShapeHandle): [number, number, number] => {
-    const bb = (getKernel() as unknown as OcctKernel).getBoundingBox(v as unknown as ShapeHandle)
+    const bb = (getCqKernel() as unknown as OcctKernel).getBoundingBox(v as unknown as ShapeHandle)
     return [(bb.xmin + bb.xmax) / 2, (bb.ymin + bb.ymax) / 2, (bb.zmin + bb.zmax) / 2]
   }
   const key = (p: [number, number, number]) => p.map((x) => x.toFixed(6)).join(',')
@@ -8427,7 +8427,7 @@ export async function rotateAboutCenter(
   angleDegrees = 360,
 ): Promise<Workplane> {
   if (!baseSolid(wp)) return wp
-  const k = getKernel() as unknown as OcctKernel
+  const k = getCqKernel() as unknown as OcctKernel
   const handle = brepOf(baseSolid(wp)!)
   if (handle === undefined) return wp
   const bb = k.getBoundingBox(handle as unknown as ShapeHandle)
@@ -8455,7 +8455,7 @@ export async function rotateAboutCenter(
  */
 export async function slot2D(wp: Workplane, length: number, diameter: number, angle = 0): Promise<Workplane> {
   if (diameter > length) throw new Error('[cq-compat] slot2D: diameter cannot exceed length')
-  const k = getKernel() as unknown as OcctKernel
+  const k = getCqKernel() as unknown as OcctKernel
   // upstream semantics: `length` is the OVERALL slot length (incl. both
   // semicircular caps) — the straight section is length − diameter
   const straight = length - diameter

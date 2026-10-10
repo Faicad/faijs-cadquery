@@ -7,18 +7,15 @@
  */
 
 import { writeFileSync, readFileSync } from 'node:fs'
-import { getBackends } from '@faicad/faijs/runtime-state'
-import { brepOf, fromBrep } from '@faicad/faijs/shape'
-import type { BrepHandle } from '@faicad/faijs/brep/engine/types'
-import { solidToShape } from '@faicad/faijs/brep/brep-ops'
-import type { XCAFDocument, ShapeHandle } from 'occt-wasm'
+import { brepOf, fromBrep, getBackends, solidToShape } from '../adapters/faijs'
+import type { BrepEngineApi, BrepHandle } from '../adapters/faijs'
+import type { ShapeHandle, XCAFDocument } from '../kernel'
 import {
-  initOcctWasm,
-  importAssemblyFromStep,
   collectLeafParts,
+  importAssemblyFromStep,
+  initOcctWasm,
   releaseAssemblyTree,
-} from '@faicad/faijs/occt-kernel/occtKernel'
-import type { BrepEngineApi } from '@faicad/faijs/brep/engine/primitives'
+} from '../kernel'
 import type { CqAssembly } from './assembly'
 import { buildAssembly } from './assembly'
 
