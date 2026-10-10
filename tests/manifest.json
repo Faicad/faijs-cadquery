@@ -1106,10 +1106,9 @@
     "reason": "ref-no-step"
   },
   "tests.test_cad_objects::TestCadObjects::testCompoundCenter__s": {
-    "status": "blocked",
+    "status": "ported",
     "source": "tests.test_cad_objects::TestCadObjects::testCompoundCenter",
-    "blockedBy": "eachpoint",
-    "manual": true
+    "blockedBy": null
   },
   "tests.test_cad_objects::TestCadObjects::testMatrixOfInertia__cylinder": {
     "status": "ported",
@@ -2072,10 +2071,9 @@
     "reason": "ref-no-step"
   },
   "tests.test_cadquery::TestCadQuery::testConstructionWire__r": {
-    "status": "blocked",
+    "status": "ported",
     "source": "tests.test_cadquery::TestCadQuery::testConstructionWire",
-    "blockedBy": "op:pendingWires",
-    "manual": true
+    "blockedBy": null
   },
   "tests.test_cadquery::TestCadQuery::testCopyWorkplane__obj0": {
     "status": "skipped",

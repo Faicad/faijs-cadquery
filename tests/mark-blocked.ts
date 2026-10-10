@@ -28,9 +28,12 @@ const BY_KEY: Record<string, string> = {
   //   bitwise (f71/e114/v76, volume diff 0); mutation (dropping the inner
   //   circle) turns it red at +21.6% volume. `op:shell` is now empty — do NOT
   //   re-add any lego brick entry.
-  // construction rect + circles: upstream cuts inner wires as holes (10 faces);
-  // cq-compat fuses every pending profile (single pendingRect/pendingCircle slot)
-  'tests.test_cadquery::TestCadQuery::testConstructionWire__r': 'op:pendingWires',
+  // CLOSED 2026-10-10 (N1 / A-class batch): the "single pendingRect/pendingCircle
+  //   slot" note was STALE — the `pendingWires` LIST path (extrude branch when
+  //   solidWires.length > 1, `extrudePendingWires`) already cuts the construction
+  //   rect's four circles as holes. Mirror PASSes bitwise (vol 1.9018252295753182,
+  //   f10/e24/v16 = 6 box faces + 4 hole faces). Entry removed so gen-manifest
+  //   re-derives it as ported; do NOT re-add.
   // polygon + cutThruAll: makePolygonPrismAt at the through-cut height aborts the
   // occt-wasm process (Node-level crash, not a JS throw) — see U21 in the phase2 plan
   'tests.test_cadquery::TestCadQuery::testPolygonPlugin__s': 'kernel:crash-polygon-cutThruAll',
@@ -464,10 +467,12 @@ const BY_KEY: Record<string, string> = {
   //   gates these two cases. Do NOT re-add.
   // Visualizer exporters (VRML / glTF / VTK.js) moved to `skipped` in manifest.json
   // (roadmap §2.3) — explicitly unsupported, like Workplane.plugin.
-  // testCompoundCenter: Workplane.cyl monkeypatch over eachpoint (cylinder
-  // placed at each construction-rect vertex, then unioned) — eachpoint is a
-  // known gap.
-  'tests.test_cad_objects::TestCadObjects::testCompoundCenter__s': 'eachpoint',
+  // CLOSED 2026-10-10 (N1 / A-class batch): the eachpoint OBJECT form already
+  //   exists (`eachpoint(wp, item, {combine})`); only the lambda form is a
+  //   parser-layer gap, and the lambda is not needed here — a 0.25x0.5 cylinder
+  //   placed at each construction-rect vertex reproduces the case bitwise
+  //   (vol 0.39269908169872403, com (0,0,0.25), f12/e12/v8). Entry removed so
+  //   gen-manifest re-derives it as ported; do NOT re-add.
   // Plane.toLocalCoords / Plane.mirrorInPlane — UNLOCKED 2026-10-04. Both APIs
   //   were already implemented (src/plane.ts) and exported (src/index.ts), with
   //   mirrorInPlane probe-verified against cadquery 2.8.0. The two
