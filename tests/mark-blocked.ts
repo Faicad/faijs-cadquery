@@ -379,9 +379,13 @@ const BY_KEY: Record<string, string> = {
   'tests.test_cadquery::TestCadQuery::testExtrudeUntilFace__wp_ref_extrude': 'op:extrude-until-face',
   'tests.test_cadquery::TestCadQuery::testExtrudeUntilFace__part': 'op:extrude-until-face',
   'tests.test_cadquery::TestCadQuery::testExtrudeUntilFace__part_section': 'op:extrude-until-face',
-  // r2 = Workplane().box(1,1,3).split(r1) where r1 is a parametricSurface —
-  // `parametricSurface` is not implemented, so nothing to split with.
-  'tests.test_cadquery::TestCadQuery::testParametricSurface__r2': 'op:parametricSurface',
+  // r2 = Workplane().box(1,1,3).split(r1) where r1 is a parametricSurface.
+  //   `parametricSurface` itself SHIPPED in 9a9cc94, so the old label
+  //   `op:parametricSurface` was stale — the real gate is that `split()` only
+  //   handles a PLANAR face (op:splitByFace, a C-class kernel gap). Re-labelled
+  //   2026-10-10 (N1): the manifest already carried op:splitByFace, so running
+  //   mark-blocked reverted it to the stale tag; keeping the two in sync.
+  'tests.test_cadquery::TestCadQuery::testParametricSurface__r2': 'op:splitByFace',
   // sweep with an inner-hole section CLOSED (2026-10-01): the ref STEP for
   // test_history_sweep__res is a PLAIN UNIT BOX (vol=1.0, f6/e12/v8/s1) — a
   // ref-side anomaly, not the hollow-tube sweep product the upstream
@@ -440,6 +444,15 @@ const BY_KEY: Record<string, string> = {
   'tests.test_assembly:::test_assembly_subshape_import__imported_assy': 'op:assembly-subshape-import',
   'tests.test_assembly:::test_assembly_multi_subshape_import__multi_subshape_assy': 'op:assembly-subshape-import',
   'tests.test_assembly:::test_assembly_multi_subshape_import__imported_assy': 'op:assembly-subshape-import',
+  // `assy` = simple_assy AFTER assy.save(step) + re-import. The ref captured a
+  //   CadQuery assembly-STEP artefact: the part added as a raw Solid.makeBox is
+  //   DROPPED on round trip (out/ref/manifest.json: assy_orig vol 9 vs assy
+  //   vol 8, f24/e48/v32 -> f18/e36/v24). Our round trip is lossless (vol 9), so
+  //   a bitwise match is impossible without hand-faking the artefact — refused
+  //   (plan §4.5-4 / §6.2, "don't impersonate"). Its pre-export twin
+  //   `__assy_orig` (vol 9) IS ported. Divergence documented in
+  //   tests/test_assembly/test_assembly_step_import_roundtrip__assy.fai.js.blocked.
+  'tests.test_assembly:::test_assembly_step_import_roundtrip__assy': 'ref:step-roundtrip-drops-part',
   // CLOSED 2026-10-07 (occt-wasm 5.6 unblock, T2-b): test_native_export /
   //   test_save_stl_formats assert on FILE OUTPUT (XCAF-XML exists, STL
   //   binary-vs-ASCII), which is not STEP-observable — exactly the class
