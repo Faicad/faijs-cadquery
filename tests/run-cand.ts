@@ -42,6 +42,18 @@ const onlyFilter = argValue('--only')
 
 const CLI = join(HERE, 'faijs-cli.mjs')
 
+// Cases whose candidate STEP must be produced by the self-hosted XCAF exporter
+// (tests/export-cand-step.mjs) instead of the host CLI, because the host CLI's
+// STEP writer drops a floating face that lives as a bare face child of a
+// compound (N2-4 / `export:free-face-in-compound` — e.g. test_sewing__res3: 7
+// faces in memory, 6 written by the host). This set is the durable route: it is
+// keyed by mirror basename and is independent of manifest status, so a case
+// that is already `ported` (because the self-hosted exporter makes it pass)
+// still routes here on the next sweep. Add the mirror basename whenever a new
+// floating-face case is mirrored.
+const SELF_HOSTED_EXPORT_CASES = new Set(['test_sewing__res3'])
+const EXPORT_CAND_STEP = join(HERE, 'export-cand-step.mjs')
+
 // NOTE: do not resolve the faijs package root here. @faicad/faijs publishes a
 // strict "exports" map with no "./package.json" subpath, so
 // `require.resolve('@faicad/faijs/package.json')` throws ERR_PACKAGE_PATH_NOT_EXPORTED
@@ -80,35 +92,50 @@ async function main() {
   for (const f of files) {
     const name = basename(f, '.fai.js')
     const outStep = join(OUT_CAND, `${name}.step`)
+    const selfHosted = SELF_HOSTED_EXPORT_CASES.has(name)
     try {
-      // tests/faijs-cli.mjs is plain ESM with no TypeScript in it, so it runs
-      // directly under node -- no tsx transform/register step. Measured: ~7s per
-      // case instead of ~17s (tsx costs another TS-loader + npx resolution per
-      // spawned process), i.e. the full suite drops from ~2.6h to ~1.1h. The STEP
-      // bytes are not identical between the two paths (the STEP header carries the
-      // export temp path and a timestamp), so "are they interchangeable?" is a
-      // measurement question, not a byte question -- tests/_probe-cli-equiv.ts
-      // grades both against the same ref with compareStepFiles and reports them
-      // equal on volume / centroid / bbox / boolean / topology.
-      // timeout: the observed healthy case costs ~6s, and a hung kernel call has
-      // historically wedged whole overnight sweeps. Without a per-case ceiling a
-      // single stuck case freezes the entire run with no output to diagnose from.
-      execFileSync(
-        process.execPath,
-        [CLI, 'run', f, '--out', outStep, '--mode', 'brep'],
-        {
+      if (selfHosted) {
+        // Self-hosted XCAF exporter: bypasses the host CLI's STEP writer, which
+        // drops a floating face that is a bare child of a compound. Writes every
+        // face via raw occt-wasm XCAF addShape (N2-4). Plain ESM, runs directly
+        // under node (same rationale as faijs-cli.mjs — no tsx loader per case).
+        execFileSync(process.execPath, [EXPORT_CAND_STEP, f, outStep], {
           cwd: ROOT,
           stdio: ['ignore', 'pipe', 'pipe'],
           encoding: 'utf-8',
           timeout: CASE_TIMEOUT_MS,
-          // Fonts are a HOST responsibility (core only dependency-injects):
-          // point the CLI's defaultFontPath at the host-provided font via
-          // FAIJS_DEFAULT_FONT (see tests/faijs-cli.mjs).
           env: { ...process.env, FAIJS_DEFAULT_FONT: defaultFontPath },
-        },
-      )
+        })
+      } else {
+        // tests/faijs-cli.mjs is plain ESM with no TypeScript in it, so it runs
+        // directly under node -- no tsx transform/register step. Measured: ~7s per
+        // case instead of ~17s (tsx costs another TS-loader + npx resolution per
+        // spawned process), i.e. the full suite drops from ~2.6h to ~1.1h. The STEP
+        // bytes are not identical between the two paths (the STEP header carries the
+        // export temp path and a timestamp), so "are they interchangeable?" is a
+        // measurement question, not a byte question -- tests/_probe-cli-equiv.ts
+        // grades both against the same ref with compareStepFiles and reports them
+        // equal on volume / centroid / bbox / boolean / topology.
+        // timeout: the observed healthy case costs ~6s, and a hung kernel call has
+        // historically wedged whole overnight sweeps. Without a per-case ceiling a
+        // single stuck case freezes the entire run with no output to diagnose from.
+        execFileSync(
+          process.execPath,
+          [CLI, 'run', f, '--out', outStep, '--mode', 'brep'],
+          {
+            cwd: ROOT,
+            stdio: ['ignore', 'pipe', 'pipe'],
+            encoding: 'utf-8',
+            timeout: CASE_TIMEOUT_MS,
+            // Fonts are a HOST responsibility (core only dependency-injects):
+            // point the CLI's defaultFontPath at the host-provided font via
+            // FAIJS_DEFAULT_FONT (see tests/faijs-cli.mjs).
+            env: { ...process.env, FAIJS_DEFAULT_FONT: defaultFontPath },
+          },
+        )
+      }
       pass++
-      console.log(`\u2713 ${name}`)
+      console.log(`\u2713 ${name}${selfHosted ? ' (self-hosted XCAF)' : ''}`)
     } catch (e) {
       fail++
       const timedOut = e instanceof Error && (e as NodeJS.ErrnoException).code === 'ETIMEDOUT'

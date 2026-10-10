@@ -230,10 +230,9 @@
     "blockedBy": null
   },
   "tests.test_free_functions:::test_sewing__res3": {
-    "status": "blocked",
+    "status": "ported",
     "source": "tests.test_free_functions:::test_sewing",
-    "blockedBy": "export:free-face-in-compound",
-    "manual": true
+    "blockedBy": null
   },
   "tests.test_free_functions:::test_solid__b": {
     "status": "ported",

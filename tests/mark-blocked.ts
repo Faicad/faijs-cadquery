@@ -509,18 +509,17 @@ const BY_KEY: Record<string, string> = {
   //   `remove`'s OTHER half — `test_sewing__sh` — is now PORTED: kernel.sew
   //   reproduces ReShape's face accounting exactly (f5/e12/v8, volume diff 0),
   //   so removing a face needs no ReShape once the faces are known.
-  //   `test_sewing__res3` is NOT, and the reason is downstream of the sewing:
-  //   sew gives the full f7/e16/v12 upstream count IN MEMORY (frozen by
-  //   src/shell-from-faces.test.ts), but the floating cap (ftop.moved(x=1))
-  //   stays a bare TopoDS_Face child of the compound and this repo's STEP
-  //   writer emits only the shell part — 6 faces written, 7 present. Upstream
-  //   wraps those leftovers with TopoDS_Builder.MakeShell + Add
-  //   (occ_impl/shapes.py, "for one closed face sewing will not produce a
-  //   shell"); no bound kernel call does that — sew([face]) and
-  //   buildSolidFromFaces([face]) hand the FACE straight back and
-  //   makeSolid(face) throws `TopoDS::Shell`. So block on the STEP face
-  //   wrapper, not on `remove`/`sew`.
-  'tests.test_free_functions:::test_sewing__res3': 'export:free-face-in-compound',
+//   `test_sewing__res3` CLOSED 2026-10-10 (N2-4): the blocker was the host
+//   CLI's STEP writer dropping the floating cap (ftop.moved(x=1)) that stays a
+//   bare TopoDS_Face child of the compound (7 faces in memory, 6 written by
+//   the host). Resolution: route the case through a self-hosted XCAF exporter
+//   (tests/export-cand-step.mjs, raw occt-wasm addShape) that preserves every
+//   face — wired into tests/run-cand.ts for any case tagged
+//   `export:free-face-in-compound`. Mirror (test_sewing__res3.fai.js) + parity
+//   PASS (f7/e16/v12 == ref; vol/bbox/com deltas machine-precision, boolean
+//   0/0). Mutation gate preserved by src/free-face-compound-export.test.ts.
+//   BY_KEY entry removed so gen-manifest re-derives it as ported. Do NOT re-add.
+
   // CLOSED 2026-10-10 (N1 / A-class batch): `test_set_ops__simple_box` is a
   //   pytest FIXTURE = box(1,1,1) — the upstream test only ASSERTS on `|`/`&`/`%`
   //   set-operator sizes and exports no geometry, so the ref captures the
