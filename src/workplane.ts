@@ -3081,7 +3081,7 @@ export async function extrude(
         ) => ShapeHandle
       }
     ).draftPrism(
-      rawShapeId(face) as unknown as ShapeHandle,
+      ownHandle(face) as unknown as ShapeHandle,
       n[0] * height,
       n[1] * height,
       n[2] * height,
@@ -3673,7 +3673,7 @@ export async function cutBlind(
         ) => ShapeHandle
       }
     ).draftPrism(
-      rawShapeId(face) as unknown as ShapeHandle,
+      ownHandle(face) as unknown as ShapeHandle,
       cutDir[0] * absDepth,
       cutDir[1] * absDepth,
       cutDir[2] * absDepth,
