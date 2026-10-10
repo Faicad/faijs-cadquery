@@ -1,0 +1,401 @@
+# faijs-cadquery 下一阶段开发方案（自有能力层 + 剩余 84 条清算）
+
+- 日期：2026-10-10
+- 状态：**待审（草稿）** —— 本文只做分析与排期，不含实现
+- 仓库：`D:\Faicad\faijs-cadquery`（`@faicad/faijs-cadquery`，独立 git 仓，gitcode）
+- 上游基准：CadQuery **2.8.0**（ref 650 条 STEP）
+- 内核：`occt-wasm@5.6.0`（peer `^5.6.0`）；宿主：`@faicad/faijs@0.30.9`
+- 前置文档（本仓 `docs/plans/`）：
+  - `2026-10-05-cadquery-post-occt56-plan.md`（P0–P7 批次与 blocked 重估）
+  - `2026-10-06-occt-wasm-extension-plan.md`（A–E 桶分类、W0–W5 内核扩展）
+  - `2026-10-07-occt56-api-unblock-reassessment.md`（U1–U6 / T1–T4 解锁）
+
+> **本文取代前三份文档的「排期部分」**，其取证结论仍然有效；冲突处以本文 §3 的三分表为准。
+
+---
+
+## 0. 三句话结论
+
+1. **进度**：`tests/manifest.json` = **697 条 → 558 ported / 84 blocked / 55 skipped**（34 个 `blockedBy` 标签）；镜像 **563 个 `.fai.js` + 18 个 `.blocked`**；包内单测 **72 文件 / 680 用例**（实测 2026-10-10，1 条红，见 §1.3）；**已验证的 parity 基线仍是 2026-10-07 全量的 80.00%**（500 PASS + 20 PASS-NT / 650），此后 4 次提交**没有重扫**，尺子已过期。
+   > **2026-10-10 回写**：manifest 已推进到 **571 ported / 71 blocked / 55 skipped · 27 个 `blockedBy` 标签**
+   > （A 类 12/12 翻完，见 §3.1.1）；单测 **73 文件 / 686 用例**，仍**只有 1 条红**
+   > （§1.3 的 `TestCQSelectors__testShape__res4`，宿主策略，与本轮改动无关）；
+   > parity 基线**仍未重扫**（§5 N0-3 待办）。
+2. **剩余 84 条能不能自己做**：真内核缺口 **42 条**（必须 fork occt-wasm，而本机 Rust/emsdk/cmake **至今一台都没装**，见 §1.4）；**可自造 ~24 条**（装配求解器 14 为首）；**本仓值面 ~14 条**；**不可控 4 条**（比较器/证据不足）。
+3. **关于「自己的扩展库」**：**能做，而且应该分层做**——faijs-gears 已经给出了可复制的模板（§4.1）。但推荐形态是**先在本仓内建 `src/kernel/`（内核原语层）+ `src/solver/`（自研求解器）**，把散落在 `workplane.ts` 里的直调收进一层；**等出现第二个消费方（faijs-freecad）再拆成独立包**，而不是现在就开新仓（理由见 §4.4）。
+
+---
+
+## 1. 现状（2026-10-10 实测，不是转述）
+
+### 1.1 四个口径
+
+| 口径 | 值 | 取证命令 |
+|---|---|---|
+| manifest（变量级） | **697 = 558 ported / 84 blocked / 55 skipped**，blocked 分布在 **34** 个标签 | `node -e "…require('./tests/manifest.json')…"` |
+| 镜像文件 | **563 `.fai.js` + 18 `.fai.js.blocked`**（另有 10 个**死镜像**停在 `tests/` 顶层，不参与扫描） | 遍历 `tests/<module>/` |
+| 包内单测 | **72 文件 / 680 用例 / 1 红**（5m42s，含 build） | `npm test` |
+| 全量 parity | **500 PASS / 20 PASS-NT / 18 FAIL / 1 ERROR / 112 BLOCKED / 650 ref = 80.00%** —— 来自 `out/report-final.json`（**2026-10-07 11:26**） | `npx tsx tests/run-cand.ts` + `tests/compare.ts` |
+
+> ⚠ **尺子过期警告**：`out/report.json` 当前是 2026-10-08 的一次 `--only` 残留（仅 2 条），`report-final.json` 是 10-07 的产物；此后 `9c639eb`（shellFromFaces）、`da432ab`（lego tmp）、`527f24d`（assembly export）、`9a9cc94`（parametricCurve/Surface）、`81468c3`（faijs 0.30.9）、`3dfb002`/`85d76ff`（unwrapShape/isValidShape）**六次提交全量未重扫**。本文所有「零回归」判断在 N0 完成前都**不成立**。
+
+### 1.2 门禁实测
+
+| 项 | 结果 |
+|---|---|
+| `npx eslint src` | ✅ 绿（P0 时代暴露的 3 条 HEAD 既有 error 已在 `60b7c07` 修掉） |
+| `npx tsc --noEmit` | ✅ 绿（含未提交 WIP） |
+| `npm test` | 🟡 679/680 绿，1 红见 §1.3 |
+| lint 依赖面 | 🟡 `peerDependencies` 已分裂：`@faicad/faijs ^0.30.9` 但 `faijs-extra/sketch ^0.29.0`（实装 0.29.5）⇒ `npm install` 仍需 `--legacy-peer-deps` |
+
+### 1.3 唯一红灯（新发现，必须进 N0）
+
+```
+FAIL src/parity-smoke.test.ts > TestCQSelectors__testShape__res4
+FAIL tests/test_selectors/TestCQSelectors__testShape__res4.fai.js:
+  All 1 live terminal(s) are 2D (no solid) — nothing to export as a 3D part (skipped: result)
+```
+
+- 该用例在 **2026-10-07 全量基线里是 PASS**（`ref f0/e4/v8 vs cand f0/e4/v8`，逐位），是**边 compound**（无 solid）。
+- 报错字符串实测位于 **`node_modules/@faicad/faijs/dist/node-host/cli.js`**（G0-D「二维终端过滤」分支，`if (!includeHidden)`），**不在本仓代码里**。
+- **疑似归因**：`81468c3` 把 `@faicad/faijs` 提到 0.30.9，宿主 CLI 新增了 2D 终端过滤 ⇒ 所有「只有线/面/边终态」的镜像都可能被跳过。
+- **尚未 A/B 证真**（未降级回 0.30.8 复跑），因此本文只标「疑似」。但**这恰恰是 §4 的核心论据**：parity 尺子长在 faijs 宿主 CLI 上，宿主一改策略，本仓的 PASS 集合就被单方面改写。
+- 逃生口已存在：`tests/faijs-cli.mjs` 已经把 `parseArgs` 的 `includeHidden` 透传给 `cliRun`，可按需开启；另一条路是自造导出通道（§5 N4）。
+
+### 1.4 内核扩展通路：仍然不通
+
+```
+rustc / cargo / rustup   NOT FOUND      emcc / em++   NOT FOUND
+cmake / ninja / wasm-opt NOT FOUND      Docker        NOT FOUND
+D:\Faicad\occt-wasm      git describe = v5.3.5（main），未切 v5.6.0，未建 ext 分支
+```
+
+⇒ `2026-10-06-occt-wasm-extension-plan.md` 的 **Phase 0 一步未动，W0–W5 全线不可执行**。这不是「慢」，是**零通路**。所以 §3 的 42 条真内核缺口在本机目前**没有任何解锁路径**，只能：① 装工具链（N5，长线）② 维持 blocked + 冻结守卫。
+
+### 1.5 工作区脏状态
+
+`src/workplane.ts` 有 **68 行未提交改动**：`shapeUnion / shapeIntersect / shapeDifference`（CadQuery `Shape.__or__/__and__/__mod__` 的**集合运算**语义，不是几何布尔），对应 `op:shape-operator-overload`（1 条）。类型/ lint 均绿，但尚未挂镜像、尚未翻 manifest。**N1 第一件事就是把它收口。**
+
+---
+
+## 2. 已经做完的东西（不再重做）
+
+| 面 | 内容 |
+|---|---|
+| Workplane DSL | 对象栈 P3-0…P3-4（`objects` 真源 / kind 即时压栈 / `split` 双体 / `parent` 全链）、Plane 变换（`toLocalCoords`/`toWorldCoords`/`mirrorInPlane`） |
+| 选择器 | 方向/中心/半径/长度/面积 Nth、Box/NearestToShape/And/Sum/Subtract/Inverse、2D `applyStringSelector` |
+| Shape 内省 | `volumeOf/areaOf/lengthOf/boundingBoxOf/centerOfMassOf/isValidShape/geomTypeOf/centerOf/radiusOf/shapeTypeOf` |
+| free function | `imprint`、`solid`/`solidWithInner`、`addCavity`、`offset`、`plane(w,l)`、`hollow`、`shellFromFaces` |
+| λ 批次 | `filterByPredicate`、`sortByKey`、`textOnSpine`、free `draft` |
+| 布尔 | `booleanOpBase` 底座 + `fuzzyValue`（对齐上游 `tol`→`SetFuzzyValue`），`union/cut/intersect` 暴露 `{tol}` |
+| 倒角/螺旋 | `chamfer` length2（`chamferDistAngle` + 角度换算）、`helix` handed 修正 |
+| 装配 | XCAF 真装配导出（`save()` 走 raw occt-wasm）、`importStep`、`constraint/constraintEx/buildAssembly/solve/toCompound` |
+| IO | `exportBrep/importBrep`（文本）+ `exportBin/importBin`（二进制，走 `toBREPBinary/fromBREPBinary`） |
+| 参数面 | `parametricCurve`、`parametricSurface`、`splineFace`（`bsplineSurface` + `approximatePoints`） |
+| 纪律资产 | 5 个冻结守卫测试（`extrude-until-face` / `sweep-aux-spine` / `assembly-subshape-import` / `assembly-layer-metadata` / `sweep-aux-spine-sweepfull`）+ 镜像导出约定守卫 |
+
+---
+
+## 3. 剩余 84 条的三分表（本文核心价值）
+
+判定口径：**「自造」= 只用 occt-wasm 已有的 212 个方法 + TS 算法层就能给出与上游逐位等价的结果**；凡需要 OCCT 内部状态（历史映射、XCAF 文档层、特征建模器）的一律判「内核」。
+
+### 3.1 A 类 · 本仓值面可做（**14 条，零新依赖**）
+
+> **2026-10-10 回写**：本表 14 条中 **12 条已翻 ported**；`op:faceOn` 与 `op:sweep-sketch-sections`
+> 经一次性捕获判定为**误判**，实为内核/算法缺口，已回写（见 §3.1.1）。manifest 现为
+> **571 ported / 71 blocked / 55 skipped**。
+
+| 标签 | 条 | 动作 | 判据 |
+|---|---|---|---|
+| `getfixturevalue` | 5 | ✅ **已翻**：内联 fixture 写镜像；3 条内存 export→importStep 往返（`exportBin/importBin`） | 往返体积/拓扑逐位 |
+| `op:shape-operator-overload` | 1 | ✅ **已翻**（`shapeUnion/Intersect/Difference` + `test_set_ops__*` 镜像 + 变异） | 集合语义（非布尔），面计数 |
+| `op:faceOn` / `eachpoint` / `cast` / `op:pendingWires` / `op:extrude-taper-sketch` / `op:sweep-sketch-sections` | 6 | λ 分发与值面通道 → **4 已翻，2 误判**（§3.1.1） | 一次性捕获真值 |
+| `op:prism-tilt` | 1 | ✅ **已翻 2026-10-10**：`cutBlind(wp, depth, { dir })`（本仓扩展）建**平移**斜棱柱作切具 | 逐位 PASS f7/e15/v10 |
+| `kernel:ellipse-tall-axis` | 1 | ✅ **已翻 2026-10-10**：旧注「主轴恒在 global X、旋转会重近似」**两半都错**（§3.1.1） | 逐位 PASS f4/e6/v4 |
+
+#### 3.1.1 捕获回写（2026-10-10，以实测为准）
+
+判据纪律见 §5：「捕获推翻本文结论的，以捕获为准并回写 §3」。本轮 4 条结论如下。
+
+**① `op:prism-tilt`（`test_prism__res3`）— 已翻。** 本表原文「本仓 `extrude` 本就吃方向向量」
+只对了一半：核 `extrude(face, dx, dy, dz)` 是 `BRepPrimAPI_MakePrism` **平移**棱柱，方向向量一直
+都吃；缺的是**切割侧**的接线。一次性 Python 捕获钉死语义：上游 `prism(ctx, base, profile, t, dir,
+additive=False)` 的 `dir=(0,0.1,1)` 是**增材侧**，`additive=False` 时刀沿 **(0,−0.1,−1)** 走；
+切除体积恒为 πr²·h（截面是**剪切**而非旋转）。镜像逐位 PASS：volΔ 1.1e-6 %、质心Δ 4.1e-9、
+bboxΔ 0、booleanΔ 0、拓扑 f7/e15/v10。变异（翻转倾角符号）体积不变但质心移 0.0144 → FAIL。
+
+**② `kernel:ellipse-tall-axis`（`TestCQSelectors::testEdgeTypesFilter__c`）— 已翻，且旧注释两半都错。**
+探针 `src/ellipse-axis.probe.test.ts` 实测：
+
+- `makeEllipseEdge` 的主轴落在 `gp_Ax2(center, normal)` 的**默认 X 方向**，该方向**随法向变化**
+  （+Z→+X、−Z→−X、±X→±Z、±Y→±Z、(1,1,0)→(1,−1,0)/√2、(1,1,1)→(1,0,−1)/√2），
+  **不是** global X（原文「恒在 global X」错）；
+- 刚性 `rotate` **保持解析曲线**：`curveType()` 仍是 `ellipse`、bbox 精确、体积 π·major·minor
+  到机器精度。只有 **矩阵**通路（`transform`/`generalTransform`）会把椭圆降为 B 样条 ——
+  原文说的 0.4 % 体积漂移出自那里，不是 `rotate`（原文「旋转会重近似」错）。
+- 它仍**拒绝 major < minor**（`gp_Elips() - invalid construction parameters`），所以「高」椭圆
+  必须先建宽边再转向：`buildProfileWire` 现在**实测**主轴方向（OCC `Geom_Ellipse` 的
+  `u = FirstParameter` 正好在主轴端点上）后绕平面法向转到平面的 +Y。镜像逐位 PASS
+  （volΔ 0、bboxΔ 0、拓扑 f4/e6/v4）；质心残差 6.7e-5 来自 **ref 自身**（其 com.y = +6.71e-5，
+  而该实体关于 y=0 对称，数学上必须为 0），已在镜像头注明。
+
+**③ `op:faceOn`（`test_faceOn__f2`）— 误判，不是 λ 分发。** 需要**二维插值**样条
+（CadQuery 走 `Geom2dAPI_Interpolate`），而本仓 `makeBSpline2d` 把输入点当**控制极点**
+（近似式，见 vendored `kernel2dOps.js:142-147`），无法复现 `edgeOn/wireOn`。还缺
+「曲面上的 pcurve 边」（`kernel.buildEdgeOnSurface` + `buildCurves3d`，可经 `getRawModule()` 触达）
+与 `Face.trim(outer, *inner)`＝`BRepBuilderAPI_MakeFace(surface, wires)` 的**内环**支持
+（`cad.faceOnSurface` 只吃单 wire）。⇒ 归 **N2（内核原语层）**。顺带两条捕获更正：
+自由函数 `sphere(4)` 的 4 是**直径**（`shapes.py:6653`，半径 2），`text("CQ",1)` 字形坐标落在
+x[−0.700,0.713] × y[−0.386,0.398]。
+
+**④ `op:sweep-sketch-sections`（`testSketch__r6`）— 误判，应归 C 类。** 该 sweep 就是
+`multisection=True` 带 2 个截面 ⇒ 与已被判 C 的 `kernel:sweep-multisection-pipe`（5 条）
+是**同一个内核缺口**（`MakePipeShell::Add` 多次调用未暴露），另加 frame-aware `placeSketch`。
+本仓现有 `sweepPipeShell` + fuse 只是近似，按 §4.5.4 不许冒充逐位。
+
+> **A 类修正结论**：可做 **12** 条（非 14）；`op:faceOn` 移入 N2、`op:sweep-sketch-sections`
+> 移入 C 类。§3.5 的 parity 上限相应下调 2 条。
+
+### 3.2 B 类 · 可自造（**24 条，自有能力层的目标**）
+
+| 标签 | 条 | 自造路径 | 可行性/风险 |
+|---|---|---|---|
+| **`op:assembly-solve`** | **14** | **自研 pure-TS 全局 NLP 求解器**（LM + 解析雅可比），替换目前委托 `faijs-extra/editor-ops` 的 core solver；上游用 `casadi`，OCCT 无求解器 ⇒ 这本来就是算法缺口，不是绑定缺口 | **高可行性、大工作量**；这是 B 类的大头，也是唯一一条不受内核约束的 14 条批量项 |
+| `narrow:sphere-angles` | 3 | `makeSphere(r)` 是单参；用**布尔组合**造角度域球面（U 向=两半空间交，V 向=平面切 + 圆盘盖） | 中高；需先捕获上游 3 条真值（`angle1/2/3`） |
+| `op:project` 2 + `project` 2 | 4 | **点→面/边**子集本仓可做（`projectPointOnFace/OnEdge` 已绑）；**边→面**用「离散取点 → 逐点投影 → `interpolatePoints` 拟合」近似 | 中；近似路径有**精度换可运行性**风险，必须与真值对拍，不达标就回写 blocked |
+| `plane` | 2 | 上游是 `BRepBuilderAPI_MakeFace(gp_Pln)` 的**无界面**；自造只能用有限大面近似 | 低中；先捕获上游 bbox 真值再判（无界面的 bbox 语义未知） |
+| `export:free-face-in-compound` | 1 | **自造 STEP 写出**：`save.ts` 已经在用 raw occt-wasm XCAF 写装配，扩展到散面 compound 是同构小改；绕开 faijs 导出层 | 高；顺带验证 §1.3 那条宿主过滤能不能被旁路 |
+
+> **B 类期望值**：乐观 24 条全翻，保守 **15–18 条**（`plane` 2 条与 `project` 的边→面 2 条最可能止步于「近似不达标」）。**任何一条都必须先捕获得真值再动手**（§6 判据 3）。
+
+### 3.3 C 类 · 真内核缺口（**42 条 → 修正为 43 条，本机无通路**）
+
+| 标签 | 条 | 缺的原语（OCCT 侧） | 能否自造 |
+|---|---|---|---|
+| `op:extrude-until-face` 4 + `op:cutBlind.until-face` 3 | 7 | `BRepIntCurveSurface_Inter`（射线-面求交） | ❌ 需要真求交器。布尔细棒法属近似，**违反「不以精度换可运行性」**，只可作 feature-flagged 降级，不作主路径 |
+| `kernel:sweep-multisection-pipe` | 5 | `MakePipeShell::Add` 多次调用（`sweepFull` 仍单 profile） | ❌ |
+| `op:sweep-sketch-sections` | 1 | 同上（`testSketch__r6` 就是 `sweep(p, multisection=True)` 两截面；另有 frame-aware `placeSketch`）—— **2026-10-10 由 A 类移入**（§3.1.1 ④） | ❌ |
+| `interpPlate` | 5 | `BRepOffsetAPI_MakeFilling` 全参构造 + 点约束 + G1 | ❌（`bsplineSurface` 是控制点近似，语义不同） |
+| `op:prism-from-face` | 4 | `BRepFeat_MakePrism`（TKFeat 被 `EXCLUDED_LIBS` 排链） | ❌ |
+| `op:assembly-subshape-import` | 4 | XCAF subshape name/color 读回 + `XCAFDoc_LayerTool` | ❌（除非自己写 STEP 解析器，过重） |
+| `kernel:boolean-near-coincident-bspline` | 4 | 退化根因在比较器侧（跨仓）+ 输入几何 | ❌（X-2，判卷人不能自己改） |
+| `kernel:sweep-aux-spine-mode` | 3 | 内核 CE=true 构造与 OCP 不等价（实测 −12.163%） | ❌ |
+| `op:history-subshape` 3 + `history:images` 2 | 5 | `FirstShape/LastShape/Generated/Images` 绑定 | ❌（需 OCCT 内部历史图） |
+| `remove` | 1 | `BRepTools_ReShape`（`defeature` 语义不同） | ❌ |
+| `op:offset2D-multi-region` | 1 | MakeOffset2D 多区域/自交裁剪 | ❌ |
+| `op:splitByFace` | 1 | 按**任意面**切割实体（本仓只有平面切割） | ❌ |
+| `kernel:loft-coplanar-sections` | 1 | `ThruSections` 参数面未暴露 | ❌ |
+| `kernel:crash-polygon-cutThruAll` | 1 | 疑 WASM trap，未复现定位 | 待诊断 |
+
+### 3.4 D 类 · 不可控（**4 条**）
+
+`comparator:open-shell-volume` 2 + `comparator:vertex-degenerate-compound` 1（判卷人在 `@faicad/cq-compat-compare`，跨仓，本仓禁止自行翻 ported）；`ref:degenerate-compound-vertex` 1（证据不足，不归类）。
+
+### 3.5 汇总与 parity 上限
+
+```
+84 blocked（计划时）
+├─ A 本仓值面可做   14  ███ 16.7%   → N1，几乎确定能翻
+├─ B 可自造         24  █████ 28.6% → N2/N3/N4，期望 15–18
+├─ C 真内核缺口     42  ██████████ 50.0% → N5（工具链）之后才谈
+└─ D 不可控          4  █ 4.8%
+```
+
+> **2026-10-10 回写**：A 类实际可做 **12**（`op:faceOn` → N2，`op:sweep-sketch-sections` → C 类，
+> 见 §3.1.1），其中 **12/12 已翻**。当前 manifest：**71 blocked** = A 余 0 + B 24 + C 43 + D 4。
+
+| 场景 | parity |
+|---|---|
+| 计划时基线 | **80.00%**（520/650） |
+| A 类（修正后可做 12 条）全翻 | **81.8%**（532/650） |
+| A + B 保守（15/24） | **83.9%**（545/650） |
+| A + B 全翻 | **85.1%**（550/650） |
+| 再解 C 类 43 条（需完整内核扩展） | 理论 **93.4%** —— 不现实，仅作天花板参照 |
+
+> 修正说明：A 类由 14 降至 12 后，上表三行各下调 2 条（534→532、547→545、552→550）；
+> C 类由 42 升至 43（`op:sweep-sketch-sections` 归入）。
+
+> 分母纪律：**BLOCKED 计入分母**；`compare.ts:153` 的 `compared = pass + passNt + fail` 不含 ERROR，故 `pass+passNt+fail+blocked = 650` 才是对的（前文档已查证）。
+
+---
+
+## 4. 关于「自己的扩展库」（正面回答）
+
+### 4.1 faijs-gears 模板解剖（实测 `D:\Faicad\faijs\packages\faijs-gears`）
+
+| 维度 | faijs-gears 的做法 | 对本仓的启示 |
+|---|---|---|
+| 包形态 | `@faicad/faijs-gears`，`peer { @faicad/faijs ^0.30.0, occt-wasm ^5.6.0 }`，零 runtime deps | 扩展库**不把 faijs 当依赖打包，只当宿主** |
+| 内核访问 | 自建 `src/kernel/gears.ts`，注释写明「**faijs-gears only imports from here; it must not touch occt-wasm directly**」，对外只暴露 `getGearKernel()` | **直调面必须有唯一收口**，不能散落 |
+| faijs 面 | 只吃根入口：`BrepHandle` / `Result` / `ok` / `err` / `CONTRACT_VERSION` / `initOcctWasm` | 根入口够用 ⇒ 深子路径是可收敛的**技术债**，不是必需 |
+| 类型护栏 | 自声明 `GearKernel = Omit<BrepEngineApi,…> & {…}`，并用探针测试断言每个方法在活内核上存在 | 内核升级改签名会**先红**，而不是运行时 `undefined is not a function` |
+
+⇒ **结论：这条路径是通的，且有现成的纪律可抄。** 本仓已经有一半在做（`save.ts` 直调 raw XCAF 写 STEP、`parametricCurve` 用 `approximatePoints` 自建曲线），缺的是**收口**。
+
+### 4.2 本仓当前对 faijs 的依赖面（实测 import 清单）
+
+| faijs 子路径 | 用途 | 根入口是否可替代 | 脆弱性 |
+|---|---|---|---|
+| `@faicad/faijs`（根） | `createRuntime` / `registerOcctBrepEngine` / `getKernel` / `initOcctWasm` / `BrepHandle` / `Result` | — | 低（公开面） |
+| `@faicad/faijs/occt-kernel/occtKernel` | `getKernel` / `OcctKernel` 类型 | ✅ 根已导出 `getKernel`/`initOcctWasm` | **可消除** |
+| `@faicad/faijs/shape` | `brepOf/getSlot/ensureSlot/hasBrep/compound` | ❌ 根未导出 | 中（Shape 载体，绕不开） |
+| `@faicad/faijs/brep/handle-bridge` | `getBrepApi` | ❌ | 中 |
+| `@faicad/faijs/brep/brep-ops`、`/brep/engine/{primitives,types}`、`/brep/text/*` | 变换、文本成实体、类型 | 部分（`translateBrep/rotateBrep/…` 在根） | 中 |
+| `@faicad/faijs/api/{api-namespace,brep-mirror/topologyFns,cadquery-selectors,chamfer-math,assembly/types}` | 命名空间注册、内省镜像、选择器、倒角数学 | ❌ | 中高 |
+| `@faicad/faijs/mesh/{types,rigid-transform}`、`/runtime-state`、`/sdk`、`/identity` | 类型、位姿、后端、`asPartName` | 部分（`/runtime-state` 的 `getBackends` 已由根 `export * from env-agnostic` 覆盖） | 中 |
+| `@faicad/faijs-extra/editor-ops` | `assembly` op（**装配求解现在委托给 core**） | ❌ | **高**（`op:assembly-solve` 14 条全压在这里） |
+| `@faicad/faijs-sketch` | 草图 | ❌ | 中 |
+| **faijs 宿主 CLI 导出策略** | parity 的 STEP 产出 | ❌ | **高**（§1.3 的 2D 过滤就是它改的） |
+
+> **一句话风险**：本仓有 **10+ 个深子路径** + **2 个外部宿主策略**（CLI 导出、core 求解器）。faijs 每次 minor 升级都可能单方面改写本仓的 PASS 集合，而本仓**无权改 core**（既有约束）。
+
+### 4.3 三层划分（建议据此重构）
+
+| 层 | 内容 | 归属 | 能否自造 |
+|---|---|---|---|
+| **L1 · 宿主层** | 脚本运行时、Shape 载体、字体/IO、CLI | faijs | **不自造**（造了就不是 faijs 生态包了），但要把耦合收进 `src/adapters/faijs.ts` 一处，升级时只改一个文件 |
+| **L2 · 自有能力层** | 内核原语组合（sphere-angles / 投影 / 无界面 / STEP 写出）、**装配求解器**、导出通道 | **本仓自造** | ✅ 这是扩展库的主体 |
+| **L3 · 内核层** | OCCT 内部状态（History / XCAF / MakeFilling / MakePipeShell / BRepFeat） | occt-wasm | ❌ 只能 fork |
+
+### 4.4 包形态：**先内后外**（三选一的判据）
+
+| 方案 | 形态 | 优点 | 代价 | 判据 |
+|---|---|---|---|---|
+| **A（推荐，先做）** | 本仓内子路径：`src/kernel/` + `src/solver/`，经 `@faicad/faijs-cadquery/ext` 导出 | 零发布成本、复用现有 563 镜像与 parity 尺子、改动可逐条回归 | 不能单独发版 | 现在就做 |
+| **B** | 新包 `@faicad/faijs-cadquery-ext`（仿 faijs-gears，peer `occt-wasm` + 只吃 faijs 根入口） | 独立版本、可被第三方单独消费 | 需建仓/发布/`file:` 联调，parity 链路要重新接线 | 当 ext 层出现**外部消费方**时 |
+| **C** | 共享内核扩展 `@faicad/cq-kernel-ext`，供 faijs-cadquery + faijs-freecad 共用 | 一次投入两份收益（freecad 也是 peer `occt-wasm ^5.6.0` 直调） | 跨仓协作 + 版本 lockstep 成本 | 当 freecad 侧确认要复用同一批原语时 |
+
+> **推荐 A → B/C**：本轮先在仓内把层建起来（N2），等 B/C 的触发条件出现再拆。**不要为了「有个扩展包」而拆包**——拆包本身不解锁任何 blocked 条目。
+
+### 4.5 扩展层纪律（抄 faijs-gears，四条硬约束）
+
+1. **唯一直调口**：occt-wasm 只允许出现在 `src/kernel/**`；`workplane.ts` 现有的 `getKernel() as unknown as OcctKernel` 散点全部收敛过去。
+2. **能力面自声明 + 探针测试**：`src/kernel/` 导出一个 `CqKernel` 类型（列出所消费的每一个 occt 方法），配一个探针测试断言它们全部存在于活内核 ⇒ 内核升级先红。
+3. **只吃 faijs 根入口**：`brepOf/getSlot/getBrepApi` 等绕不开的深子路径，全部封装进 `src/adapters/faijs.ts`，业务代码不得直接 import 深子路径。
+4. **不冒充**：自造路径若只能给近似解，必须标 `PASS-NT` 并在 manifest `reason` 写明，或在捕获推翻后回写 blocked。**不许用近似冒充逐位。**
+
+---
+
+## 5. 开发批次（N0 → N6）
+
+批次纪律：每批独立 commit、独立可停；**每批开工先跑一次性 Python 捕获**；捕获推翻本文结论的，**以捕获为准并回写 §3**。
+
+| 批 | 主题 | 预期解锁 | 依赖 |
+|---|---|---|---|
+| **N0** | **修尺子**（回归 A/B + 全量重扫 + WIP 收口） | 0（恢复可判定性） | 无，**硬前置** |
+| **N1** | A 类本仓值面 14 条 | ~12 | N0 |
+| **N2** | 自有内核原语层 `src/kernel/` + Sphere/Plane/Project/Export 自造项 | ~6–8 | N0 |
+| **N3** | 自有装配求解器 `src/solver/`（14 条） | 0–14 | N0、N2 |
+| **N4** | 自有导出通道（摆脱 faijs CLI 策略） | 1 + 防御 §1.3 复发 | N2 |
+| **N5** | occt-wasm 工具链（长线，可并行） | 解锁 C 类 42 条的前置 | 无（但本机要装 Rust/emsdk） |
+| **N6** | 数据卫生 + 跨仓协作 | 0 | 随时 |
+
+### N0 · 修尺子（**不做完不许谈任何「零回归」**）
+
+| 序 | 项 | 判据 |
+|---|---|---|
+| N0-1 | §1.3 归因 A/B：把 `@faicad/faijs` 降到 0.30.8 重建 dist，单跑 `TestCQSelectors__testShape__res4`；若绿 ⇒ 确认是 0.30.9 宿主策略变更，写进 reason 并决定「升 `includeHidden`」还是「自造导出」（→N4） | 给出确定的归因，不是「疑似」 |
+| N0-2 | 收口 WIP：给 `shapeUnion/Intersect/Difference` 挂 `test_set_ops__*` 镜像 + 变异测试，或判定不成立则回退该改动 | `op:shape-operator-overload` 有明确结论 |
+| N0-3 | **全量重扫**：`npm run build` → `npx tsx tests/run-cand.ts` → `npx tsx tests/compare.ts`（~6s/条 × 563 ≈ 1h，后台跑；**跑前先备份 `out/report-final.json`**，`compare.ts` 会覆写 `out/report.json`） | 产出 **2026-10-10 新基线**（PASS/FAIL 集合） |
+| N0-4 | 与旧基线做**集合 diff**：`out/diff-baseline.mjs`（已有工具） | 明确「新增绿 / 新红 / 既有红」三张清单；新红必须逐条归因（faijs 升级？本仓提交？ref 漂移？） |
+| N0-5 | 把新基线数字回写本文 §1.1，并把三份旧计划的排期标记为「已被本文取代」 | 文档与实测一致 |
+
+### N1 · A 类本仓值面（14 条 → 修正为 12 条）
+
+顺序：`getfixturevalue` 5（通道已就绪，最稳）→ `op:shape-operator-overload` 1（WIP）→ `eachpoint/cast/faceOn/pendingWires/extrude-taper-sketch/sweep-sketch-sections` 6 → `op:prism-tilt` 1 → `kernel:ellipse-tall-axis` 1（先做判别探针）。每条：一次性 Python 捕获 → 镜像 → parity 逐位 → 变异测试 → manifest 翻 ported。
+
+> **2026-10-10 状态：N1 收口。** 12 条全部翻 ported（5 + 1 + 4 + 1 + 1）；`op:faceOn` 移交 N2、
+> `op:sweep-sketch-sections` 移交 C 类（§3.1.1 ③④）。产出提交：`a56353d`（set ops）、
+> `39db559`/`627c67f`（getfixturevalue + eachpoint/pendingWires）、`f14c2ec`（draftPrism 句柄回归修复）、
+> `b188cf7`（taper PASS-NT）、`23fea76`（sphere 批）、`eab936d`（prism-tilt + ellipse-tall-axis）。
+
+### N2 · 自有内核原语层（骨架 + 4 个自造项）
+
+| 序 | 项 | 判据 |
+|---|---|---|
+| N2-0 | 建 `src/kernel/`（唯一 occt 直调口）+ `src/adapters/faijs.ts`（深子路径收口）+ `CqKernel` 类型 + 能力面探针测试；把 `workplane.ts` 的 `getKernel()` 散点迁移过去 | 682 用例零回归；探针测试全绿 |
+| N2-1 | `narrow:sphere-angles` 3 条：布尔组合造角度域球面 | 三条真值 volume/bbox/面数逐位；变异（去掉 U 向半空间）⇒ 翻红 |
+| N2-2 | `plane` 2 条：**先捕获上游无界面的 bbox/面积真值**，再决定「有限大面」能否过关 | 不达标即回写 blocked（不许用 ±1e60 冒充） |
+| N2-3 | `project` 4 条：先做点投影子集（2 条），边→面走离散+拟合并**显式评级** | 近似项若非逐位，只允许记 PASS-NT 且写 reason |
+| N2-4 | `export:free-face-in-compound` 1 条：复用 `save.ts` 的 raw XCAF 通路写散面 compound | 7 面全写出（现状只写 6） |
+
+### N3 · 自有装配求解器（14 条，最大单项）
+
+| 序 | 项 | 说明 |
+|---|---|---|
+| N3-1 | 捕获真值：一次性 Python 跑 `test_constrain*`/`test_unary_constraints*`/`test_point_on_line*` 共 14 条，冻结每个成员的**终态位姿矩阵**（不是只有体积） | 求解器的判别量是位姿，不是体积 |
+| N3-2 | 设计：`src/solver/` —— 约束→残差向量（PointInPlane/PointOnLine/Axis/Plane 等）、LM + 解析雅可比、全局一次性求解（对标 CQ 2.8.0 `occ_impl/solver.py` 语义，非 chain 递推） | 与 core 的 `solver:'global'` 语义对齐 |
+| N3-3 | 切换：`assembly.ts` 的 `solve()` 改为**优先走自研求解器**，core solver 保留为 fallback（feature flag） | 14 条逐位 + 既有装配 PASS 零回归 |
+| N3-4 | 变异测试：扰动任一约束残差 ⇒ 终态位姿必须偏离 | 承重 |
+
+> N3 是唯一一条「**完全不受内核约束、纯靠自造**」的批量项，也是 §4 扩展层价值的最大证明点。**但它也是唯一可能耗时数周的一项**，应与 N1/N2 并行推进、独立 commit。
+
+### N4 · 自有导出通道（防御性）
+
+把 parity 的 STEP 产出从 faijs CLI 迁到本仓自持的导出器（kernel 层 `exportStep`/XCAF 直出），**不再受宿主「2D 终端过滤」策略影响**。判据：§1.3 那条边 compound 用例能正常导出；既有 PASS 集合零回归。风险：换了写出器可能与 ref 的 STEP 结构有差异 ⇒ 必须与 comparator 对拍确认不影响三度量。
+
+### N5 · occt-wasm 工具链（长线，解锁 C 类 42 条的前置）
+
+沿用 `2026-10-06-occt-wasm-extension-plan.md` 的 Phase 0（P0-1…P0-6）：`winget install Rustlang.Rustup` → emsdk → `git submodule update --init` → 全量构建 ~1h → **严格对拍**（方法名集合 diff 为空 + 本仓 parity 零回归）。**在 P0-6 通过前，W0–W5 一条都不许动。**
+
+### N6 · 数据卫生 + 跨仓
+
+- 删/归档 `tests/` 顶层 10 个死镜像（先确认与子目录版本无关）。
+- 依赖口径：`faijs-extra`/`faijs-sketch` 的 peer 与实装版本对齐，消除 `--legacy-peer-deps` 需求。
+- 跨仓接口清单（X-1 metadata-extractor 丢子路径、X-2 comparator 开壳度量、X-3 LayerTool、X-4 未绑原语）保持独立登记，不混入本仓批次。
+
+---
+
+## 6. 验收判据（硬门禁）
+
+1. **零回归**：与 **N0-3 的新基线**取 PASS/FAIL **集合 diff**（不是 parity 数字）。既有 PASS 不许翻红；PASS-NT 算通过但必须在镜像注释 + manifest `reason` 写明差异。
+2. **翻 ported 三条件**：① 镜像存在且可跑 ② parity 逐位 ③ 变异测试（改坏关键分支 ⇒ 断言变红）。**没做过变异测试的断言不算验证。**
+3. **一次性 Python 捕获优先**（`C:\Users\ylt\cadquery-env\Scripts\python.exe`）。捕获推翻纸面结论 ⇒ **回写本文 §3**（这是 P1-1 / P2-3 / P3-1 / P5-1 / P6-a 五次推翻换来的纪律）。
+4. **数据同步**：改判任意一条 ⇒ **同时**更新 `tests/manifest.json`（走 `tests/mark-blocked.ts`）+ `tests/coverage.json`（重算）+ 本文 §1/§3。只改一处会让下一轮重算把结论翻回去。
+5. **门禁**：`npm run typecheck`（**必须绿**）/ `npm run lint`（绿）/ `npm test`（只允许已归因的红灯）；新导出必须有 JSDoc。
+6. **扩展层纪律**：`src/kernel/` 外不允许出现 `from 'occt-wasm'`；`src/adapters/faijs.ts` 外不允许出现 faijs 深子路径 import。两条用测试冻结。
+7. **长任务串行**：一次只跑一个后台任务（`run-cand` 全量 ~1h）；启动下一批前确认上一批 node/kernel 子进程已死。
+8. **提交**：显式 `git add <path>`（禁 `-A`）、conventional commits（英文）、过门禁（禁 `--no-verify`）、**禁 `Co-Authored-By`**、**禁 git stash**。
+
+---
+
+## 7. 风险与守卫
+
+| # | 风险 | 守卫 |
+|---|---|---|
+| **R1** | 用过期尺子宣布「零回归」（§1.1 的 80.00% 是 10-07 的） | N0 列为硬前置；N0-3 未完成前，任何批次不许声称零回归 |
+| **R2** | faijs minor 升级单方面改写 PASS 集合（§1.3 已发生一次） | N4 自持导出通道；`src/adapters/faijs.ts` 单点收口；每次升级 peer 必须重跑 N0-3 |
+| **R3** | 自造路径「能跑但不等价」被当成解锁（plane / project 边→面 / interpPlate 近似） | 判据要求**逐位**；不达标一律回写 blocked 并写 reason，禁止冒充 |
+| **R4** | 为「有个扩展包」而拆包，成本花在发布链路上而非解锁 | §4.4 明确触发条件；本轮只做方案 A |
+| **R5** | `kernel:*` 标签沉底无人复核（9 条 testEnclosure 的教训） | 新规：任何 `kernel:` 标签必须附 `reason` 指向探针脚本或 commit，否则不许写入 manifest |
+| **R6** | N3 求解器旷日持久拖住整条线 | N3 与 N1/N2 并行、独立 commit，可独立停/独立交付 |
+| **R7** | `compare.ts --only` 覆写 `out/report.json`（已踩过一次） | 跑 `--only` 前先备份；全量基线另存 `out/report-baseline-<date>.json` |
+
+---
+
+## 8. 附录 · 本文取证命令（可重跑）
+
+```bash
+# 口径
+node -e "const m=require('./tests/manifest.json');const v=Object.values(m);
+const s={};for(const e of v)s[e.status]=(s[e.status]||0)+1;console.log(v.length,s);
+const b={};for(const e of v)if(e.status==='blocked')b[e.blockedBy]=(b[e.blockedBy]||0)+1;
+console.log(Object.entries(b).sort((a,c)=>c[1]-a[1]))"
+
+# 门禁
+npx eslint src ; npx tsc --noEmit ; npm test
+
+# parity（全量，~1h；跑前备份 out/report-final.json）
+npm run build && npx tsx tests/run-cand.ts && npx tsx tests/compare.ts
+
+# 内核扩展通路现状
+which rustc cargo emcc cmake ninja ; cd /d/Faicad/occt-wasm && git describe --tags
+
+# faijs 宿主策略归因（§1.3）
+grep -n "nothing to export as a 3D part" -B 25 node_modules/@faicad/faijs/dist/node-host/cli.js
+```
+
+**实测快照（2026-10-10）**：manifest 558/84/55 · 34 标签 · 镜像 563+18 · 单测 680/72 文件（1 红：`TestCQSelectors__testShape__res4`）· lint 绿 · tsc 绿 · parity 基线 80.00%（10-07，未重扫）· Rust/emsdk/cmake 全缺 · occt-wasm clone 仍 v5.3.5。
+
+**实测快照（2026-10-10 · N1 收口后）**：manifest **571/71/55 · 27 标签 · 镜像 585 个 `.fai.js` + 19 个 `.blocked`** · 单测 **686 用例 / 73 文件**（vitest 收集数；仍 1 红：同上）· lint 绿 · tsc 绿 · parity 基线仍 80.00%（10-07，未重扫）。A 类 12 条全翻；余：B 24（含装配求解器 14）· C 43 · D 4。
