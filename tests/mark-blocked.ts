@@ -400,15 +400,20 @@ const BY_KEY: Record<string, string> = {
   //   2026-10-10 (N1): the manifest already carried op:splitByFace, so running
   //   mark-blocked reverted it to the stale tag; keeping the two in sync.
   'tests.test_cadquery::TestCadQuery::testParametricSurface__r2': 'op:splitByFace',
-  // testCompSolid's ONLY STEP-captured var is `tool` = Solid.makeSphere(1,
-  //   angleDegrees3=120) — a 1/6 longitudinal wedge (vol 0.6981317007977319).
-  //   `result` (Shape.cast of a BRepPrimAPI_MakePrism result) ERRORED in the ref
-  //   (COMPSOLID KeyError) so it is not gradeable; `Shape.cast` is therefore NOT
-  //   what gates this case. The real gate is the angle-domain sphere, so the
-  //   label is corrected `cast` -> `narrow:sphere-angles` (2026-10-10). The
-  //   other three sphere-angle cases (testSphereCustom) are plain spheres and
-  //   ARE ported.
-  'tests.test_cadquery::TestCadQuery::testCompSolid__tool': 'narrow:sphere-angles',
+  // CLOSED 2026-10-10 (N2-1): the angle-domain sphere shipped. `tool` =
+  //   Solid.makeSphere(1, angleDegrees3=120) = BRepPrimAPI_MakeSphere(Ax2, 1, 0,
+  //   pi/2, 2pi/3) is now reproducible: `cq.sphere(wp, 1, { angle1: 0, angle2: 90,
+  //   angle3: 120 })` builds the meridian slice and revolves it (see
+  //   `angleDomainSphere` in src/workplane.ts). Bitwise PASS on the harness —
+  //   volDelta 5.2e-11 %, comDelta 9.4e-14, bboxDelta 2.4e-16, topo ref f4/e7/v4
+  //   == cand f4/e7/v4.
+  //   Capture corrections that shipped with it: (a) the old note's `cast` label
+  //   was already retagged here in N1 — `result` (the compsolid) ERRORED in the
+  //   ref, this `tool` var is the only gradeable one; (b) `Solid.makeSphere`
+  //   defaults are a1=0/a2=90 (a HEMISPHERE), unlike `Workplane.sphere`'s
+  //   -90/90/360; (c) OCCT's V domain is a slice between two PARALLEL DISCS, not
+  //   a sector to the centre — a sector reproduces the volume only when a bound
+  //   is a pole or the equator and is off by up to 2x in between.
   // sweep with an inner-hole section CLOSED (2026-10-01): the ref STEP for
   // test_history_sweep__res is a PLAIN UNIT BOX (vol=1.0, f6/e12/v8/s1) — a
   // ref-side anomaly, not the hollow-tube sweep product the upstream

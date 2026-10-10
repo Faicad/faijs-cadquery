@@ -2035,10 +2035,9 @@
     "blockedBy": null
   },
   "tests.test_cadquery::TestCadQuery::testCompSolid__tool": {
-    "status": "blocked",
+    "status": "ported",
     "source": "tests.test_cadquery::TestCadQuery::testCompSolid",
-    "blockedBy": "narrow:sphere-angles",
-    "manual": true
+    "blockedBy": null
   },
   "tests.test_cadquery::TestCadQuery::testCompSolid__result": {
     "status": "skipped",

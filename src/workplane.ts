@@ -396,6 +396,15 @@ function vcross(
   ]
 }
 
+/** Unit vector (identity for a zero vector, so callers can't divide by 0). */
+function vnorm(a: [number, number, number]): [number, number, number] {
+  const L = Math.hypot(a[0], a[1], a[2])
+  return L === 0 ? [0, 0, 0] : [a[0] / L, a[1] / L, a[2] / L]
+}
+
+/** Degrees → radians (the angle-domain primitives take degrees, OCCT radians). */
+const DEG = Math.PI / 180
+
 /**
  * Local → world mapping for axis-aligned workplane normals, verified against
  * installed CadQuery 2.8.0 (`faces(sel).workplane(...).plane.xDir`):
@@ -1337,20 +1346,32 @@ export async function textOnSpine(
  * sphere
  * @param wp - Workplane
  * @param radius - number
- * @param opts - { centered?; combine? }
+ * @param opts - { centered?; combine?; direct?; angle1?; angle2?; angle3? }
  * @returns Promise<Workplane>
  *
  * CadQuery semantics (verified vs cadquery 2.8.0 `Workplane.sphere`): a sphere
  * is created for every point on the stack (or the workplane origin); per-axis
- * `centered=false` puts the sphere's bbox corner on the point. Only full
- * spheres are supported (angle1/angle2/angle3 partial sweeps are not
- * expressible with the cad.sphere primitive — upstream testSphereCustom stays
- * blocked on that).
+ * `centered=false` puts the sphere's bbox corner on the point.
+ *
+ * `angle1`/`angle2`/`angle3` are the upstream V/U sweep limits in DEGREES,
+ * defaulting to upstream's `-90 / 90 / 360` (the full sphere). Those defaults
+ * take the `cad.sphere` path unchanged; any other triple builds
+ * `BRepPrimAPI_MakeSphere`'s angle domain directly — see `angleDomainSphere`.
+ * (`Workplane.sphere`'s defaults differ from `Solid.makeSphere`'s `0 / 90 /
+ * 360`, which is a hemisphere: upstream passes them through explicitly, so the
+ * two agree only because `Workplane` always supplies its own.)
  */
 export async function sphere(
   wp: Workplane,
   radius: number,
-  opts?: { centered?: Centered3; combine?: boolean },
+  opts?: {
+    centered?: Centered3
+    combine?: boolean
+    direct?: [number, number, number]
+    angle1?: number
+    angle2?: number
+    angle3?: number
+  },
 ): Promise<Workplane> {
   const c = resolveCentered(opts?.centered ?? true)
   const n = Array.isArray(wp.normal) ? wp.normal : ([0, 0, 1] as [number, number, number])
@@ -1359,14 +1380,126 @@ export async function sphere(
   // Local-frame offset: uncentered axis -> bbox corner on the point.
   const offLocal: [number, number, number] = [c[0] ? 0 : radius, c[1] ? 0 : radius, c[2] ? 0 : radius]
   const off = vadd(vadd(vscale(x, offLocal[0]), vscale(y, offLocal[1])), vscale(n, offLocal[2]))
+  const a1 = opts?.angle1 ?? -90
+  const a2 = opts?.angle2 ?? 90
+  const a3 = opts?.angle3 ?? 360
+  // A full sphere is direction-independent, so `direct` only matters for a
+  // partial sweep — which is why the default triple keeps the plain path.
+  const full = a1 === -90 && a2 === 90 && a3 === 360
+  const direct = vnorm(opts?.direct ?? [0, 0, 1])
   const points = eachPoints(wp)
   const shapes: Shape[] = []
   for (const [px, py] of points) {
     const center = vadd(localToWorld(wp, px, py), off)
-    shapes.push(await cad.sphere({ radius, center }))
+    shapes.push(
+      full ? await cad.sphere({ radius, center }) : angleDomainSphere(radius, center, direct, a1, a2, a3),
+    )
   }
   return combineEachpoint(wp, shapes, opts?.combine ?? true)
 }
+
+/**
+ * The X axis `gp_Ax2(center, n)` picks for a main direction `n` — i.e. where
+ * `BRepPrimAPI_MakeSphere` starts its U domain, and therefore where the wedge
+ * of an angle-domain sphere begins.
+ *
+ * The kernel exposes no frame accessor, so the axis is **measured**, not
+ * assumed: `makeCircleArc` builds in the same `gp_Ax2` frame, and its
+ * `FirstParameter` point is exactly `center + R · X`. Same technique (and same
+ * reason) as `buildProfileWire`'s ellipse major-axis measurement — this axis is
+ * normal-dependent, it is NOT global X.
+ *
+ * @param n - unit main direction
+ * @returns unit X axis of the frame
+ */
+function ax2XAxis(n: [number, number, number]): [number, number, number] {
+  const k = getCqKernel()
+  const arc = k.makeCircleArc(vec3([0, 0, 0]), vec3(n), 1, 0, Math.PI / 2)
+  const params = k.curveParameters(arc as never) as unknown as { first: number }
+  const p = k.curvePointAtParam(arc as never, params.first) as unknown as {
+    x: number
+    y: number
+    z: number
+  }
+  return vnorm([p.x, p.y, p.z])
+}
+
+/**
+ * `BRepPrimAPI_MakeSphere(gp_Ax2(center, dir), R, a1, a2, a3)` — the angle
+ * domain, built the way OCCT builds it internally.
+ *
+ * The kernel only binds the one-argument `makeSphere(R)` (a full sphere), so
+ * the domain is composed: the meridian face lying in the frame's X half-plane,
+ * revolved about `dir` through U ∈ [0, a3]. This is **exact, not an
+ * approximation**: the meridian's curved side is a true three-point circular
+ * arc on the sphere, so the revolved surface is the sphere itself. A half-space
+ * boolean (`common` with `halfSpace`) reaches the same volume but returns a
+ * compound with ±1e-16 bbox noise and a different edge split, so it is not used.
+ *
+ * The V-domain is a spherical **slice between two parallel discs**, not a
+ * wedge tapering to the centre: the meridian face is the curvilinear trapezoid
+ * (arc, top radius, axial segment, bottom radius), and the two radii revolve
+ * into flat caps. Getting that wrong is expensive and quiet — using the
+ * triangle-to-centre profile reproduces the volume only when a bound is a pole
+ * or the equator, and is off by up to 2× in between (measured: `(0, 30, 270)`
+ * gave π/4 = 0.78539816339745 against upstream's 1.07992247467149).
+ *
+ * Verified against cadquery 2.8.0 over a sweep of triples (a1, a2, a3) —
+ * including mid-latitude bounds, poles and negative latitudes — matching to
+ * ~1e-15 relative on volume/centroid/bbox. The blocked target
+ * `Solid.makeSphere(1, angleDegrees3=120)` = `(0, 90, 120)` is in that sweep.
+ *
+ * @param radius - sphere radius
+ * @param center - sphere centre (world)
+ * @param dir - rotation axis / polar direction (unit)
+ * @param a1 - start latitude in degrees (0 = equator, ±90 = poles)
+ * @param a2 - end latitude in degrees (> a1)
+ * @param a3 - longitude sweep in degrees, (0, 360]
+ * @returns the angle-domain solid
+ */
+function angleDomainSphere(
+  radius: number,
+  center: [number, number, number],
+  dir: [number, number, number],
+  a1: number,
+  a2: number,
+  a3: number,
+): Shape {
+  if (!(radius > 0)) throw new Error(`[cq-compat] sphere: radius must be > 0 (got ${radius})`)
+  if (!(a2 > a1)) throw new Error(`[cq-compat] sphere: angle2 must exceed angle1 (got ${a1}, ${a2})`)
+  if (!(a3 > 0 && a3 <= 360)) throw new Error(`[cq-compat] sphere: angle3 must be in (0, 360] (got ${a3})`)
+  const k = getCqKernel()
+  const ex = ax2XAxis(dir)
+  const ez = dir
+  // A point on the sphere at latitude `v` in the frame's X half-plane.
+  const at = (deg: number): [number, number, number] => {
+    const v = deg * DEG
+    return vadd(center, vadd(vscale(ex, radius * Math.cos(v)), vscale(ez, radius * Math.sin(v))))
+  }
+  const start = at(a1)
+  const mid = at((a1 + a2) / 2)
+  const end = at(a2)
+  // Where the two bounding discs cross the polar axis. A bound at a pole makes
+  // both the radius AND the latitude point coincide with its axis point, so
+  // those segments collapse to zero length and must be dropped (a zero-length
+  // `makeLineEdge` is rejected) — that is what turns the trapezoid into the
+  // half-disc / sector shapes of the pole and equator cases.
+  const cap1 = vadd(center, vscale(ez, radius * Math.sin(a1 * DEG)))
+  const cap2 = vadd(center, vscale(ez, radius * Math.sin(a2 * DEG)))
+  const edges = [k.makeArcEdge(vec3(start), vec3(mid), vec3(end))]
+  for (const [p, q] of [[end, cap2], [cap2, cap1], [cap1, start]] as const) {
+    if (Math.hypot(q[0] - p[0], q[1] - p[1], q[2] - p[2]) > 1e-12) {
+      edges.push(k.makeLineEdge(vec3(p), vec3(q)))
+    }
+  }
+  const wire = k.makeWire(edges)
+  const face = k.makeFace(wire)
+  return toShape(
+    k.revolve(face as never, { point: vec3(center), direction: vec3(ez) }, a3 * DEG),
+  )
+}
+
+
 
 /**
  * wedge — CadQuery `Workplane.wedge` parity.
