@@ -534,7 +534,13 @@ const BY_KEY: Record<string, string> = {
   // section swept face-to-face) — a face-to-face loft op does not exist.
   'tests.test_free_functions:::test_prism__res5': 'op:prism-from-face',
   'tests.test_free_functions:::test_prism__res6': 'op:prism-from-face',
-  'tests.test_free_functions:::test_prism_taper__res2': 'op:extrude-taper-sketch',
+  // CLOSED 2026-10-10 (N1 / A-class batch): the real blocker was the draftPrism
+  //   handle-extraction regression (fixed in src/workplane.ts, see the
+  //   "extract draftPrism face via ownHandle" commit) — `extrude(..., {taper})`
+  //   now builds the tapered boss. res2 is PASS-NT: the solid matches the ref
+  //   bitwise (vol 1.0109579815868446) but upstream's BRepFeat_MakeDPrism splits
+  //   the lateral face into 3 (f10/e21/v14) while MakeDraft keeps it single
+  //   (f8/e15/v10). Entry removed so gen-manifest re-derives it as ported.
   // taper res3 divides box by the circle face (boolean split by a face) before
   // a from-face subtractive prism — operator + from-face path.
   'tests.test_free_functions:::test_prism_taper__res3': 'op:prism-from-face',
