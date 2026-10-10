@@ -29,6 +29,9 @@ import type { AssemblyConstraint, AssemblyTransform, BrepEngineApi, BrepHandle, 
 // the extension library — import it directly instead of probing `cad.assembly`
 // (which no longer exists on `createApiNamespace()`).
 import { assembly as assemblyOp } from '@faicad/faijs-extra/editor-ops'
+import { solveAssemblyTree } from '@faicad/faijs/api/assembly/solve-tree'
+import type { AssemblyNode } from '@faicad/faijs/api/assembly/solvers/assembly-tree'
+import { compound as compoundOp } from '@faicad/faijs/shape'
 import { applyTransform, applyTransformBrep, brepOf, ensureSlot, getBackends, getSlot } from '../adapters/faijs'
 import type { RGB } from '../workplane'
 import { resolveFaceSelector, asBrepShape } from '../workplane'
@@ -124,6 +127,114 @@ export function axisRef(
   return { part, edge: { axis: { origin: [origin[0], origin[1], origin[2]], direction } } } as EntityRef
 }
 
+/**
+ * CQ 方向选择器 token → 轴索引与语义。
+ * `|Z`=ParallelDir（子形状方向与轴平行）；`>>Z`/`<<Z` 与 `>Z`/`<Z`=CenterNth/DirectionMinMax
+ * （取子形状中心/方向沿轴的极值簇，`and` 在下方按交集组合）。
+ */
+function parseAxisToken(
+  tok: string,
+): { axis: 0 | 1 | 2; mode: 'parallel' | 'extreme'; sign: 1 | -1 } | null {
+  const AX: Record<string, 0 | 1 | 2> = { X: 0, Y: 1, Z: 2 }
+  const par = /^([|])([XYZ])$/.exec(tok)
+  if (par) return { axis: AX[par[2]]!, mode: 'parallel', sign: 1 }
+  const ext = /^([>]|>>|[<]|<<)([XYZ])$/.exec(tok)
+  if (ext) return { axis: AX[ext[2]]!, mode: 'extreme', sign: ext[1][0] === '<' ? -1 : 1 }
+  return null
+}
+
+/** 收集形状全部直边的折线（origin=首末中点、direction=归一化(末-首)、center=中点）。 */
+function collectEdges(
+  part: string,
+  handle: never,
+  kernel: BrepEngineApi,
+): Array<{ origin: [number, number, number]; direction: [number, number, number]; center: [number, number, number] }> {
+  const wf = kernel.wireframe(handle, 0.01)
+  const groups = wf.edgeGroups
+  if (!groups || groups.length < 3) {
+    throw new Error(`[cq-compat/assembly] collectEdges: no edge groups for part "${part}"`)
+  }
+  const edgeCount = groups.length / 3
+  const out: Array<{ origin: [number, number, number]; direction: [number, number, number]; center: [number, number, number] }> = []
+  for (let ei = 0; ei < edgeCount; ei++) {
+    const start = groups[ei * 3]
+    const count = groups[ei * 3 + 1]
+    const numPts = Math.floor(count / 3)
+    if (numPts < 2) continue
+    const a: [number, number, number] = [wf.points[start], wf.points[start + 1], wf.points[start + 2]]
+    const b: [number, number, number] = [
+      wf.points[start + (numPts - 1) * 3],
+      wf.points[start + (numPts - 1) * 3 + 1],
+      wf.points[start + (numPts - 1) * 3 + 2],
+    ]
+    const d: [number, number, number] = [b[0] - a[0], b[1] - a[1], b[2] - a[2]]
+    const len = Math.hypot(d[0], d[1], d[2])
+    if (!(len > 1e-9)) continue
+    const mid: [number, number, number] = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2]
+    out.push({ origin: mid, direction: [d[0] / len, d[1] / len, d[2] / len], center: mid })
+  }
+  if (out.length === 0) {
+    throw new Error(`[cq-compat/assembly] collectEdges: no resolvable straight edges for part "${part}"`)
+  }
+  return out
+}
+
+/**
+ * resolvePointRef — 把「点」侧引用解析为 EntityRef（point）。
+ * 来源：字面坐标 "x,y,z"、面选择器（面心，复用 resolveFaceSelector）、顶点/整件（bbox 中心）。
+ * 顶点=单点，bbox 中心即该点；整件 bbox 中心对齐 CQ `Shape.Center()`（= BoundingBox().center）。
+ */
+async function resolvePointRef(part: string, selector: string, shape: Shape | null): Promise<EntityRef> {
+  const coords = parseCoords(selector)
+  if (coords) return pointRef(part, coords)
+  if (!shape) throw new Error(`[cq-compat/assembly] resolvePointRef: shape required for part "${part}"`)
+  const s = resolveAssemblyShape(shape)
+  const handle = brepOf(s)
+  const kernel = getBackends().kernel.brep as BrepEngineApi | null
+  if (!handle || !kernel) throw new Error(`[cq-compat/assembly] resolvePointRef: BREP unavailable for part "${part}"`)
+  // 面选择器（含 @faces 或方向符）→ 面心
+  if (selector && /@faces|>[XYZ]|<[XYZ]/.test(selector)) {
+    const { center } = await resolveFaceSelector(s, selector)
+    return pointRef(part, center)
+  }
+  // 顶点 / 整件 → bbox 中心
+  const bb = kernel.getBoundingBox(handle as never)
+  const center: [number, number, number] = [(bb.xmin + bb.xmax) / 2, (bb.ymin + bb.ymax) / 2, (bb.zmin + bb.zmax) / 2]
+  return pointRef(part, center)
+}
+
+/**
+ * resolveAxisRefFromEdge — 把「线」侧引用（直边/圆边）解析为 EntityRef（edge.axis）。
+ * 直边：取折线首末 → origin=中点、direction=归一化(末-首)。支持 CQ 方向文法
+ *（`|Z` 平行 / `>Z` `>>Z` 极值；`and` 取交集）。
+ */
+async function resolveAxisRefFromEdge(part: string, selector: string, shape: Shape | null): Promise<EntityRef> {
+  if (!shape) throw new Error(`[cq-compat/assembly] resolveAxisRefFromEdge: shape required for part "${part}"`)
+  const s = resolveAssemblyShape(shape)
+  const handle = brepOf(s)
+  const kernel = getBackends().kernel.brep as BrepEngineApi | null
+  if (!handle || !kernel) {
+    throw new Error(`[cq-compat/assembly] resolveAxisRefFromEdge: BREP unavailable for part "${part}"`)
+  }
+  const edges = collectEdges(part, handle as never, kernel)
+  const tokens = selector.split(/\s+and\s+/i).map((t) => t.trim()).filter(Boolean)
+  let cands = edges
+  for (const tok of tokens) {
+    const a = parseAxisToken(tok)
+    if (!a) continue
+    if (a.mode === 'parallel') {
+      cands = cands.filter((e) => Math.abs(e.direction[a.axis]) > 0.99)
+    } else {
+      if (cands.length === 0) break
+      const vals = cands.map((e) => e.center[a.axis])
+      const ext = a.sign > 0 ? Math.max(...vals) : Math.min(...vals)
+      cands = cands.filter((e) => Math.abs(e.center[a.axis] - ext) <= 1e-6)
+    }
+  }
+  const pick = cands[0] ?? edges[0]
+  return { part, edge: { axis: { origin: pick.origin, direction: pick.direction } } } as EntityRef
+}
+
 type AssemblyKind =
   | 'Plane'
   | 'Axis'
@@ -132,6 +243,12 @@ type AssemblyKind =
   | 'Distance'
   | 'Fixed'
   | 'Revolute'
+  // ── N3 新增：CQ 2.8.0 约束种类透传（core 0.31.2 求解器已原生支持这些世界锚定/点-面/点-线语义）──
+  | 'PointInPlane'
+  | 'PointOnLine'
+  | 'FixedPoint'
+  | 'FixedAxis'
+  | 'FixedRotation'
 
 function parseCoords(sel: string): [number, number, number] | null {
   const m = sel.replace(/[[\]()]/g, '').trim().split(/[\s,]+/).filter(Boolean)
@@ -281,8 +398,10 @@ function det3(m: number[][]): number {
  * @param bPart B 侧成员名。
  * @param bSelector B 侧面选择器字符串。
  * @param bShape B 侧成员几何（真实 Shape 或借用视图）。
- * @param kind 约束种类（Plane/Axis/Point/Cylinder/Distance/Fixed/Revolute）。
- * @param param 可选参数（Distance 的距离值等）。
+ * @param kind 约束种类（Plane/Axis/Point/Cylinder/Distance/Fixed/Revolute/PointInPlane/PointOnLine/FixedPoint/FixedAxis/FixedRotation）。
+ * @param param 可选参数：Distance 的距离值（number）；FixedPoint/FixedAxis 的世界坐标/方向（[x,y,z]）。
+ *   PointInPlane/PointOnLine 的 param（沿面法向/线偏移）当前 faijs global-solver 经
+ *   pushCoincident 固定 val=0，故透传但求解器侧暂忽略（2 例被 14 条锁定用例均用 param=0）。
  * @returns AssemblyConstraint[]（Cylinder 拆两条，其余单条）
  */
 export async function constraintEx(
@@ -293,7 +412,7 @@ export async function constraintEx(
   bSelector: string,
   bShape: Shape | null,
   kind: AssemblyKind,
-  param?: number,
+  param?: number | [number, number, number],
 ): Promise<AssemblyConstraint[]> {
   switch (kind) {
     case 'Plane': {
@@ -348,14 +467,52 @@ export async function constraintEx(
     case 'Revolute':
       // 暂降级为锚定占位（旋转 DOF 留待后续 joints 机制）
       return [{ type: 'fixed', part: aPart } as AssemblyConstraint]
+    case 'PointInPlane': {
+      // CQ：point 落到 plane 上（保留面内 2 平移 DOF）。faijs 经 coincident(point, plane)
+      // → global-solver pushCoincident 降级 point_in_plane 代价项（对齐 solver.py point_in_plane_cost）。
+      const a = await resolvePointRef(aPart, aSelector, aShape)
+      const b = await faceRef(bPart, bSelector, resolveAssemblyShape(bShape))
+      return [{ type: 'coincident', a, b } as AssemblyConstraint]
+    }
+    case 'PointOnLine': {
+      // CQ：point 落到 line 上（保留沿线 1 平移 DOF）。coincident(point, axis) → point_on_line。
+      const a = await resolvePointRef(aPart, aSelector, aShape)
+      const b = await resolveAxisRefFromEdge(bPart, bSelector, bShape)
+      return [{ type: 'coincident', a, b } as AssemblyConstraint]
+    }
+    case 'FixedPoint': {
+      // CQ 世界锚定：把某子实体（顶点/面心/整件中心）钉到世界字面坐标 world。
+      // 仅约束该点，成员其余 DOF（尤其朝向）自由——不等同整件 fixed。
+      const a = await resolvePointRef(aPart, aSelector, aShape)
+      const world = (Array.isArray(param) ? param : [0, 0, 0]) as [number, number, number]
+      return [{ type: 'fixedPoint', a, world } as AssemblyConstraint]
+    }
+    case 'FixedAxis': {
+      // CQ 世界锚定：把某轴（面法向）钉到世界字面方向 worldDir（求解器内 vnormalize）。
+      const a = await faceRef(aPart, aSelector, resolveAssemblyShape(aShape))
+      const worldDir = (Array.isArray(param) ? param : [0, 0, 1]) as [number, number, number]
+      return [{ type: 'fixedAxis', a, worldDir } as AssemblyConstraint]
+    }
+    case 'FixedRotation':
+      // CQ 世界锚定：锁定该部件朝向（本地 XYZ 对齐世界 XYZ），平移自由。
+      return [{ type: 'fixedRotation', part: aPart } as AssemblyConstraint]
   }
 }
 
-/** 装配成员（CQ Assembly.objects 语义）。 */
+/** 初始相对位姿（对齐 faijs AssemblyNode 的 translate / rotate）。 */
+export interface CqLoc {
+  translation?: [number, number, number]
+  /** 角度制（度），对齐 AssemblyNode.rotate.angle。 */
+  rotation?: { axis?: [number, number, number]; angle?: number }
+}
+
+/** 装配成员（CQ Assembly.objects 语义）。shape 可为真实 Shape（叶子）或子 CqAssembly（嵌套子装配）。 */
 export interface CqAssemblyMember {
   name: string
-  shape: Shape
+  shape: Shape | CqAssembly
   color?: RGB
+  /** 初始相对位姿（相对父装配的 loc）。默认 identity。 */
+  loc?: CqLoc
 }
 
 /** 子形状引用（CQ Assembly._subshape 语义）：约束参考用，不进 compound 几何。 */
@@ -365,8 +522,8 @@ export interface CqSubshape {
   color?: RGB
 }
 
-/** `add` 的 obj 形态：直接给 Shape，或 `{ shape, name?, color? }`（对齐 CQ add 的多形态）。 */
-export type AssemblyAddArg = Shape | { shape: Shape; name?: string; color?: RGB }
+/** `add` 的 obj 形态：直接给 Shape，或 `{ shape, name?, color?, loc? }`（对齐 CQ add 的多形态）。 */
+export type AssemblyAddArg = Shape | { shape: Shape; name?: string; color?: RGB; loc?: CqLoc }
 
 /** 默认成员名：`part_<n>`，跳过已占用名（CQ 用 uuid；此处用可读序号便于脚本面调试）。 */
 function defaultMemberName(used: Array<{ name: string }>): string {
@@ -395,7 +552,11 @@ function defaultSubshapeName(used: Record<string, unknown>): string {
 export interface CqAssembly {
   /** 装配名。 */
   name: string
-  /** 成员表（name + shape；solve() 后 shape 为已烘焙位姿）。 */
+  /** 根装配自身几何（CQ Assembly.obj）；null 表示纯容器（仅持有 children）。 */
+  rootObj: Shape | null
+  /** 根装配初始相对位姿（根相对世界；CQ Assembly.loc）。 */
+  rootLoc: CqLoc
+  /** 成员表（name + shape；shape 可为 Shape 叶子或子 CqAssembly 嵌套）。 */
   members: CqAssemblyMember[]
   /** 求解器选择：'global'（默认，CQ 语义）| 'chain'（legacy 链式）。 */
   solver: 'chain' | 'global'
@@ -407,31 +568,37 @@ export interface CqAssembly {
   converged: boolean
   /** 无法求解的约束明细（entity 类型不匹配 / 参考不可达）。 */
   unsupported: string[]
-  /** solve() 后填充：per-member 终态变换（index = 成员下标；恒等位姿不输出）。 */
+  /** solve() 后填充：per-leaf 终态变换（扁平成员顺序；恒等位姿不输出）。 */
   transforms: AssemblyTransform[]
-  /** 装配体（compound；solve() 后成员位姿已烘焙进 children）。 */
-  compound: CompoundShape
+  /** 树模式：qualified name（点分路径，如 "SECOND.BOTTOM"）→ 世界变换（solveAssemblyTree 输出）。 */
+  nodeTransforms: Record<string, AssemblyTransform>
+  /** 装配体（compound；solve() 后成员位姿已烘焙进 children）。树模式在 solve() 内构建。 */
+  compound?: CompoundShape
   /** 是否已调用 solve()。 */
   solved: boolean
   /** 约束表（CQ Assembly.constraints 属性对齐；add/remove 保留约束，CQ 语义不删关联约束）。 */
   constraints: AssemblyConstraint[]
   /** 子形状引用表（CQ Assembly._subshape；约束参考用，不进 compound）。 */
   subshapes: Record<string, CqSubshape>
+  /** 本节点在树中的 qualified 路径（根 = ''）。供 children / getLoc 使用。 */
+  selfPath: string
+  /** 是否走树模式求解（含嵌套成员或 root 几何）。 */
+  treeMode: boolean
   /**
    * 求解装配（CQ Assembly.solve()）。封装底层求解器：
-   * 求解 → 位姿烘焙进成员（mesh 顶点原地变换 + BREP slot.solid 刚体变换）→
-   * 记录 residuals/dof/converged/unsupported/transforms → 返回自身。
+   * - 扁平模式：经 faijs `assembly` op（solveAssemblyAndKinematics）原地烘焙；
+   * - 树模式：经 faijs `solveAssemblyTree`（flatten → solveGlobal → recompose，
+   *   父变换 ∘ 求解器变换）实现嵌套子装配。
    * 幂等：重复调用直接返回（成员已烘焙，避免双重变换）。
    */
   solve(): CqAssembly
   /** 取已求解装配体（CQ Assembly.toCompound()）。 */
-  toCompound(): CompoundShape
+  toCompound(): CompoundShape | undefined
   /**
-   * 添加成员（CQ Assembly.add）。**不可变语义**：返回新的 CqAssembly，不原地改
-   * （有意偏离 CQ 的可变 self-return，适配 `.fai.js` 的 `let asm2 = asm.add(...)` 显式赋值模型）。
-   * obj 可为 Shape 或 `{ shape, name?, color? }`；重名抛错（CQ 唯一性要求）。
+   * 添加成员（CQ Assembly.add）。**不可变语义**：返回新的 CqAssembly，不原地改。
+   * obj 可为 Shape 或 `{ shape, name?, color?, loc? }` 或子 CqAssembly；重名抛错。
    */
-  add(obj: AssemblyAddArg, name?: string, color?: RGB): CqAssembly
+  add(obj: AssemblyAddArg, name?: string, color?: RGB, loc?: CqLoc): CqAssembly
   /**
    * 添加子形状引用（CQ Assembly.addSubshape）：用于约束参考，不进 compound 几何。不可变。
    */
@@ -442,12 +609,35 @@ export interface CqAssembly {
    */
   remove(name: string): CqAssembly
   /**
-   * 遍历装配树（CQ Assembly.traverse）。自底向上产出 `[name, assembly]` 对。
+   * CQ 风格约束 DSL（CQ Assembly.constrain）。**异步**：几何解析需内核，
+   * 故在调用时即解析为 AssemblyConstraint[] 并并入 constraints（不可变返回新装配）。
    *
-   * 当前 faijs 装配是**扁平结构**（members 为 Shape 叶子，无嵌套子装配），
-   * 故只产出根装配自身 `[[name, this]]`。嵌套装配（member 为子 CqAssembly）待后续。
+   * 支持的 arity（对齐 CQ variadic constrain）：
+   * - (partRef, kind)                      一元（Fixed / FixedRotation / FixedAxis / FixedPoint）
+   * - (partRef, kind, param)               一元带参（FixedPoint world / FixedAxis worldDir）
+   * - (aRef, bRef, kind)                   二元（Plane/Axis/Point/Cylinder/Distance/PointInPlane/PointOnLine）
+   * - (aRef, bRef, kind, param)            二元带参（Distance value）
+   * - (id1, sel1, id2, sel2, kind)         六元路径式（"TOP@faces@>Z" 形式）
+   * - (id1, sel1, id2, sel2, kind, param)  七元路径式带参
+   *
+   * 路径语法："PARENT/CHILD@SUBSHAPE"（'/' 映射到 faijs qualified name '.'），
+   * 如 "SECOND/BOTTOM@faces@<Z"、"TOP?top_face"、"SECOND/BOTTOM"。
+   */
+  constrain(...args: Array<string | number[] | [number, number, number]>): Promise<CqAssembly>
+  /**
+   * 遍历装配树（CQ Assembly.traverse）。自顶向下产出 `[qualifiedName, wrapper]` 对。
+   * 扁平模式只产出根装配自身 `[[name, this]]`；树模式产出全部成员。
    */
   traverse(): IterableIterator<[string, CqAssembly]>
+  /** 子装配（本节点 members 中的 CqAssembly 包装）。供 CQ `children[0].loc` 镜像。 */
+  readonly children: CqAssembly[]
+  /**
+   * 取本节点（相对父装配）的平移分量 [x,y,z]（对齐 CQ Assembly.loc.TranslationPart()）。
+   * 树模式按 qualified name 自 nodeTransforms 取世界变换，再减父节点世界变换得相对量。
+   */
+  getLoc(): [number, number, number]
+  /** 按 qualified 路径取子节点世界变换（树模式）。 */
+  getNodeTransform(path: string): AssemblyTransform | undefined
 }
 
 /** solveDetailed 返回面（core AssemblySolveResult 的运行时形态；residuals 仅 global 路径填）。 */
@@ -460,24 +650,133 @@ type AssemblySolveResultLike = {
 }
 
 /**
+ * CQ 约束种类全集（用于 constrain() arity 判定）。
+ */
+const ASSEMBLY_KINDS: ReadonlySet<string> = new Set<AssemblyKind>([
+  'Plane', 'Axis', 'Point', 'Cylinder', 'Distance', 'Fixed', 'Revolute',
+  'PointInPlane', 'PointOnLine', 'FixedPoint', 'FixedAxis', 'FixedRotation',
+])
+
+function isAssemblyKind(s: unknown): s is AssemblyKind {
+  return typeof s === 'string' && ASSEMBLY_KINDS.has(s)
+}
+
+/** 判定某值是否为 CqAssembly 包装（鸭子类型：含 rootObj/members/add/solve）。 */
+function isCqAssembly(x: unknown): x is CqAssembly {
+  return (
+    typeof x === 'object' && x !== null &&
+    'members' in x && 'rootObj' in x && 'add' in x && 'solve' in x
+  )
+}
+
+/**
+ * 解析 CQ 引用字符串："PART@SUBSHAPE"（如 "SECOND/BOTTOM@faces@<Z"）、
+ * "PART?tag"（"TOP?top_face"）、或纯 "PART"（"SECOND/BOTTOM"）。
+ */
+function parseCqRef(ref: string): { part: string; sub?: string; tag?: string } {
+  const q = ref.indexOf('?')
+  if (q >= 0) return { part: ref.slice(0, q), tag: ref.slice(q + 1) }
+  const at = ref.indexOf('@')
+  if (at < 0) return { part: ref }
+  return { part: ref.slice(0, at), sub: ref.slice(at + 1) }
+}
+
+/** CQ 路径（'/'）→ faijs qualified name（'.'）。 */
+function qualifyPath(p: string): string {
+  return p.split('/').filter(Boolean).join('.')
+}
+
+/** 从 "faces@>Z" 抽取选择器（'@' 之后）；无 '@' 原样返回。 */
+function stripSub(sub: string | undefined): string {
+  if (!sub) return ''
+  const at = sub.indexOf('@')
+  return at < 0 ? sub : sub.slice(at + 1)
+}
+
+/** 组合两个相对位姿 a ∘ b（先应用 b 再应用 a）。仅平移时退化为向量相加。 */
+function composeCqLoc(a: CqLoc, b: CqLoc): CqLoc {
+  const ba = b.translation ?? [0, 0, 0]
+  const aa = a.translation ?? [0, 0, 0]
+  const rotation = a.rotation ?? b.rotation
+  return { translation: [aa[0] + ba[0], aa[1] + ba[1], aa[2] + ba[2]], rotation }
+}
+
+/** 把相对位姿应用到 Shape（预烘焙到 world-init 位置，使 solveAssemblyTree 的 parentPose 退化为 identity）。 */
+function applyCqLocToShape(shape: Shape, loc: CqLoc): Shape {
+  const angle = (loc.rotation?.angle ?? 0) * (Math.PI / 180)
+  const axis = loc.rotation?.axis ?? [0, 0, 1]
+  const q = quatFromAxisAngle(axis, angle)
+  return applyTransform(shape, q, [0, 0, 0], loc.translation ?? [0, 0, 0], quatToMatrix(q))
+}
+
+/** 轴角 → 四元数 [x,y,z,w]。 */
+function quatFromAxisAngle(axis: [number, number, number], angleRad: number): [number, number, number, number] {
+  const n = Math.hypot(axis[0], axis[1], axis[2]) || 1
+  const h = angleRad / 2
+  const s = Math.sin(h)
+  return [(axis[0] / n) * s, (axis[1] / n) * s, (axis[2] / n) * s, Math.cos(h)]
+}
+
+/** 四元数 → 行主序 3x3 旋转矩阵（9 元）。 */
+function quatToMatrix(q: [number, number, number, number]): number[] {
+  const [x, y, z, w] = q
+  const x2 = x + x, y2 = y + y, z2 = z + z
+  const xx = x * x2, xy = x * y2, xz = x * z2
+  const yy = y * y2, yz = y * z2, zz = z * z2
+  const wx = w * x2, wy = w * y2, wz = w * z2
+  return [
+    1 - (yy + zz), xy - wz, xz + wy,
+    xy + wz, 1 - (xx + zz), yz - wx,
+    xz - wy, yz + wx, 1 - (xx + yy),
+  ]
+}
+
+/** 把 CQ 成员（可能嵌套）递归展开为 faijs AssemblyNode（叶 shape 已预烘焙到 world-init）。 */
+function memberToNode(m: CqAssemblyMember, fallbackName: string, parentWorld: CqLoc): AssemblyNode {
+  const name = m.name ?? fallbackName
+  const nodeWorld = composeCqLoc(parentWorld, m.loc ?? {})
+  // AssemblyNode 的 shape/children 是 readonly（纯数据结构，修改走 addChild/updateNode）；
+  // 这里构建期就地组装，用可变中间形态填充后按 AssemblyNode 面收窄。
+  const node: { name: string; translate: [number, number, number]; children: AssemblyNode[]; shape?: Shape } = { name, translate: [0, 0, 0], children: [] }
+  if (isCqAssembly(m.shape)) {
+    const child = m.shape
+    const childWorld = composeCqLoc(nodeWorld, child.rootLoc)
+    if (child.rootObj) node.shape = applyCqLocToShape(child.rootObj, childWorld)
+    for (const cm of child.members) node.children.push(memberToNode(cm, cm.name, childWorld))
+  } else {
+    node.shape = applyCqLocToShape(m.shape as Shape, nodeWorld)
+  }
+  return node as AssemblyNode
+}
+
+/**
  * buildAssembly — 构造 CQ 风格装配对象（不求解；位姿求解在 solve()）。
+ *
+ * 扁平模式（members 均为 Shape 叶子，无 root 几何）：复用 faijs `assembly` op
+ * （solveAssemblyAndKinematics），与 N3 既有行为一致。
+ *
+ * 树模式（members 含子 CqAssembly，或显式给定 root 几何）：复用 faijs
+ * `solveAssemblyTree`（flatten → solveGlobal → recompose，父变换 ∘ 求解器变换），
+ * 实现 CQ 嵌套子装配语义。
+ *
  * @param name - string
- * @param members - Array<{ name: string; shape: Shape; color?: RGB }>
- * @param constraints - AssemblyConstraint[]
- * @param opts - optional: { solver?: 'chain' | 'global' }；默认 'global'（CQ 语义）
+ * @param members - Array<{ name: string; shape: Shape | CqAssembly; color?: RGB; loc?: CqLoc }>
+ * @param constraints - AssemblyConstraint[]（已解析约束；CQ DSL 走 constrain() 异步解析并入）
+ * @param opts - optional: { solver?, subshapes?, root?: { shape, loc? } }；默认 'global'（CQ 语义）
  * @returns CqAssembly
  */
 export function buildAssembly(
   name: string,
-  members: Array<{ name: string; shape: Shape; color?: RGB }>,
+  members: Array<{ name: string; shape: Shape | CqAssembly; color?: RGB; loc?: CqLoc }>,
   constraints: AssemblyConstraint[],
-  opts?: { solver?: 'chain' | 'global'; subshapes?: Record<string, CqSubshape> },
+  opts?: { solver?: 'chain' | 'global'; subshapes?: Record<string, CqSubshape>; root?: { shape: Shape; loc?: CqLoc } },
 ): CqAssembly {
   // 提升边界归一：经 runtime.execute 时 members[].shape 是借用 brepjs 视图
   // （borrowDeep 产物），不是 faijs Shape。compound 的 children 必须持有 mesh
   // （引擎 applyTransform 做顶点烘焙）+ BREP 身份槽（STEP 导出/刚体变换读
   // slot.solid），借用视图两者皆无 → 必须还原为真实 Shape 再进 assembly。
-  const shapes = members.map((m) => resolveAssemblyShape(m.shape))
+  // 嵌套成员（shape 为子 CqAssembly）原样透传，不在此归一（其几何由子装配持有）。
+  const shapes = members.map((m) => (isCqAssembly(m.shape) ? m.shape : resolveAssemblyShape(m.shape as Shape)))
   const memberNames = members.map((m) => m.name)
   const memberColors: Record<string, [number, number, number]> = {}
   for (const m of members) {
@@ -488,19 +787,29 @@ export function buildAssembly(
   // solver.py）。需要旧 chain 行为时可显式 opts.solver='chain'。
   const solver = opts?.solver ?? 'global'
 
-  const compound = assemblyOp({
-    name,
-    members: shapes,
-    memberNames,
-    constraints,
-    memberColors,
-    solver,
-  }) as unknown as CompoundShape
-
+  // 树模式：含嵌套子装配成员，或显式给定根装配几何（CQ Assembly(obj)）。
+  const treeMode = !!(opts?.root) || members.some((m) => isCqAssembly(m.shape))
+  const rootObj = opts?.root?.shape ?? null
+  const rootLoc: CqLoc = opts?.root?.loc ?? {}
   const subshapesInit = opts?.subshapes ?? {}
+  // 扁平模式复用 faijs assembly op 构建 compound（含 memberNames/memberColors 元数据，
+  // 供 solve() 经 behavior.solveDetailed 拿 per-member transforms）；树模式的 compound
+  // 在 solve() 内由叶几何聚合构建（此时叶位姿来自 solveAssemblyTree 的 per-leaf 变换）。
+  const compound: CompoundShape | undefined = treeMode
+    ? undefined
+    : (assemblyOp({
+        name,
+        members: shapes as Shape[],
+        memberNames,
+        constraints,
+        memberColors,
+        solver,
+      }) as unknown as CompoundShape)
   const asm: CqAssembly = {
     name,
-    members: members.map((m, i) => ({ name: m.name, shape: shapes[i], color: m.color })),
+    rootObj,
+    rootLoc,
+    members: members.map((m, i) => ({ name: m.name, shape: shapes[i], color: m.color, loc: m.loc })),
     solver,
     constraints,
     subshapes: subshapesInit,
@@ -509,11 +818,70 @@ export function buildAssembly(
     converged: true,
     unsupported: [],
     transforms: [],
+    nodeTransforms: {},
+    selfPath: '',
+    treeMode,
     compound,
     solved: false,
     solve() {
       // 幂等守卫：成员位姿已在首次 solve() 烘焙，重复求解会二次变换。
       if (this.solved) return this
+
+      // ── 树模式（嵌套子装配 / 显式 root 几何）──
+      // 叶 shape 已预烘焙到 world-init（applyCqLocToShape），parentPose 退化为
+      // identity，solveAssemblyTree 返回的 per-leaf 世界变换即终态。位姿烘焙走
+      // 与扁平模式相同的 mesh + BREP 双通道；compound 由叶几何在求解后聚合。
+      if (this.treeMode) {
+        const root: AssemblyNode = {
+          name: this.name,
+          translate: [0, 0, 0],
+          children: this.members.map((m) =>
+            memberToNode(m, m.name, this.rootLoc),
+          ),
+        }
+        const result = solveAssemblyTree(root, { solver: this.solver, name: this.name })
+        this.residuals = result.residuals
+        this.dof = result.converged ? 0 : -1
+        this.converged = result.converged
+        this.unsupported = result.unsupported
+        if (!result.converged) {
+          throw new Error(
+            `[cq-compat/assembly] solve() did not converge (tree); unsupported: ` +
+              (result.unsupported.length > 0 ? result.unsupported.join(', ') : '(no detail)'),
+          )
+        }
+        // per-leaf 世界变换烘焙进 members（叶 shape 为烘焙后的真实 Shape），
+        // 并聚合 compound；qualified 名挂在 nodeTransforms 供 getLoc/getNodeTransform。
+        const kernel = getBackends().kernel.brep as BrepEngineApi | null
+        const leaves: Shape[] = []
+        const bake = (m: CqAssemblyMember, prefix: string): void => {
+          const q = prefix ? `${prefix}.${m.name}` : m.name
+          const t = result.transforms[q]
+          if (t) this.nodeTransforms[q] = t
+          if (isCqAssembly(m.shape)) {
+            for (const cm of m.shape.members) bake(cm, q)
+            return
+          }
+          const shape = resolveAssemblyShape(m.shape as Shape)
+          if (t) {
+            Object.assign(shape, applyTransform(shape, t.quaternion, t.pivot, t.translation, t.rotationMatrix))
+            if (kernel) {
+              const solid = brepOf(shape) as BrepHandle | undefined
+              if (solid) {
+                const transformed = applyTransformBrep(kernel, solid, t.quaternion, t.pivot, t.translation)
+                ensureSlot(shape).solid = transformed
+              }
+            }
+          }
+          leaves.push(shape)
+        }
+        for (const m of this.members) bake(m, '')
+        this.compound = compoundOp(leaves)
+        this.solved = true
+        return this
+      }
+
+      // ── 扁平模式（members 均为 Shape 叶子）──
 
       // CadQuery's Assembly.solve() solves constraints before export — the faijs
       // solver itself is wrapped here so consumers never touch core internals.
@@ -523,9 +891,9 @@ export function buildAssembly(
       // 在库侧把位姿烘焙进成员：mesh 顶点原地变换 + BREP slot.solid 刚体变换
       // （与 direct-executor 同语义）。behavior.solve/compound.solve 的 pending 登记
       // 保留（direct 路径仍走引擎烘焙），但本封装不再依赖它。
-      const behavior = getSlot(this.compound)?.behavior as
+      const behavior = this.compound ? (getSlot(this.compound)?.behavior as
         | { memberNames?: string[]; solveDetailed?: () => AssemblySolveResultLike }
-        | undefined
+        | undefined) : undefined
       const result: AssemblySolveResultLike = behavior?.solveDetailed?.() ?? { transforms: [], dof: 0, converged: true, unsupported: [] }
       this.transforms = result.transforms
       this.residuals = result.residuals
@@ -632,6 +1000,57 @@ export function buildAssembly(
     },
     *traverse(): IterableIterator<[string, CqAssembly]> {
       yield [this.name, this]
+      for (const m of this.members) {
+        if (isCqAssembly(m.shape)) {
+          const q = this.selfPath ? `${this.selfPath}.${m.name}` : m.name
+          for (const [qn, sub] of m.shape.traverse()) {
+            void q
+            yield [qn, sub]
+          }
+        }
+      }
+    },
+    get children(): CqAssembly[] {
+      return this.members.filter((m) => isCqAssembly(m.shape)).map((m) => m.shape as CqAssembly)
+    },
+    getLoc(): [number, number, number] {
+      // 根装配：树模式取自身世界平移；否则回退初始 rootLoc（未求解时）。
+      if (this.selfPath) {
+        return this.nodeTransforms[this.selfPath]?.translation ?? [0, 0, 0]
+      }
+      return (this.rootLoc.translation ?? [0, 0, 0]) as [number, number, number]
+    },
+    getNodeTransform(p: string): AssemblyTransform | undefined {
+      return this.nodeTransforms[qualifyPath(p)]
+    },
+    async constrain(...args: Array<string | number[] | [number, number, number]>): Promise<CqAssembly> {
+      // CQ variadic constrain：拆出字符串引用/种类与可选数值参数。
+      const strs = args.filter((a): a is string => typeof a === 'string')
+      const param = args.find((a): a is [number, number, number] => Array.isArray(a))
+      if (strs.length !== 2 && strs.length !== 3) {
+        throw new Error(`[cq-compat/assembly] constrain: expected 2-3 string args (ref[, ref,] kind), got ${strs.length}`)
+      }
+      const [aRef, bRef, kindStr] = strs.length === 3 ? [strs[0], strs[1], strs[2]] : [strs[0], '', strs[1]]
+      if (!isAssemblyKind(kindStr)) {
+        throw new Error(`[cq-compat/assembly] constrain: unknown kind "${kindStr}"`)
+      }
+      const pa = parseCqRef(aRef)
+      const pb = bRef ? parseCqRef(bRef) : null
+      const shapeOf = (name: string): Shape | null => {
+        const m = this.members.find((mm) => mm.name === name)
+        if (!m) throw new Error(`[cq-compat/assembly] constrain: unknown part "${name}"`)
+        return isCqAssembly(m.shape) ? null : (m.shape as Shape)
+      }
+      const cons = await constraintEx(
+        pa.part, stripSub(pa.sub), shapeOf(pa.part),
+        pb?.part ?? '', stripSub(pb?.sub), pb ? shapeOf(pb.part) : null,
+        kindStr, param,
+      )
+      return buildAssembly(this.name, this.members, [...this.constraints, ...cons], {
+        solver: this.solver,
+        subshapes: this.subshapes,
+        root: this.rootObj ? { shape: this.rootObj, loc: this.rootLoc } : undefined,
+      })
     },
   }
   return asm

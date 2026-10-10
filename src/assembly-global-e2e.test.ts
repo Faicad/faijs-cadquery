@@ -85,9 +85,10 @@ describe('cq-compat-assembly: buildAssembly 默认 global 端到端', () => {
     // solve() 返回自身（CQ Assembly.solve() 语义）
     expect(solved).toBe(asm)
     expect(asm.solved).toBe(true)
-    // toCompound() 返回已求解装配体（compound）
+    // toCompound() 返回已求解装配体（compound）；扁平模式必有值，类型面为可选
     const compound = asm.toCompound()
-    expect(compound.kind).toBe('compound')
+    expect(compound).toBeDefined()
+    expect(compound!.kind).toBe('compound')
     const res = asm
 
     // 1) global 路径标志：residuals 被填（chain 路径不填）

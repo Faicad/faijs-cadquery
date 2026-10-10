@@ -8,7 +8,7 @@
 
 import { writeFileSync, readFileSync } from 'node:fs'
 import { brepOf, fromBrep, getBackends, solidToShape } from '../adapters/faijs'
-import type { BrepEngineApi, BrepHandle } from '../adapters/faijs'
+import type { BrepEngineApi, BrepHandle, Shape } from '../adapters/faijs'
 import type { ShapeHandle, XCAFDocument } from '../kernel'
 import {
   collectLeafParts,
@@ -58,8 +58,13 @@ export async function save(
     // (at an identity location — the placement already lives in the member's
     // baked geometry, which is exactly what importStep reads back). Name +
     // colour each component to match its member.
+    // save() 只支持扁平成员表（Shape 叶子）；嵌套子装配（成员 shape 为
+    // CqAssembly）的导出尚未定义语义，显式拒绝而非静默导出错误几何。
     const solids = asm.members.map((m) => {
-      const h = brepOf(m.shape) as unknown as ShapeHandle | undefined
+      if (typeof m.shape === 'object' && m.shape !== null && 'members' in m.shape && 'rootObj' in m.shape) {
+        throw new Error(`[cq-compat-assembly] save(): nested subassembly member "${m.name}" is not supported (flatten first)`)
+      }
+      const h = brepOf(m.shape as Shape) as unknown as ShapeHandle | undefined
       if (!h) throw new Error(`[cq-compat-assembly] save(): member "${m.name}" has no BREP solid`)
       return h
     })

@@ -19,6 +19,7 @@ import { brepOf } from '@faicad/faijs/shape'
 import type { Shape } from '@faicad/faijs/mesh/types'
 import { setupNativeKernel } from './gear-test-harness'
 import { importStep } from './assembly/save'
+import type { CqAssembly } from './assembly'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const fixture = (name: string): string =>
@@ -33,7 +34,11 @@ function k(): OcctKernel {
 }
 
 /** BREP metrics of a member's shape (volume + axis-aligned bounds). */
-function metrics(s: Shape): { volume: number; bbox: number[] } {
+/** metrics 只吃 Shape 叶子；装配成员类型面是 Shape | CqAssembly（嵌套），此处断言为叶子。 */
+function metrics(s: Shape | CqAssembly): { volume: number; bbox: number[] } {
+  if (typeof s !== 'object' || s === null || 'members' in s) {
+    throw new Error('metrics(): expected a Shape leaf member, got a nested CqAssembly')
+  }
   const kernel = k()
   // BrepHandle ↔ ShapeHandle are runtime-identical; the brands only differ at
   // the platform boundary (same conversion the port does internally).

@@ -35,7 +35,11 @@ function k(): OcctKernel {
 }
 
 /** BREP metrics of a member's shape (volume + axis-aligned bounds). */
-function metrics(s: Shape): { volume: number; bbox: number[] } {
+/** metrics 只吃 Shape 叶子；装配成员类型面是 Shape | CqAssembly（嵌套），此处断言为叶子。 */
+function metrics(s: Shape | CqAssembly): { volume: number; bbox: number[] } {
+  if (typeof s !== 'object' || s === null || 'members' in s) {
+    throw new Error('metrics(): expected a Shape leaf member, got a nested CqAssembly')
+  }
   const kernel = k()
   const h = brepOf(s) as unknown as ShapeHandle
   const bb = kernel.getBoundingBox(h)
