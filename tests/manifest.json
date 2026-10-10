@@ -2039,7 +2039,8 @@
   "tests.test_cadquery::TestCadQuery::testCompSolid__tool": {
     "status": "blocked",
     "source": "tests.test_cadquery::TestCadQuery::testCompSolid",
-    "blockedBy": "cast"
+    "blockedBy": "narrow:sphere-angles",
+    "manual": true
   },
   "tests.test_cadquery::TestCadQuery::testCompSolid__result": {
     "status": "skipped",
@@ -3022,19 +3023,19 @@
     "blockedBy": null
   },
   "tests.test_cadquery::TestCadQuery::testSphereCustom__s": {
-    "status": "blocked",
+    "status": "ported",
     "source": "tests.test_cadquery::TestCadQuery::testSphereCustom",
-    "blockedBy": "narrow:sphere-angles"
+    "blockedBy": null
   },
   "tests.test_cadquery::TestCadQuery::testSphereCustom__s0": {
-    "status": "blocked",
+    "status": "ported",
     "source": "tests.test_cadquery::TestCadQuery::testSphereCustom",
-    "blockedBy": "narrow:sphere-angles"
+    "blockedBy": null
   },
   "tests.test_cadquery::TestCadQuery::testSphereCustom__s1": {
-    "status": "blocked",
+    "status": "ported",
     "source": "tests.test_cadquery::TestCadQuery::testSphereCustom",
-    "blockedBy": "narrow:sphere-angles"
+    "blockedBy": null
   },
   "tests.test_cadquery::TestCadQuery::testSphereDefaults__s": {
     "status": "ported",

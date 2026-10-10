@@ -389,6 +389,15 @@ const BY_KEY: Record<string, string> = {
   //   2026-10-10 (N1): the manifest already carried op:splitByFace, so running
   //   mark-blocked reverted it to the stale tag; keeping the two in sync.
   'tests.test_cadquery::TestCadQuery::testParametricSurface__r2': 'op:splitByFace',
+  // testCompSolid's ONLY STEP-captured var is `tool` = Solid.makeSphere(1,
+  //   angleDegrees3=120) — a 1/6 longitudinal wedge (vol 0.6981317007977319).
+  //   `result` (Shape.cast of a BRepPrimAPI_MakePrism result) ERRORED in the ref
+  //   (COMPSOLID KeyError) so it is not gradeable; `Shape.cast` is therefore NOT
+  //   what gates this case. The real gate is the angle-domain sphere, so the
+  //   label is corrected `cast` -> `narrow:sphere-angles` (2026-10-10). The
+  //   other three sphere-angle cases (testSphereCustom) are plain spheres and
+  //   ARE ported.
+  'tests.test_cadquery::TestCadQuery::testCompSolid__tool': 'narrow:sphere-angles',
   // sweep with an inner-hole section CLOSED (2026-10-01): the ref STEP for
   // test_history_sweep__res is a PLAIN UNIT BOX (vol=1.0, f6/e12/v8/s1) — a
   // ref-side anomaly, not the hollow-tube sweep product the upstream
