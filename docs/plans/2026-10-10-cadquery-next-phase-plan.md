@@ -272,7 +272,7 @@ x[−0.700,0.713] × y[−0.386,0.398]。
 
 | 标签 | 条 | 自造路径 | 可行性/风险 |
 |---|---|---|---|
-| **`op:assembly-solve`** | **14** | **自研 pure-TS 全局 NLP 求解器**（LM + 解析雅可比），替换目前委托 `faijs-extra/editor-ops` 的 core solver；上游用 `casadi`，OCCT 无求解器 ⇒ 这本来就是算法缺口，不是绑定缺口 | **高可行性、大工作量**；这是 B 类的大头，也是唯一一条不受内核约束的 14 条批量项 |
+| **`op:assembly-solve`** | **14** | ~~自研 pure-TS 全局 NLP 求解器（替换 core solver）~~ ⇒ **前提已修正**（见 §N3）：faijs 已自带 `global-solver.js`（纯 TS LM，复刻 CQ `occ_impl/solver.py`），故改为**扩展现有求解器 + 补 cq-compat 兼容层**（补 `PointInPlane`/`PointOnLine`/`FixedPoint`/`FixedAxis`/`FixedRotation` 构造 + 嵌套子装配树）。详见重写后的 §N3 | **高可行性、中工作量**；最大风险在嵌套子装配（P4 集群），其余中低 |
 | `narrow:sphere-angles` | ~~3~~ **1** | ~~`makeSphere(r)` 是单参；用**布尔组合**造角度域球面（U 向=两半空间交，V 向=平面切 + 圆盘盖）~~ → 实况：**该标签实际只有 1 条**；`makeSphere(r)` 确实单参，但正解**不是布尔组合**而是**回转**（`makeSphere` 内部就是回转子午面）。见 §3.1.1 ⑤ | ✅ **已翻 2026-10-10**（N2-1）：逐位 PASS f4/e7/v4 |
 | `op:project` 2 + `project` 2 | ~~4~~ **0** | ~~**点→面/边**子集本仓可做（`projectPointOnFace/OnEdge` 已绑）；**边→面**用「离散取点 → 逐点投影 → `interpolatePoints` 拟合」近似~~ → 实况：**没有一条是点投影**，四条全是「曲线/线框/面 → 面」，走 `BRepAlgo_NormalProjection` / `BRepProj_Projection`，本仓**一个都没有**（occt-wasm 的 `projectEdges` 是 HLR 消隐、`projectPointOnFace` 是正交无方向 —— 名字陷阱）。见 §3.1.1 ⑦ | ❌ **判 C 类 2026-10-10**（N2-3）：逐位需同算法复现上游那套 30 段拟合；2 条还叠加「多 wire face-on-surface」缺口 |
 | `plane` | ~~2~~ **0** | ~~上游是 `BRepBuilderAPI_MakeFace(gp_Pln)` 的**无界面**；自造只能用有限大面近似~~ → 实况：`plane(w,l)` 是**有限** `w×l` 面且**早已实现**；真正缺的是**带孔多 wire 放样**，用 `test_loft__r6` 的「外放样 − 内放样」范式**零行 src 新代码**即逐位 PASS。见 §3.1.1 ⑥ | ✅ **1 条已翻 2026-10-10**（N2-2，`test_history_loft__res`，逐位 PASS `f7/e15/v10`）；另 1 条（`test_name_geometries__assy`）不是几何判据且 ref 不可自比 ⇒ **判 D 类** |
@@ -507,16 +507,64 @@ x[−0.700,0.713] × y[−0.386,0.398]。
 | N2-3 | `project` 4 条：先做点投影子集（2 条），边→面走离散+拟合并**显式评级** | ❌ **前提不成立、判据也不用**：四条**没有一条是点投影**（全是曲线/线框/面 → 面），本仓**零投影原语**（`projectEdges` 是 HLR 消隐、`projectPointOnFace` 是正交无方向）。⇒ **4 条全部判 C 类**；1D 复合体的量纲门禁过松，用离散+拟合凑过属 §4.5.4 明禁的冒充。见 §3.1.1 ⑦ |
 | N2-4 | `export:free-face-in-compound` 1 条：复用 `save.ts` 的 raw XCAF 通路写散面 compound | 7 面全写出（现状只写 6） |
 
-### N3 · 自有装配求解器（14 条，最大单项）
+### N3 · 装配求解：扩展现有求解器 + 补兼容层（14 条）
 
-| 序 | 项 | 说明 |
-|---|---|---|
-| N3-1 | 捕获真值：一次性 Python 跑 `test_constrain*`/`test_unary_constraints*`/`test_point_on_line*` 共 14 条，冻结每个成员的**终态位姿矩阵**（不是只有体积） | 求解器的判别量是位姿，不是体积 |
-| N3-2 | 设计：`src/solver/` —— 约束→残差向量（PointInPlane/PointOnLine/Axis/Plane 等）、LM + 解析雅可比、全局一次性求解（对标 CQ 2.8.0 `occ_impl/solver.py` 语义，非 chain 递推） | 与 core 的 `solver:'global'` 语义对齐 |
-| N3-3 | 切换：`assembly.ts` 的 `solve()` 改为**优先走自研求解器**，core solver 保留为 fallback（feature flag） | 14 条逐位 + 既有装配 PASS 零回归 |
-| N3-4 | 变异测试：扰动任一约束残差 ⇒ 终态位姿必须偏离 | 承重 |
+> **前提修正（2026-10-10 复盘）**：原 N3 写「自研 pure-TS 全局 NLP 求解器、替换 core solver；上游 casadi、OCCT 无求解器 ⇒ 算法缺口」。审查代码发现 **faijs 已自带 `@faicad/faijs/api/assembly/solvers/global-solver.js`**（纯 TS LM + 数值雅可比，复刻 CQ `occ_impl/solver.py` 语义；9 类代价项含 `point_in_plane`/`point_on_line`，行 100-119）。因此 N3 **不是从零造求解器**，而是「扩展现有求解器 + 补 cq-compat 兼容层」。真实缺口分四层：
+> 1. **cq-compat 缺约束词汇表（主因）**：`src/assembly/assembly.ts` 的 `constraintEx` 只暴露 7 种构造（`AssemblyKind` 行 127-134，switch 行 298-351），缺 CQ 的 `PointInPlane`/`PointOnLine`/`FixedPoint`/`FixedAxis`/`FixedRotation`。
+> 2. **faijs global-solver 无 3 个 first-class 世界锚定约束类型**：只有 `point_in_plane`/`point_on_line` 作为 coincident/distance 的**内部副产品**（`pushCoincident` 行 389-414），外部可发射的 switch case（行 190-232）只有 `mate/align/coincident/concentric/distance/angle/parallel/perpendicular/fixed`，没有 `fixedPoint`/`fixedAxis`/`fixedRotation`。
+> 3. **嵌套子装配**：`CqAssembly` 是扁平结构（`traverse()` 行 633-635 明示「members 为 Shape 叶子，无嵌套子装配」），`solveGlobal` 入参亦为扁平数组——无法表达 CQ 递归子装配。
+> 4. **表达式语法选择器**：`test_expression_grammar__nested_assy` 需要 `constrain` 选择器支持轴/表达式 token。
 
-> N3 是唯一一条「**完全不受内核约束、纯靠自造**」的批量项，也是 §4 扩展层价值的最大证明点。**但它也是唯一可能耗时数周的一项**，应与 N1/N2 并行推进、独立 commit。
+#### N3-0 · 14 条缺口聚类（决定工作量与解锁顺序）
+
+| 集群 | 条 | 上游约束/结构 | 缺口 | 解法 | 难度 |
+|---|---|---|---|---|---|
+| P1 `PointInPlane` | 2（`test_PointInPlane_constraint__*`、`test_PointInPlane_3_parts__*`） | `assy.constrain(pnt, plane, 'PointInPlane', param=0)` | cq-compat 无 5 参 DSL；求解器其实能算（point+plane→`point_in_plane`） | 补构造器，转 `coincident`(point, plane) | 低 |
+| P2 `PointOnLine` | 3（`test_point_on_line__*`） | `assy.constrain(pnt, line, 'PointOnLine')` | 同上，point→axis | 补构造器，转 `coincident`(point, axis) | 低 |
+| P3 `FixedPoint`/`FixedAxis`/`FixedRotation` | 3（`test_unary_constraints__*`） | `assy.constrain("b2","FixedPoint",(0,0,-3))` / `"FixedAxis",(0,1,1)` | cq-compat 无构造器 + 求解器无世界锚定约束类型 | 补构造器 + 给 global-solver 加 3 类型 + 解析器 | 中 |
+| P4 嵌套子装配 | 5（`*nested_assy*` / `*subassy*`） | 成员可为子 `Assembly`，`solve()` 递归 | 扁平结构，无树/递归 | cq-compat 建装配树 + 递归求解 | 高 |
+| P5 表达式语法 | 1（`test_expression_grammar__nested_assy`） | 选择器含轴/表达式 token | 选择器未覆盖 | 扩展 selectors（与 P4 同批） | 中 |
+
+> **优先解锁项**：`test_constrain__simple_assy`（只用到 `Plane`+`Fixed`，cq-compat 已支持）一旦写镜像很可能已能 PASS，**不必等 N3 全做完**——属 P4 之外的「已有能力项」，可最先翻。14 条目前**全部无 `.fai.js` 镜像**（整类预防性 block），逐条解锁前需先写镜像。
+
+#### N3-1 · 捕获真值（判据前置，§6-3）
+复用 §5 的 Python 参考捕获范式，一次性跑 `test_constrain*` / `test_unary_constraints*` / `test_point_on_line*` 共 14 条，冻结每个成员的**终态位姿矩阵**（`loc.wrapped.Transformation()`），不是只有体积——判别量是位姿，不是体积。
+- 落点：`out/ref-assembly/<case>.json`（成员名 → 4×4 矩阵 + bbox + volume），含嵌套用例的逐层位姿（P4）。
+- 消费方：`compare.ts` 新增 `assemblyPose` 判等通道（位姿逐位 + 三度量）。
+
+#### N3-2 · 补 cq-compat 约束 DSL（P1+P2，解锁 5 条）
+- `src/assembly/assembly.ts` 给 `constraintEx` 增 5 参形态 `constraintEx(aPart, aSub, aShape, bPart, bSub, bShape, kind, param?)`，把子形状解析为 EntityRef（vertex→point、face→plane、edge→axis），按 kind 发射 `AssemblyConstraint`：
+  - `PointInPlane` → `coincident`(point, plane)，求解器 `pushCoincident` 自动降级为 `point_in_plane`（行 393-398）。
+  - `PointOnLine` → `coincident`(point, axis)，降级为 `point_on_line`（行 403-407）。
+- 上游 `param` 是沿法向偏移；`pushCoincident` 当前仅 `val=0`，先支持 0，非零留 TODO 并显式评级（避免 §4.5.4 冒充）。
+- 同步给 `CqAssembly` 暴露 `constrain(...)` 方法（对齐 CQ `Assembly.constrain`），内部转 `constraintEx` 并入 `constraints`。
+- 门禁：构造器单测 + 与真值逐位。
+
+#### N3-3 · 给 faijs global-solver 补 3 个世界锚定约束类型（P3，解锁 3 条）
+- `global-solver.js` 的 `termResidual`（行 80-119）+ 约束 switch（行 190-232）增：`fixedPoint`（成员字面点 → 世界系固定点）、`fixedAxis`（成员轴 → 世界系固定方向）、`fixedRotation`（成员固定旋转）；解析器取字面向量（参考 `resolveMarker` 的 point/axis 分支 + 新增字面源）。
+- ⚠️ 此项需改 faijs 内核（非本仓）⇒ 优先在**本仓 `src/solver/` 做覆盖式薄封装**（注入自定义约束类型，绕过 core），避免改上游发布链；若覆盖式不可行再走 `@faicad/faijs` PR。
+- 门禁：3 类各一个单测 + 与真值逐位。
+
+#### N3-4 · 嵌套子装配树 + 递归求解（P4，解锁 5 条）
+- `CqAssembly` 成员允许是子 `CqAssembly`（改 `AssemblyAddArg` 联合类型）；`solve()` 先解子装配得 per-member 局部位姿，再作为整体参与父装配（CQ `Assembly.solve()` 语义：`subAssembly.loc` 叠加）。
+- 求解器侧：`solveGlobal` 入参扁平，优先在 **cq-compat 侧递归**（压平为「带父变换的扁平成员列表」后多次调用），不动 faijs 内核。
+- `traverse()` 改为真正自底向上遍历（行 633-635 现状是占位）。
+- 门禁：5 个嵌套用例逐位 + 既有扁平装配零回归。
+
+#### N3-5 · 表达式语法选择器（P5，1 条）
+- `test_expression_grammar__nested_assy` 选择器含轴/表达式 token（如 `'X'`、`'-Y'`、`'#expr'`）。确认 `resolveFaceSelector`/`resolveSolverEntity` 覆盖度；缺则扩展。与 P4 同批（该用例本身嵌套）。
+
+#### N3-6 · 镜像 + 回归（每条解锁的必须）
+- 写 14 个 `.fai.js` 镜像（对齐上游 `assy.constrain(...)` DSL，映射到 N3-2/3/4 新 API）。
+- `run-cand`/`compare` 增装配位姿判等通道（消费 N3-1 真值）。
+- 翻 `tests/manifest.json`（blocked→ported）+ `tests/mark-blocked.ts` 删 BY_KEY。
+- 变异测试（承重）：扰动任一约束 ⇒ 终态位姿必须偏离（§6 R 系纪律）。
+
+#### N3-7 · 验收门禁（§6）
+- `npm run typecheck` / `lint` / `test` 全绿；`op:assembly-solve` 14 条逐位 PASS；既有装配单测（`assembly-*` 系列）零回归；不冒充（逐位判据 R3）。
+- 每解锁一个集群（P1-P5）独立 commit（R6：N3 可独立停/交，不阻塞 N1/N2 主线）。
+
+> **工作量重估**：原 N3 估「数周、从零造求解器」。修正后：求解器已存在，主体是**兼容层 + 3 个约束类型 + 嵌套树**。P1/P2（5 条）+ `simple_assy`（1 条）几乎零求解器改动即可解锁；最大风险在 P4（嵌套，高），P3/P5 中。整体明显小于原计划。
 
 ### N4 · 自有导出通道（防御性）
 
@@ -602,3 +650,5 @@ node -e "const m=require('./tests/manifest.json');const v=Object.values(m);const
 **实测快照（2026-10-10 · N2-2 `plane` 后）**：manifest **573 ported / 69 blocked / 55 skipped · 26 标签 · 镜像 587 个 `.fai.js` + 19 个 `.blocked`** · 单测 **720 用例 / 76 文件**（仍 1 红：同上 §1.3）· lint 绿 · tsc 绿 · parity 基线仍 80.00%（10-07，未重扫；**投影** 82.31%）。分类实况 **A 余 0 · B 余 20 · C 43 · D 6**（`0+20+43+6 = 69` ✅）；N2 余：`project` 4 · `export:free-face-in-compound` 1 · `op:faceOn` 1（`plane` 清零）。本轮翻转 1 条（`test_history_loft__res`，零行 src 新代码）；`plane` 的另一条判入 D，并顺带纠正 §3.2/§3.4/§3.5 三处算错的分母。
 
 **实测快照（2026-10-10 · N2-3 `project` 判 C 后）**：manifest **573 ported / 69 blocked / 55 skipped · 26 标签 · 镜像 587 个 `.fai.js` + 19 个 `.blocked`** · 单测 **720 用例 / 76 文件**（仍 1 红：同上 §1.3）· lint 绿 · tsc 绿 · tsc/lint 未因本轮变动（**纯判定 + 文档**，零 `src/` 改动）· parity 基线仍 80.00%（10-07，未重扫；**投影** 82.31%）。分类实况 **A 余 0 · B 余 16 · C 47 · D 6**（`0+16+47+6 = 69` ✅）；N2 余：`export:free-face-in-compound` 1 · `op:faceOn` 1。本轮**零翻转**，全部价值是**把 4 条从 B 判入 C**（避免按 §4.5.4 明禁的「离散+拟合冒充」去解锁），并留下可重跑的捕获 `tests/ref-harness/project-probe.py`。
+
+**实测快照（2026-10-10 · N2-4 `export:free-face-in-compound` 闭合 + N3 前提复盘后）**：manifest **574 ported / 68 blocked / 55 skipped · 26 标签** · 单测 **720 用例 / 76 文件**（仍 1 红：§1.3 `TestCQSelectors__testShape__res4`，与本次无关）· lint 绿 · tsc 绿。分类实况 **A 余 0 · B 余 15**（`op:assembly-solve` 14 + `op:faceOn` 1）· **C 47 · D 6**（`0+15+47+6 = 68` ✅）。**N3 前提复盘**：faijs 已自带 `global-solver.js`，`op:assembly-solve` 由「从零造求解器」改为「扩展现有求解器 + 补兼容层」，§N3 已重写（缺口聚类 P1-P5、工作量重估下调）。
