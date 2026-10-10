@@ -17,10 +17,12 @@
 ## 0. 三句话结论
 
 1. **进度**：`tests/manifest.json` = **697 条 → 558 ported / 84 blocked / 55 skipped**（34 个 `blockedBy` 标签）；镜像 **563 个 `.fai.js` + 18 个 `.blocked`**；包内单测 **72 文件 / 680 用例**（实测 2026-10-10，1 条红，见 §1.3）；**已验证的 parity 基线仍是 2026-10-07 全量的 80.00%**（500 PASS + 20 PASS-NT / 650），此后 4 次提交**没有重扫**，尺子已过期。
-   > **2026-10-10 回写**：manifest 已推进到 **571 ported / 71 blocked / 55 skipped · 27 个 `blockedBy` 标签**
-   > （A 类 12/12 翻完，见 §3.1.1）；单测 **73 文件 / 686 用例**，仍**只有 1 条红**
+   > **2026-10-10 回写**：manifest 已推进到 **572 ported / 70 blocked / 55 skipped · 26 个 `blockedBy` 标签**
+   > （A 类 12/12 翻完，见 §3.1.1；B 类 N2 首项 `narrow:sphere-angles` 已翻，见 §3.1.1 ⑤）；N2-0 骨架已落地
+   > （`src/kernel/` + `src/adapters/faijs.ts` + 边界探针）；单测 **76 文件 / 720 用例**，仍**只有 1 条红**
    > （§1.3 的 `TestCQSelectors__testShape__res4`，宿主策略，与本轮改动无关）；
    > parity 基线**仍未重扫**（§5 N0-3 待办）。
+   > 分类实况修订：**B 22 / C 43 / D 5**（原 B 24 / C 43 / D 4 —— 见 §3.5 的修订说明）。
 2. **剩余 84 条能不能自己做**：真内核缺口 **42 条**（必须 fork occt-wasm，而本机 Rust/emsdk/cmake **至今一台都没装**，见 §1.4）；**可自造 ~24 条**（装配求解器 14 为首）；**本仓值面 ~14 条**；**不可控 4 条**（比较器/证据不足）。
 3. **关于「自己的扩展库」**：**能做，而且应该分层做**——faijs-gears 已经给出了可复制的模板（§4.1）。但推荐形态是**先在本仓内建 `src/kernel/`（内核原语层）+ `src/solver/`（自研求解器）**，把散落在 `workplane.ts` 里的直调收进一层；**等出现第二个消费方（faijs-freecad）再拆成独立包**，而不是现在就开新仓（理由见 §4.4）。
 
@@ -157,17 +159,48 @@ x[−0.700,0.713] × y[−0.386,0.398]。
 > **A 类修正结论**：可做 **12** 条（非 14）；`op:faceOn` 移入 N2、`op:sweep-sketch-sections`
 > 移入 C 类。§3.5 的 parity 上限相应下调 2 条。
 
+**⑤ `narrow:sphere-angles`（`testCompSolid__tool`）— 已翻（N2-1），且原方案的两条判断都错。**
+一次性 Python 捕获（`out/probe-sphere-sweep.py` + `out/probe-sphere-dir.py`）钉死真值：
+
+- **标签条数错**：该标签实际只有 **1** 条（`testCompSolid__tool`），不是 3 条——
+  另两条 `testSphereCustom` 的镜像早已 ported。
+- **「`makeSphere(r)` 是单参」只对了一半**：raw 绑定确实是单参，但**上游 `Solid.makeSphere`
+  是 6 参带默认值** —— `makeSphere(radius, pnt=(0,0,0), dir=(0,0,1), angleDegrees1=0, angleDegrees2=90,
+  angleDegrees3=360)`，即**默认值给的是「上半球」而不是全球**；`Workplane.sphere` 的默认值却是
+  `-90/90/360`（全球）。两者只因为 `Workplane` 始终显式传自己的三元组才一致。
+  ⇒ 镜像必须把三个角全部显式传（`{ angle1: 0, angle2: 90, angle3: 120 }`），
+  否则会撞上 `Solid.makeSphere` 那套半球默认值。
+- **正解不是布尔组合，是回转**：`BRepPrimAPI_MakeSphere` 内部就是「回转子午面」。
+  自造 = 子午面 + `revolve(face, dir, a3)`，逐位精确（曲面是同一个球面）。
+  半空间布尔（`common` + `halfSpace`）体积也对，但返回 **compound** 且 bbox 带 ±1e-16 噪声、
+  边切分不同，故不用。
+- **V 域是「两平行圆盘之间的球带」，不是「收拢到球心的圆锥」**（最贵的一条）：
+  子午面 = 弧 + 上半径 + 轴向段 + 下半径（曲线梯形），两条半径回转成**平盖**。
+  用「连到球心」的三角形，**只在边界落在极点或赤道时才碰巧对**——(0,30,270) 会给出
+  π/4 = 0.78539816339745，而上游是 `1.07992247467149`（差 1.375×）。已写成回归钉子
+  （`src/sphere-angles.test.ts`），并做了变异对照：把 `cap1/cap2` 改回球心 ⇒ 28 条里 8 条翻红。
+- **帧 X 轴随 `dir` 变**（同椭圆主轴那条教训）：U 域从 `gp_Ax2(pnt, dir)` 的 X 起算，
+  非全局 X。用 `makeCircleArc` 的 `FirstParameter` 点**实测**（`ax2XAxis`），
+  并用 10 组 `dir`（含 (1,1,0)、(1,1,1) 斜向）对拍，体积/质心/bbox 全部 ~1e-15 一致。
+- 镜像逐位 PASS：ref `f4/e7/v4` == cand `f4/e7/v4`，volΔ 5.2e-11 %、质心Δ 9.4e-14、bboxΔ 2.4e-16。
+- 顺带修正 `src/workplane.ts` 里 `sphere` 的旧 JSDoc——它写着「partial sweeps are not expressible …
+  upstream testSphereCustom stays blocked on that」，两半都已过时。
+
 ### 3.2 B 类 · 可自造（**24 条，自有能力层的目标**）
 
 | 标签 | 条 | 自造路径 | 可行性/风险 |
 |---|---|---|---|
 | **`op:assembly-solve`** | **14** | **自研 pure-TS 全局 NLP 求解器**（LM + 解析雅可比），替换目前委托 `faijs-extra/editor-ops` 的 core solver；上游用 `casadi`，OCCT 无求解器 ⇒ 这本来就是算法缺口，不是绑定缺口 | **高可行性、大工作量**；这是 B 类的大头，也是唯一一条不受内核约束的 14 条批量项 |
-| `narrow:sphere-angles` | 3 | `makeSphere(r)` 是单参；用**布尔组合**造角度域球面（U 向=两半空间交，V 向=平面切 + 圆盘盖） | 中高；需先捕获上游 3 条真值（`angle1/2/3`） |
+| `narrow:sphere-angles` | ~~3~~ **1** | ~~`makeSphere(r)` 是单参；用**布尔组合**造角度域球面（U 向=两半空间交，V 向=平面切 + 圆盘盖）~~ → 实况：**该标签实际只有 1 条**；`makeSphere(r)` 确实单参，但正解**不是布尔组合**而是**回转**（`makeSphere` 内部就是回转子午面）。见 §3.1.1 ⑤ | ✅ **已翻 2026-10-10**（N2-1）：逐位 PASS f4/e7/v4 |
 | `op:project` 2 + `project` 2 | 4 | **点→面/边**子集本仓可做（`projectPointOnFace/OnEdge` 已绑）；**边→面**用「离散取点 → 逐点投影 → `interpolatePoints` 拟合」近似 | 中；近似路径有**精度换可运行性**风险，必须与真值对拍，不达标就回写 blocked |
 | `plane` | 2 | 上游是 `BRepBuilderAPI_MakeFace(gp_Pln)` 的**无界面**；自造只能用有限大面近似 | 低中；先捕获上游 bbox 真值再判（无界面的 bbox 语义未知） |
 | `export:free-face-in-compound` | 1 | **自造 STEP 写出**：`save.ts` 已经在用 raw occt-wasm XCAF 写装配，扩展到散面 compound 是同构小改；绕开 faijs 导出层 | 高；顺带验证 §1.3 那条宿主过滤能不能被旁路 |
 
-> **B 类期望值**：乐观 24 条全翻，保守 **15–18 条**（`plane` 2 条与 `project` 的边→面 2 条最可能止步于「近似不达标」）。**任何一条都必须先捕获得真值再动手**（§6 判据 3）。
+> **B 类期望值**：乐观 ~~24~~ **22** 条全翻，保守 **15–18 条**（`plane` 2 条与 `project` 的边→面 2 条最可能止步于「近似不达标」）。**任何一条都必须先捕获得真值再动手**（§6 判据 3）。
+>
+> **2026-10-10 修订**：本表原列 24 条，实际是 **22 条**——`narrow:sphere-angles` 是 **1** 条不是 3
+> （另 2 条 `testSphereCustom` 镜像早在 N1 前就已 ported），而 `op:faceOn` 由 A 类移入 B 的 N2 范围（+1）：
+> `14 + 1 + 4 + 2 + 1 + 1 = 22`。其中已翻 **1**（sphere-angles），**余 21**。
 
 ### 3.3 C 类 · 真内核缺口（**42 条 → 修正为 43 条，本机无通路**）
 
@@ -190,7 +223,7 @@ x[−0.700,0.713] × y[−0.386,0.398]。
 
 ### 3.4 D 类 · 不可控（**4 条**）
 
-`comparator:open-shell-volume` 2 + `comparator:vertex-degenerate-compound` 1（判卷人在 `@faicad/cq-compat-compare`，跨仓，本仓禁止自行翻 ported）；`ref:degenerate-compound-vertex` 1（证据不足，不归类）。
+`comparator:open-shell-volume` 2 + `comparator:vertex-degenerate-compound` 1（判卷人在 `@faicad/cq-compat-compare`，跨仓，本仓禁止自行翻 ported）；`ref:degenerate-compound-vertex` 1 + `ref:step-roundtrip-drops-part` 1（ref 侧产物/证据问题，不归类）—— **共 5 条**（原文漏列 `ref:step-roundtrip-drops-part`）。
 
 ### 3.5 汇总与 parity 上限
 
@@ -203,20 +236,29 @@ x[−0.700,0.713] × y[−0.386,0.398]。
 ```
 
 > **2026-10-10 回写**：A 类实际可做 **12**（`op:faceOn` → N2，`op:sweep-sketch-sections` → C 类，
-> 见 §3.1.1），其中 **12/12 已翻**。当前 manifest：**71 blocked** = A 余 0 + B 24 + C 43 + D 4。
+> 见 §3.1.1），其中 **12/12 已翻**。当前 manifest：**70 blocked** = A 余 0 + B 余 21 + C 43 + D 5
+> （B 的 22 里已翻 1，即 `narrow:sphere-angles`；D 由 4 修正为 5，见下）。
+
+> **分母修订（2026-10-10，以 manifest 实测为准）**：原表把 D 记为 4 条、B 记为 24 条，
+> 二者各错 1 条方向相反：
+> - **D 实为 5**：除 `comparator:open-shell-volume` 2 + `comparator:vertex-degenerate-compound` 1 +
+>   `ref:degenerate-compound-vertex` 1 之外，还有 **`ref:step-roundtrip-drops-part` 1**（原文漏列）。
+> - **B 实为 22**：`narrow:sphere-angles` 是 1 条（不是 3），`op:faceOn` 由 A 移入（+1）。
+> - 校验：`0 (A) + 22 (B) + 43 (C) + 5 (D) = 70` ✅ = manifest 实测 blocked 数。
 
 | 场景 | parity |
 |---|---|
-| 计划时基线 | **80.00%**（520/650） |
-| A 类（修正后可做 12 条）全翻 | **81.8%**（532/650） |
-| A + B 保守（15/24） | **83.9%**（545/650） |
-| A + B 全翻 | **85.1%**（550/650） |
-| 再解 C 类 43 条（需完整内核扩展） | 理论 **93.4%** —— 不现实，仅作天花板参照 |
+| 计划时基线（2026-10-07 全量） | **80.00%**（520/650） |
+| A 类（修正后可做 12 条）全翻 —— **已达成** | **81.85%**（532/650） |
+| + B 保守（15/22） | **84.15%**（547/650） |
+| + B 全翻（22/22） | **85.23%**（554/650） |
+| + C 类 43 条（需完整内核扩展） | **91.85%**（597/650） —— 不现实，仅作天花板参照 |
+| + D 类 5 条 | 92.6%（602/650） —— 本仓做不到（跨仓/证据不足，见 §3.4） |
 
-> 修正说明：A 类由 14 降至 12 后，上表三行各下调 2 条（534→532、547→545、552→550）；
-> C 类由 42 升至 43（`op:sweep-sketch-sections` 归入）。
-
-> 分母纪律：**BLOCKED 计入分母**；`compare.ts:153` 的 `compared = pass + passNt + fail` 不含 ERROR，故 `pass+passNt+fail+blocked = 650` 才是对的（前文档已查证）。
+> **2026-10-10 重算**：原表三行（532 / 545 / 550 / 607）与自洽的加法对不上——按
+> `parity = (520 + 已翻) / 650` 重算如上，并改用 B=22、C=43 的新分母。
+> 分母纪律：**BLOCKED 计入分母**；`compare.ts` 的 `compared = pass + passNt + fail` 不含 ERROR，
+> 故 `pass+passNt+fail+blocked = 650` 才对（refCases 实测 650，且 `parity = (pass+passNt)/refCaseCount`）。
 
 ---
 
@@ -312,10 +354,20 @@ x[−0.700,0.713] × y[−0.386,0.398]。
 
 ### N2 · 自有内核原语层（骨架 + 4 个自造项）
 
+> **2026-10-10 状态：N2-0 与 N2-1 已落地。**
+> - **N2-0**（`a3a2e8b`）：`src/kernel/index.ts`（唯一 `occt-wasm` / faijs occt-kernel 入口，
+>   `getCqKernel()` + `CqKernel`）+ `src/adapters/faijs.ts`（`@faicad/faijs` 深子路径收口，纯 re-export）；
+>   `workplane.ts` 等 7 个模块的 66+7 处 `getKernel()` 迁到 `getCqKernel()`；
+>   新增 `src/kernel.probe.test.ts`（71 个 raw 绑定运行时探针 + 静态边界守卫，已做变异对照）。
+> - **N2-1**（见 §3.1.1 ⑤）：`narrow:sphere-angles` 翻 ported（manifest 71 → **70 blocked**），
+>   `sphere` 增加 `direct/angle1/angle2/angle3`，走**回转**而非布尔；`src/sphere-angles.test.ts` 28 条。
+> - **N2-2/N2-3/N2-4 未开工**：`plane` 2 / `project` 4 / `export:free-face-in-compound` 1。
+> - 顺带修正：`op:faceOn` 仍是 1 条 blocked（标签未改名，见 §3.1.1 ③），归本批。
+
 | 序 | 项 | 判据 |
 |---|---|---|
-| N2-0 | 建 `src/kernel/`（唯一 occt 直调口）+ `src/adapters/faijs.ts`（深子路径收口）+ `CqKernel` 类型 + 能力面探针测试；把 `workplane.ts` 的 `getKernel()` 散点迁移过去 | 682 用例零回归；探针测试全绿 |
-| N2-1 | `narrow:sphere-angles` 3 条：布尔组合造角度域球面 | 三条真值 volume/bbox/面数逐位；变异（去掉 U 向半空间）⇒ 翻红 |
+| N2-0 | 建 `src/kernel/`（唯一 occt 直调口）+ `src/adapters/faijs.ts`（深子路径收口）+ `CqKernel` 类型 + 能力面探针测试；把 `workplane.ts` 的 `getKernel()` 散点迁移过去 | ✅ 零回归（1 failed / 691 passed，唯一红为既有 §1.3）；探针 5/5 绿 |
+| N2-1 | `narrow:sphere-angles` 1 条：角度域球面 | ✅ 逐位 PASS f4/e7/v4；10 组角三元组 + 10 组 `dir` 与上游 ~1e-15 对拍；变异 8/28 翻红 |
 | N2-2 | `plane` 2 条：**先捕获上游无界面的 bbox/面积真值**，再决定「有限大面」能否过关 | 不达标即回写 blocked（不许用 ±1e60 冒充） |
 | N2-3 | `project` 4 条：先做点投影子集（2 条），边→面走离散+拟合并**显式评级** | 近似项若非逐位，只允许记 PASS-NT 且写 reason |
 | N2-4 | `export:free-face-in-compound` 1 条：复用 `save.ts` 的 raw XCAF 通路写散面 compound | 7 面全写出（现状只写 6） |
@@ -399,3 +451,5 @@ grep -n "nothing to export as a 3D part" -B 25 node_modules/@faicad/faijs/dist/n
 **实测快照（2026-10-10）**：manifest 558/84/55 · 34 标签 · 镜像 563+18 · 单测 680/72 文件（1 红：`TestCQSelectors__testShape__res4`）· lint 绿 · tsc 绿 · parity 基线 80.00%（10-07，未重扫）· Rust/emsdk/cmake 全缺 · occt-wasm clone 仍 v5.3.5。
 
 **实测快照（2026-10-10 · N1 收口后）**：manifest **571/71/55 · 27 标签 · 镜像 585 个 `.fai.js` + 19 个 `.blocked`** · 单测 **686 用例 / 73 文件**（vitest 收集数；仍 1 红：同上）· lint 绿 · tsc 绿 · parity 基线仍 80.00%（10-07，未重扫）。A 类 12 条全翻；余：B 24（含装配求解器 14）· C 43 · D 4。
+
+**实测快照（2026-10-10 · N2-0 骨架 + N2-1 sphere-angles 后）**：manifest **572 ported / 70 blocked / 55 skipped · 26 标签 · 镜像 586 个 `.fai.js` + 19 个 `.blocked`** · 单测 **720 用例 / 76 文件**（仍 1 红：同上 §1.3）· lint 绿 · tsc 绿 · parity 基线仍 80.00%（10-07，未重扫）。分类实况 **A 余 0 · B 余 21 · C 43 · D 5**；N2 余：`plane` 2 · `project` 4 · `export:free-face-in-compound` 1 · `op:faceOn` 1。
