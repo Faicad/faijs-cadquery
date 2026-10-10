@@ -5695,6 +5695,74 @@ export async function intersect(
 }
 
 /**
+ * shapeUnion / shapeIntersect / shapeDifference — CadQuery `Shape.__or__` /
+ * `__and__` / `__mod__` parity.
+ *
+ * Upstream models the `|` `&` `%` operators on `Shape`/`Compound` as **set
+ * operations over the sub-shapes**, NOT geometric booleans
+ * (cadquery/occ_impl/shapes.py:1986-2014):
+ *
+ *   - `|` (union)     → `compound(*(LHS | RHS))`  (set sum)
+ *   - `&` (intersect) → `compound(*(LHS & RHS))`  (set intersection)
+ *   - `%` (difference) → `compound(*(LHS - RHS))`  (set difference)
+ *
+ * This is what `test_set_ops` exercises — e.g. `box.faces(">Z") |
+ * box.faces("<Z")` is a 2-face compound, **not** a fuse. In the compat DSL a
+ * selection result is a Workplane whose `objects` already carries the
+ * sub-shapes (per `faces()`/`edges()`/`vertices()` eager-push), so the set op
+ * is just an object-set op over the two workplanes, identity-keyed by the
+ * underlying OCCT handle (`brepOf`). Synchronous on purpose — no kernel
+ * round-trip is needed.
+ */
+function shapeHandleIds(wp: Workplane): number[] {
+  return (wp.objects ?? []).map((o) => brepOf(o as never) as unknown as number)
+}
+
+function withShapeSet(wp: Workplane, objects: Shape[]): Workplane {
+  return clone(wp, {
+    objects,
+    baseShape: undefined,
+    faceSel: null,
+    edgeSel: null,
+    vertexSel: null,
+    selChain: undefined,
+    pts: [],
+  })
+}
+
+export function shapeUnion(a: Workplane, b: Workplane): Workplane {
+  const seen = new Set<number>()
+  const out: Shape[] = []
+  for (const o of a.objects ?? []) {
+    const id = brepOf(o as never) as unknown as number
+    if (!seen.has(id)) {
+      seen.add(id)
+      out.push(o)
+    }
+  }
+  for (const o of b.objects ?? []) {
+    const id = brepOf(o as never) as unknown as number
+    if (!seen.has(id)) {
+      seen.add(id)
+      out.push(o)
+    }
+  }
+  return withShapeSet(a, out)
+}
+
+export function shapeIntersect(a: Workplane, b: Workplane): Workplane {
+  const ids = new Set(shapeHandleIds(b))
+  const out = (a.objects ?? []).filter((o) => ids.has(brepOf(o as never) as unknown as number))
+  return withShapeSet(a, out)
+}
+
+export function shapeDifference(a: Workplane, b: Workplane): Workplane {
+  const ids = new Set(shapeHandleIds(b))
+  const out = (a.objects ?? []).filter((o) => !ids.has(brepOf(o as never) as unknown as number))
+  return withShapeSet(a, out)
+}
+
+/**
  * fillet
  * @param wp - Workplane
  * @param radius - number

@@ -155,10 +155,9 @@
     "blockedBy": null
   },
   "tests.test_shapes:::test_set_ops__simple_box": {
-    "status": "blocked",
+    "status": "ported",
     "source": "tests.test_shapes:::test_set_ops",
-    "blockedBy": "op:shape-operator-overload",
-    "manual": true
+    "blockedBy": null
   },
   "tests.test_workplanes::TestWorkplanes::test_all_planes__b2": {
     "status": "ported",

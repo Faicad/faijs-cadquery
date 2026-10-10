@@ -153,6 +153,9 @@ export {
   cutEach,
   partAt,
   faceFromPoints,
+  shapeUnion,
+  shapeIntersect,
+  shapeDifference,
 } from './workplane'
 export type {
   Workplane as WorkplaneType,

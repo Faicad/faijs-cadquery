@@ -478,9 +478,14 @@ const BY_KEY: Record<string, string> = {
   //   makeSolid(face) throws `TopoDS::Shell`. So block on the STEP face
   //   wrapper, not on `remove`/`sew`.
   'tests.test_free_functions:::test_sewing__res3': 'export:free-face-in-compound',
-  // Shape operator overloads (faces(">Z") | faces("<Z") etc.) — operator
-  // syntax unreachable in the .fai.js restricted subset.
-  'tests.test_shapes:::test_set_ops__simple_box': 'op:shape-operator-overload',
+  // CLOSED 2026-10-10 (N1 / A-class batch): `test_set_ops__simple_box` is a
+  //   pytest FIXTURE = box(1,1,1) — the upstream test only ASSERTS on `|`/`&`/`%`
+  //   set-operator sizes and exports no geometry, so the ref captures the
+  //   fixture. Mirror written (reproduces the fixture box, bitwise parity PASS,
+  //   vol 1.0). The set-operator semantics (shapeUnion/shapeIntersect/
+  //   shapeDifference, shipped in src/workplane.ts and exported from
+  //   src/index.ts) are validated by src/shape-set-ops.test.ts. BY_KEY entry
+  //   removed so gen-manifest re-derives it as ported. Do NOT re-add.
   // Solid.addCavity — CLOSED 2026-10-04 (roadmap B2-7): free-function addCavity
   // implemented in workplane.ts via the equivalent boolean cut (outer − cavity);
   // the kernel has no multi-shell MakeSolid.Add / ShapeFix_Solid. All 3 mirrors
