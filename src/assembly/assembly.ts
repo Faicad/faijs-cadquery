@@ -507,7 +507,13 @@ export interface CqAssembly {
   residuals?: number[]
   /** 未支持约束的自由度合计（诊断量；收敛时为 0）�?*/
   dof: number
-  /** 是否全部约束可解�?*/
+  /**
+   * P7/D1：欠定自由度诊断（solve() 后填充，来自求解器 DOF 诊断；旧内核恒 undefined）。
+   * dof > 0 = 约束集欠定：终态位姿依赖优化器轨迹、无唯一「正确解」，
+   * 判等应走规范判等通道（compareStepFiles poseMode:'canonical-pose'）而非逐位比对。
+   */
+  underdetermined?: { dof: number }
+  /** 是否全部约束可解。 */
   converged: boolean
   /** 无法求解的约束明细（entity 类型不匹�?/ 参考不可达）�?*/
   unsupported: string[]
@@ -568,6 +574,8 @@ type AssemblySolveResultLike = {
   converged: boolean
   unsupported: string[]
   residuals?: number[]
+  /** P7/D1：欠定自由度诊断（dof > 0 = 约束集欠定，位姿依赖优化器轨迹）。旧内核无此字段。 */
+  underdetermined?: { dof: number }
 }
 
 /**
@@ -802,6 +810,9 @@ export function buildAssembly(
         const result = solveAssemblyTree(root, { solver: this.solver, name: this.name })
         this.residuals = result.residuals
         this.dof = result.converged ? 0 : -1
+        // P7/D2：透传求解器的欠定诊断（solve-tree 显式透传；旧内核 dist 类型面
+        // 尚无此字段 → 收窄读取，旧内核下为 undefined）。
+        this.underdetermined = (result as { underdetermined?: { dof: number } }).underdetermined
         this.converged = result.converged
         this.unsupported = result.unsupported
         if (!result.converged) {
@@ -892,6 +903,8 @@ export function buildAssembly(
       this.transforms = result.transforms
       this.residuals = result.residuals
       this.dof = result.dof
+      // P7/D2：透传求解器的欠定诊断（旧内核无此字段 → 保持 undefined）。
+      this.underdetermined = result.underdetermined
       this.converged = result.converged
       this.unsupported = result.unsupported
       if (!result.converged) {

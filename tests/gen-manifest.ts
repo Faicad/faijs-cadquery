@@ -83,7 +83,7 @@ function main() {
       // cannot contain ':' and the on-disk layout is "<module>/<test>__<var>".
       const fileKey = `${mod}/${rest.join('__').replace(/^:+/, '')}`
       const prior = prev[manifestKey] as
-        | { status?: string; blockedBy?: string | null; manual?: boolean }
+        | { status?: string; blockedBy?: string | null; manual?: boolean; poseMode?: string; poseFreeAxis?: number[] }
         | undefined
       if (prior?.status === 'skipped') {
         out[manifestKey] = prior
@@ -101,7 +101,16 @@ function main() {
         continue
       }
       if (mirrors.has(fileKey)) {
-        out[manifestKey] = { status: 'ported', source: caseId, blockedBy: null }
+        // P7/D2-3: human poseMode annotations (canonical-pose + free axis +
+        // DOF evidence reason) survive regeneration — losing them would flip
+        // underdetermined cases back to bitwise comparison (silent FAIL).
+        const poseMode = prior?.poseMode
+        out[manifestKey] = {
+          status: 'ported',
+          source: caseId,
+          blockedBy: null,
+          ...(poseMode ? { poseMode, ...(prior?.poseFreeAxis ? { poseFreeAxis: prior.poseFreeAxis } : {}) } : {}),
+        }
         ported++
         continue
       }
