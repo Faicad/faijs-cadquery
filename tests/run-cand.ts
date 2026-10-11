@@ -64,6 +64,14 @@ const SELF_HOSTED_EXPORT_CASES = new Set([
   'test_point_on_line__assy',
   'test_point_on_line__w',
   'test_PointInPlane_constraint__box_and_vertex',
+  // P4 constrain series: tree-mode compound is aggregated post-solve via
+  // compoundOp and carries no assembly behavior metadata, so the host CLI's
+  // writeAssemblyStep can't resolve members — self-hosted XCAF export walks
+  // the baked children instead.
+  'test_constrain__simple_assy',
+  'test_constrain__nested_assy',
+  'test_constrain__subassy1',
+  'test_constrain__subassy2',
 ])
 const EXPORT_CAND_STEP = join(HERE, 'export-cand-step.mjs')
 

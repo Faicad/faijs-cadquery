@@ -61,7 +61,14 @@ async function main() {
     throw new Error(`exec failed at stmt ${execResult.failedAt.index} (${execResult.failedAt.callee}): ${execResult.failedAt.message}`)
   }
   const terminals = execResult.terminals ?? []
-  const term = terminals.find((t) => (t.meta?.name ?? '') === 'result') ?? terminals[0]
+  // Prefer the mirror's `result` terminal explicitly; fall back to the LAST
+  // terminal (the final statement), never terminals[0] — intermediate
+  // unconsumed compounds (e.g. `let b3 = cq.compound(...)` feeding an assembly
+  // member) are live terminals too, and picking one exports the PRE-solve
+  // geometry (observed on the N3 constrain mirrors).
+  const term =
+    terminals.find((t) => (t.meta?.name ?? '') === 'result' || String(t.id).endsWith('result')) ??
+    terminals[terminals.length - 1]
   if (!term) throw new Error('no terminal captured from mirror')
   const handle =
     execResult.brepSolids?.get(term.id)?.solid ?? brepOf(execResult.outputs.get(term.id))

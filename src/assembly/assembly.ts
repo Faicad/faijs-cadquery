@@ -677,6 +677,28 @@ function memberToNode(m: CqAssemblyMember, fallbackName: string, parentWorld: Cq
  * @param constraints - AssemblyConstraint[]（已解析约束；CQ DSL �?constrain() 异步解析并入�? * @param opts - optional: { solver?, subshapes?, root?: { shape, loc? } }；默�?'global'（CQ 语义�? * @returns CqAssembly
  */
 /**
+ * buildAssemblyRoot — buildAssembly 树模式的扁平参数包装。
+ *
+ * 专为受限 `.fai.js` 子集而生：该子集的静态求值撑不住 `buildAssembly(..., { root:
+ * { shape, loc } })` 的两层嵌套对象字面量实参；本包装把 root 几何与初始位姿拉平为
+ * 独立位置参数（rootTranslation 缺省恒等），镜像写
+ * `let asm = await cqa.buildAssemblyRoot('assy', members, cons, b1, [2, -5, 0])`。
+ */
+export function buildAssemblyRoot(
+  name: string,
+  members: Array<{ name: string; shape: Shape | CqAssembly; color?: RGB; loc?: CqLoc }>,
+  constraints: AssemblyConstraint[],
+  rootShape: Shape,
+  rootTranslation?: [number, number, number],
+): CqAssembly {
+  return buildAssembly(name, members, constraints, {
+    // root 几何必须归一（镜像里 cq.box 产物是 Workplane 载体；树模式 solve 的
+    // rootChildren 直用 rootObj，不经 buildAssembly 的 members 归一通路）。
+    root: { shape: resolveAssemblyShape(rootShape), loc: rootTranslation ? { translation: rootTranslation } : undefined },
+  })
+}
+
+/**
  * concatConstraints — 合并 constraintEx 产出的约束数组（变参）。
  *
  * 专为受限 `.fai.js` 子集而生：该子集不允许数组字面量接收者方法调用 / 多参
@@ -748,19 +770,34 @@ export function buildAssembly(
     solve() {
       // 幂等守卫：成员位姿已在首�?solve() 烘焙，重复求解会二次变换�?      if (this.solved) return this
 
-      // ── 树模式（嵌套子装�?/ 显式 root 几何）──
-      // �?shape 已预烘焙�?world-init（applyCqLocToShape），parentPose 退化为
-      // identity，solveAssemblyTree 返回�?per-leaf 世界变换即终态。位姿烘焙走
-      // 与扁平模式相同的 mesh + BREP 双通道；compound 由叶几何在求解后聚合�?      if (this.treeMode) {
+      // ── 树模式（嵌套子装配 / 显式 root 几何）──
+      // 叶 shape 已预烘焙到 world-init（applyCqLocToShape），parentPose 退化为
+      // identity，solveAssemblyTree 返回的 per-leaf 世界变换即终态。位姿烘焙走
+      // 与扁平模式相同的 mesh + BREP 双通道；compound 由叶几何在求解后聚合。
+      if (this.treeMode) {
+        // P4：CQ `Assembly(obj)` 的根件参与求解，且是求解参考系——CQ solver.py 把
+        // 装配自身（owner）恒定为 fixed（ref 实证：test_constrain 的 simple_assy
+        // 终态 loc 仍为初始 (2,-5,0)，尽管没有任何显式 Fixed 约束）。这里把 root
+        // 几何挂为带隐式 fixed 锚定的子节点；约束里以装配名（如 "simple_assy"）
+        // 引用根件的 part 名即落到该节点的 qualified name（= this.name）上。
+        const rootChildren = this.members.map((m) => memberToNode(m, m.name, this.rootLoc))
+        if (this.rootObj) {
+          rootChildren.push({
+            name: this.name,
+            shape: applyCqLocToShape(this.rootObj, this.rootLoc),
+            children: [],
+          } as unknown as AssemblyNode)
+        }
+        const rootCons = this.rootObj && !this.constraints.some((c) => (c as { type?: string; part?: string }).type === 'fixed' && (c as { part?: string }).part === this.name)
+          ? [...this.constraints, { type: 'fixed', part: this.name } as AssemblyConstraint]
+          : this.constraints
         const root: AssemblyNode = {
           name: this.name,
           translate: [0, 0, 0],
           // N3 修复：solveAssemblyTree 的 flattenTree 会收集 root.constraints ——
           // 不挂载的话嵌套子装配的约束会被静默丢弃（求解器只看到自由成员）。
-          constraints: this.constraints,
-          children: this.members.map((m) =>
-            memberToNode(m, m.name, this.rootLoc),
-          ),
+          constraints: rootCons,
+          children: rootChildren,
         }
         const result = solveAssemblyTree(root, { solver: this.solver, name: this.name })
         this.residuals = result.residuals
@@ -798,6 +835,43 @@ export function buildAssembly(
           leaves.push(shape)
         }
         for (const m of this.members) bake(m, '')
+        // P4：root 几何叶节点同样被求解器返回世界变换（其 fixed 锚定下应为恒等，
+        // 但仍按统一通路取变换并烘焙），并聚合进 compound（CQ toCompound 含根件）。
+        // 求解系是「root 件在原点」的归一系；CQ 世界系 = 求解系 ∘ rootLoc（root 件
+        // 实际锚在其 loc 上，ref 实证：simple_assy 终态 b1 仍在 x[2,3] y[-5,-4]）。
+        // 把 rootLoc 平移补到每个叶（含 root 叶），与世界系对齐。
+        const rootShift = this.rootLoc.translation ?? [0, 0, 0]
+        const isShift = rootShift.some((v) => v !== 0)
+        const shiftShape = (shape: Shape): void => {
+          if (!isShift) return
+          Object.assign(shape, applyTransform(shape, [0, 0, 0, 1], [0, 0, 0], rootShift, [1, 0, 0, 0, 1, 0, 0, 0, 1]))
+          if (kernel) {
+            const solid = brepOf(shape) as BrepHandle | undefined
+            if (solid) {
+              const transformed = applyTransformBrep(kernel, solid, [0, 0, 0, 1], [0, 0, 0], rootShift)
+              ensureSlot(shape).solid = transformed
+            }
+          }
+        }
+        for (const leaf of leaves) shiftShape(leaf)
+        if (this.rootObj) {
+          const rootShape = resolveAssemblyShape(this.rootObj)
+          // root 叶在 shift 循环之后才 push，这里单独补 rootLoc 平移。
+          shiftShape(rootShape)
+          const t = result.transforms[this.name]
+          if (t) {
+            this.nodeTransforms[this.name] = t
+            Object.assign(rootShape, applyTransform(rootShape, t.quaternion, t.pivot, t.translation, t.rotationMatrix))
+            if (kernel) {
+              const solid = brepOf(rootShape) as BrepHandle | undefined
+              if (solid) {
+                const transformed = applyTransformBrep(kernel, solid, t.quaternion, t.pivot, t.translation)
+                ensureSlot(rootShape).solid = transformed
+              }
+            }
+          }
+          leaves.push(rootShape)
+        }
         this.compound = compoundOp(leaves)
         this.solved = true
         return this
@@ -950,6 +1024,8 @@ export function buildAssembly(
       const pa = parseCqRef(aRef)
       const pb = bRef ? parseCqRef(bRef) : null
       const shapeOf = (name: string): Shape | null => {
+        // P4：装配名（"simple_assy" 等）引用根件几何（CQ Assembly.obj 语义）。
+        if (name === this.name && this.rootObj) return this.rootObj
         const m = this.members.find((mm) => mm.name === name)
         if (!m) throw new Error(`[cq-compat/assembly] constrain: unknown part "${name}"`)
         return isCqAssembly(m.shape) ? null : (m.shape as Shape)

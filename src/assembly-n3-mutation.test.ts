@@ -19,7 +19,7 @@ import { createNodePorts } from '@faicad/faijs/node'
 import { asPartName } from '@faicad/faijs/identity'
 import type { Shape } from '@faicad/faijs/mesh/types'
 import * as cq from '@faicad/faijs-cadquery'
-import { buildAssembly, constraintEx } from './assembly/index'
+import { buildAssembly, buildAssemblyRoot, constraintEx } from './assembly/index'
 
 let runtime: ReturnType<typeof createRuntime>
 
@@ -140,5 +140,62 @@ describe('N3 变异测试（扰动约束 ⇒ 位姿偏离）', () => {
     const mut = await run('<Z')
     expect(base?.translation[2]).toBeCloseTo(0.5, 3)
     expect(mut?.translation[2]).toBeCloseTo(-0.5, 3)
+  })
+})
+
+describe('P4 树模式 root 几何求解语义（CQ Assembly(obj) 对齐）', () => {
+  /** 复刻 test_constrain/simple_assy 结构：root b1 + 嵌套 subassy1(b2)。 */
+  async function buildSimpleAssyTree(b2Target: 'Plane' | 'none') {
+    const res = await runtime.execute([
+      "import * as cq from '@faicad/faijs-cadquery'",
+      `let b1 = cq.box(cq.Workplane("XY"), 1, 1, 1, { centered: false })`,
+      `let b1s = cq.val(b1)`,
+      `let b2 = cq.box(cq.Workplane("XY"), 1, 1, 2)`,
+      `let b2s = cq.val(b2)`,
+    ].join('\n'))
+    expect(res.failedAt).toBeUndefined()
+    const b1 = res.outputs.get(asPartName('b1s')) as Shape
+    const b2 = res.outputs.get(asPartName('b2s')) as Shape
+    const sub = buildAssembly('subassy1', [{ name: 'b2', shape: b2, loc: { translation: [1, 1, 0] } }], [])
+    const cons =
+      b2Target === 'Plane'
+        ? await constraintEx('simple_assy', '<X', b1, 'subassy1.b2', '<Z', b2, 'Plane')
+        : []
+    return { b1, b2, asm: buildAssemblyRoot('simple_assy', [{ name: 'subassy1', shape: sub }], cons, b1, [2, -5, 0]) }
+  }
+
+  it('root 件是求解参考系：无约束引用时终态停在其 loc（ref 实证 (2,-5,0)）', async () => {
+    const { asm } = await buildSimpleAssyTree('none')
+    asm.solve()
+    const t = asm.nodeTransforms['simple_assy']
+    // root 被隐式 fixed 锚定 ⇒ 世界变换恒等（位姿已预烘焙到 loc）。
+    if (t) {
+      for (const v of t.translation) expect(v).toBeCloseTo(0, 6)
+    }
+    // compound 含根件（CQ toCompound 语义）。
+    expect(asm.toCompound()?.children?.length).toBe(2)
+  })
+
+  it('约束引用装配名 = 引用根件几何；子件按约束求解（对齐 CQ 断言 loc (-1,0.5,0.5)）', async () => {
+    const { asm } = await buildSimpleAssyTree('Plane')
+    asm.solve()
+    // nodeTransforms 是求解系（root 在原点）的 per-leaf 世界变换；
+    // CQ test_constrain 断言 children[0] loc → (-1,0.5,0.5)（同一参考系）。
+    const tLeaf = asm.nodeTransforms['subassy1.b2']
+    expect(tLeaf).toBeDefined()
+    expect(tLeaf!.translation[0]).toBeCloseTo(-1, 2)
+    expect(tLeaf!.translation[1]).toBeCloseTo(0.5, 2)
+    expect(tLeaf!.translation[2]).toBeCloseTo(0.5, 2)
+  })
+
+  it('变异：去掉 Plane 约束 ⇒ b2 停在初始 loc（不被求解器拖动）', async () => {
+    const withC = await buildSimpleAssyTree('Plane')
+    const noC = await buildSimpleAssyTree('none')
+    withC.asm.solve()
+    noC.asm.solve()
+    const tWith = withC.asm.nodeTransforms['subassy1.b2']
+    const tNo = noC.asm.nodeTransforms['subassy1.b2']
+    // 有约束时 b2 被拖到 root <X 面；无约束时保持初始（恒等或无变换条目）。
+    expect(JSON.stringify(tWith?.translation)).not.toBe(JSON.stringify(tNo?.translation ?? null))
   })
 })
