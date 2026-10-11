@@ -1,7 +1,7 @@
 # P7 · 求解器 DOF 诊断 + 欠定位姿规范判等通道（方案 3 · 源码取证修订版 v2）
 
 - 日期：2026-10-11（v2：全部改动面改按 `../faijs` **源码仓**取证重写，v1 的 dist 推断作废）
-- 状态：**待审（草稿）**
+- 状态：**实施中——D1/D2/D3/D4 已落地（tgz 直装验证），D5 待办**
 - 仓库分工：**`../faijs`**（packages/core + packages/cq-compat-compare，D1/D3 同仓两包）+ **本仓** faijs-cadquery（D2/D4/D5）
 - 前置取证：`docs/plans/2026-10-10-cadquery-next-phase-plan.md` 2026-10-11 快照（unary ×3 收敛对齐判死）、`tests/ref-harness/lm-convergence-probe.mjs`、`tests/mark-blocked.ts` UNREACHABLE reason
 
@@ -125,6 +125,8 @@
 | R-g | θ 扫描漏掉非凸差异最小点 | 网格 64 步 + 黄金分割细化；单测断言确定性 |
 
 ## 6. 工作量与关键路径
+
+> **D4 实施落点（2026-10-11）**：D1–D4 全部落地。faijs core `5dd2ed33`（dof 诊断）→ cq-compat-compare `a4372c15`（canonical-pose 通道）+ `3dbf62c5`（**逐成员对齐修正**：整 compound 刚体扭转吸收不了成员级欠定扭转——COM 枢轴残差 2.4e-3、锚点枢轴会搬动 b1，必须拆 solids 按成员绕自身 COM 扫描，收敛到 ~1e-9）；本仓 `f78f3dc`（D2 透传+探针）→ `4a7192e`（tgz 直装验证 unary dof=1）→ `eadd677`（D4 路由+manifest 注记，**579→582 ported / 60 blocked**）。验证方式：faijs core/cq-compat-compare tgz 双包装 `npm install --no-save`（版本号未动，正式发布走 set-version 流程待批）。D4-4（变异测试扩展）与 D4-5（subassy ×2 复核）与 D5（N0-3 全量重扫）未做。
 
 - D2（≤1 天）：本仓独立交付，探针先钉现状。
 - D1 + D3（faijs 仓，各 1-2 天，两包可并行 PR）：D1 动 core 求解器，D3 动判卷人——**同仓两包，一次版本发布承载**。
