@@ -51,15 +51,17 @@ async function freshShapes(): Promise<{ b1: Shape; b2: Shape }> {
 }
 
 describe('P7/D2: CqAssembly.underdetermined passthrough', () => {
-  it('unary (Fixed+FixedPoint+FixedAxis): field set only on positive solver dof (D1 release → dof=1)', async () => {
+  it('unary (Fixed+FixedPoint+FixedAxis): solver reports underdetermined.dof = 1 (twist about (0,1,1))', async () => {
     const { b1, b2 } = await freshShapes()
     const cFixed = await constraintEx('b1', '', b1, '', '', null, 'Fixed')
     const cFP = await constraintEx('b2', '', b2, '', '', null, 'FixedPoint', [0, 0, -3])
     const cFA = await constraintEx('b2', '>Z', b2, '', '', null, 'FixedAxis', [0, 1, 1])
     const asm = buildAssembly('dof-unary', [{ name: 'b1', shape: b1 }, { name: 'b2', shape: b2 }], [...cFixed, ...cFP, ...cFA])
     asm.solve()
-    // never lies positively: set only when the solver reported a positive dof
-    if (asm.underdetermined !== undefined) expect(asm.underdetermined.dof).toBeGreaterThan(0)
+    // D1 carried by the packed faijs dist: unary leaves exactly 1 free DOF
+    // (the twist about the (0,1,1) axis). Never lies positively is implied:
+    // dof === 1 > 0.
+    expect(asm.underdetermined?.dof).toBe(1)
     expect(asm.converged).toBe(true)
   })
 
