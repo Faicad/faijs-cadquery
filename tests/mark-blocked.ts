@@ -339,6 +339,18 @@ const BY_KEY: Record<string, string> = {
   // bbox x ±1.026 / y,z ±0.745 for a 2x1x1 box (a pure -45 deg x rotation
   // would give exactly ±1 / ±0.7071 like test_fixed_rotation does) — the
   // solver's rotation cannot be reconstructed without the solver itself.
+  // CLOSED as UNREACHABLE (2026-10-11 convergence-alignment experiment):
+  // FixedAxis leaves the twist DOF about (0,1,1) underdetermined — the final
+  // rotation depends on the optimizer's trajectory, not the constraint set.
+  // Replicated CQ solver.py's exact m-parameterization + penalty (1e-16) in a
+  // standalone LM (out/_diag/_lm_exp.mjs, committed probe): driving to the
+  // true penalized minimum (obj ~1e-15) lands on quat (0.347,-0.161,-0.389,
+  // -0.838), while CQ IPOPT returns (-0.3825,0.0104,0.0250,0.9235) and the
+  // shipped faijs LM (-0.3825,0.0112,0.0272,0.9235) — three DIFFERENT legal
+  // solutions on the same manifold. The pure minimal-angle snap differs from
+  // ref bbox by 0.026–0.038 >> the 1e-3 tolerance, so no solver-side knob
+  // (init/tolerances/parameterization) reaches bitwise equality. Blocked on a
+  // bitwise-stable comparator channel for underdetermined poses (cross-repo).
   'tests.test_assembly:::test_unary_constraints__simple_assy2': 'op:assembly-solve',
   'tests.test_assembly:::test_unary_constraints__assy': 'op:assembly-solve',
   'tests.test_assembly:::test_unary_constraints__w': 'op:assembly-solve',
