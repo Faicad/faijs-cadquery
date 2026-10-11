@@ -63,6 +63,36 @@ function mainRefCases(): Map<string, string> {
   return map
 }
 
+/** P7/D4: pose-mode annotations from the parity manifest, keyed by cand base name. */
+interface PoseAnnotation {
+  poseMode: string
+  poseFreeAxis?: number[]
+  poseFreePivot?: number[]
+}
+
+function poseAnnotations(): Map<string, PoseAnnotation> {
+  const mpath = join(HERE, 'manifest.json')
+  const map = new Map<string, PoseAnnotation>()
+  if (!existsSync(mpath)) return map
+  const manifest = JSON.parse(readFileSync(mpath, 'utf-8')) as Record<
+    string,
+    { status?: string; poseMode?: string; poseFreeAxis?: number[]; poseFreePivot?: number[] }
+  >
+  for (const [key, entry] of Object.entries(manifest)) {
+    if (entry.poseMode !== 'canonical-pose') continue
+    // manifest key = "tests.<module>:::<test>__<var>" — the cand STEP base name
+    // is everything after the ":::" separator.
+    const idx = key.indexOf(':::')
+    if (idx < 0) continue
+    map.set(key.slice(idx + 3), {
+      poseMode: entry.poseMode,
+      poseFreeAxis: entry.poseFreeAxis,
+      poseFreePivot: entry.poseFreePivot,
+    })
+  }
+  return map
+}
+
 async function main() {
   const onlyIdx = process.argv.indexOf('--only')
   const only = onlyIdx >= 0 ? (process.argv[onlyIdx + 1] ?? '') : ''
@@ -100,6 +130,8 @@ async function main() {
   let fail = 0
   let error = 0
 
+  const poseByBase = poseAnnotations()
+
   for (const rf of refFiles) {
     const caseName = rf.replace(/\.step$/, '')
     const candBase = candBaseByRef.get(caseName)
@@ -108,12 +140,38 @@ async function main() {
     if (!candSet.has(cf)) continue // counted as BLOCKED below
     const refStep = join(REF, rf)
     const candStep = join(CAND, cf)
+    // P7/D4: route underdetermined cases (manifest poseMode annotation backed by
+    // the solver DOF diagnostic) to the canonical-pose channel. An old
+    // cq-compat-compare without the option would silently ignore it and fall
+    // back to bitwise — detect via the audit field and fail loudly instead.
+    const pose = poseByBase.get(candBase)
+    const poseOpts: Record<string, unknown> = {}
+    if (pose) {
+      if (!pose.poseFreeAxis || pose.poseFreeAxis.length !== 3) {
+        throw new Error(`[compare] ${candBase}: poseMode 'canonical-pose' requires a 3-component poseFreeAxis in tests/manifest.json`)
+      }
+      poseOpts.poseMode = 'canonical-pose'
+      poseOpts.canonicalFreeAxis = { x: pose.poseFreeAxis[0], y: pose.poseFreeAxis[1], z: pose.poseFreeAxis[2] }
+      if (pose.poseFreePivot) {
+        if (pose.poseFreePivot.length !== 3) {
+          throw new Error(`[compare] ${candBase}: poseFreePivot must be a 3-component point on the free twist axis`)
+        }
+        poseOpts.canonicalPivot = { x: pose.poseFreePivot[0], y: pose.poseFreePivot[1], z: pose.poseFreePivot[2] }
+      }
+    }
     try {
       const r: StepCompareResult = await compareStepFiles(
         refStep,
         candStep,
-        { strictTopology: false, linearTolerance: 1e-3, volumeRelativeTolerance: 1e-3 },
+        { strictTopology: false, linearTolerance: 1e-3, volumeRelativeTolerance: 1e-3, ...poseOpts },
       )
+      if (pose && r.canonicalPose === undefined) {
+        throw new Error(
+          `[compare] ${candBase}: manifest routes this case to poseMode 'canonical-pose', ` +
+            'but the installed @faicad/cq-compat-compare returned no canonicalPose audit field — ' +
+            'the comparator predates P7/D3 and silently fell back to bitwise. Upgrade the comparator.',
+        )
+      }
       const numericOk =
         r.volume.diffPct <= 0.1 && r.centerOfMass.maxDiff <= 1e-3 && r.bbox.maxDiff <= 1e-3
       const boolOk =

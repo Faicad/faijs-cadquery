@@ -1668,22 +1668,52 @@
     "blockedBy": null
   },
   "tests.test_assembly:::test_unary_constraints__simple_assy2": {
-    "status": "blocked",
+    "status": "ported",
     "source": "tests.test_assembly:::test_unary_constraints",
-    "blockedBy": "op:assembly-solve",
-    "manual": true
+    "blockedBy": null,
+    "poseMode": "canonical-pose",
+    "poseFreeAxis": [
+      0,
+      1,
+      1
+    ],
+    "poseFreePivot": [
+      0,
+      0,
+      -3
+    ]
   },
   "tests.test_assembly:::test_unary_constraints__assy": {
-    "status": "blocked",
+    "status": "ported",
     "source": "tests.test_assembly:::test_unary_constraints",
-    "blockedBy": "op:assembly-solve",
-    "manual": true
+    "blockedBy": null,
+    "poseMode": "canonical-pose",
+    "poseFreeAxis": [
+      0,
+      1,
+      1
+    ],
+    "poseFreePivot": [
+      0,
+      0,
+      -3
+    ]
   },
   "tests.test_assembly:::test_unary_constraints__w": {
-    "status": "blocked",
+    "status": "ported",
     "source": "tests.test_assembly:::test_unary_constraints",
-    "blockedBy": "op:assembly-solve",
-    "manual": true
+    "blockedBy": null,
+    "poseMode": "canonical-pose",
+    "poseFreeAxis": [
+      0,
+      1,
+      1
+    ],
+    "poseFreePivot": [
+      0,
+      0,
+      -3
+    ]
   },
   "tests.test_assembly:::test_fixed_rotation__simple_assy2": {
     "status": "ported",
