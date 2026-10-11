@@ -127,6 +127,8 @@
 ## 6. 工作量与关键路径
 
 > **D4 实施落点（2026-10-11）**：D1–D4 全部落地。faijs core `5dd2ed33`（dof 诊断）→ cq-compat-compare `a4372c15`（canonical-pose 通道）+ `3dbf62c5`（**逐成员对齐修正**：整 compound 刚体扭转吸收不了成员级欠定扭转——COM 枢轴残差 2.4e-3、锚点枢轴会搬动 b1，必须拆 solids 按成员绕自身 COM 扫描，收敛到 ~1e-9）；本仓 `f78f3dc`（D2 透传+探针）→ `4a7192e`（tgz 直装验证 unary dof=1）→ `eadd677`（D4 路由+manifest 注记，**579→582 ported / 60 blocked**）。验证方式：faijs core/cq-compat-compare tgz 双包装 `npm install --no-save`（版本号未动，正式发布走 set-version 流程待批）。D4-4（变异测试扩展）与 D4-5（subassy ×2 复核）与 D5（N0-3 全量重扫）未做。
+>
+> **D4-4/D4-5 落点（2026-10-11 补）**：D4-4 已落地（本仓 `704cf62`：镜像级规范通道方向变异 10/10 绿——合法解 B 扭 40° canonical PASS/bitwise FAIL、FixedPoint 扰 0.5mm canonical 也 FAIL；GOTCHA：`toCompound()` 是 mesh 级 CompoundShape，brepOf 不适用，BREP 句柄直接取 solve() 烘焙后的成员 Shape）。D4-5 复核结论（探针 `.tmp-p7/probe-subassy-dof.mts` 实测）：**test_constrain 树模式约束集欠定 `underdetermined.dof=2`**（converged、unsupported 空）——与 P4 期「ref 解带非极小扭转残差」的观察一致，属欠定族而非帧缺口；但 dof=2 意味着自由方向有两个（Plane+Axis+Point 对三个嵌套成员的残余），**翻 ported 需先确定两个自由方向对应的轴/枢轴注记**，且 ref 侧欠定扭转幅度更大（b2 y/z ±0.074），canonical 扫描能否收敛到 1e-3 内待验证——维持 blocked，解锁路径与 unary 同（轴注记 → 重导 → compare 实证），不冒充。
 
 - D2（≤1 天）：本仓独立交付，探针先钉现状。
 - D1 + D3（faijs 仓，各 1-2 天，两包可并行 PR）：D1 动 core 求解器，D3 动判卷人——**同仓两包，一次版本发布承载**。
