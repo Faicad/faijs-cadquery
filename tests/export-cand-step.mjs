@@ -15,6 +15,7 @@ import { createRuntime, createNodePorts } from '@faicad/faijs/node'
 import { brepOf } from '@faicad/faijs/shape'
 import { initOcctWasm } from '@faicad/faijs/occt-kernel/occtKernel'
 import * as cq from '@faicad/faijs-cadquery'
+import * as cqa from '@faicad/faijs-cadquery/assembly'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
@@ -33,15 +34,24 @@ async function main() {
   // the upstream faijs-cli behaviour.
   ports.libLoader = {
     loadLib: async (name) => {
+      // X-5: the host strips subpaths from import specifiers, so subpath
+      // imports (`@faicad/faijs-cadquery/assembly`) arrive here as the bare
+      // package name — serve cqa for both forms.
       if (name === '@faicad/faijs-cadquery' || name === 'faijs-cadquery') return cq
+      if (name === '@faicad/faijs-cadquery/assembly') return cqa
       throw new Error(`export-cand-step: package "${name}" is not loadable here`)
     },
-    listLibs: () => ['@faicad/faijs-cadquery'],
+    listLibs: () => ['@faicad/faijs-cadquery', '@faicad/faijs-cadquery/assembly'],
     loadSource: async () => undefined,
     options: { autoLift: false, autoLiftFor: () => false },
   }
   const runtime = createRuntime(ports, 'brep')
   runtime.registerLib('cad', createApiNamespace(), { default: true, packageName: '@faicad/faijs' })
+  // X-5: the host strips subpaths from import specifiers, so auto-load would
+  // bind `cqa` to the cq ROOT package (no assembly exports). Pre-register the
+  // real subpath namespace under its mirror binding name — autoLoad skips
+  // bindings that already exist.
+  runtime.registerLib('cqa', cqa, { autoLift: false, packageName: '@faicad/faijs-cadquery/assembly' })
   const warm = await runtime.execute('let a = cad.box(1, 1, 1, { centered: true })')
   if (warm.failedAt) throw new Error(`warmup failed: ${JSON.stringify(warm.failedAt)}`)
   const code = readFileSync(mirrorPath, 'utf-8')
@@ -55,11 +65,31 @@ async function main() {
   if (!term) throw new Error('no terminal captured from mirror')
   const handle =
     execResult.brepSolids?.get(term.id)?.solid ?? brepOf(execResult.outputs.get(term.id))
-  if (!handle) throw new Error('no BREP handle for result terminal')
   const raw = await initOcctWasm()
   const doc = raw.createXCAFDocument()
   try {
-    doc.addShape(handle, { name: 'result' })
+    const comp = execResult.outputs.get(term.id)
+    const children = comp?.children ?? []
+    if (!handle || children.length > 0) {
+      // Compound path (solved assembly or mixed solid+point compound): walk the
+      // children and add each baked member's handle individually. Feeding the
+      // aggregated compound to XCAF wholesale drops members (observed: a
+      // solid+vertex compound exports only the vertex — N3 PointInPlane case).
+      let added = 0
+      for (let i = 0; i < children.length; i++) {
+        const h = brepOf(children[i])
+        if (h) {
+          doc.addShape(h, { name: `member_${i}` })
+          added++
+        }
+      }
+      if (added === 0) {
+        if (!handle) throw new Error('no BREP handle for result terminal (compound children empty)')
+        doc.addShape(handle, { name: 'result' })
+      }
+    } else {
+      doc.addShape(handle, { name: 'result' })
+    }
     const step = doc.exportSTEP()
     writeFileSync(outPath, Buffer.from(step, 'utf-8'))
   } finally {

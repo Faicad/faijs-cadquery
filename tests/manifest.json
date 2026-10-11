@@ -1560,10 +1560,9 @@
     "blockedBy": null
   },
   "tests.test_assembly:::test_constrain_with_tags__nested_assy": {
-    "status": "blocked",
+    "status": "ported",
     "source": "tests.test_assembly:::test_constrain_with_tags",
-    "blockedBy": "op:assembly-solve",
-    "manual": true
+    "blockedBy": null
   },
   "tests.test_assembly:::test_duplicate_name__nested_assy": {
     "status": "ported",
@@ -1576,10 +1575,9 @@
     "blockedBy": null
   },
   "tests.test_assembly:::test_expression_grammar__nested_assy": {
-    "status": "blocked",
+    "status": "ported",
     "source": "tests.test_assembly:::test_expression_grammar",
-    "blockedBy": "op:assembly-solve",
-    "manual": true
+    "blockedBy": null
   },
   "tests.test_assembly:::test_PointInPlane_constraint__box_and_vertex": {
     "status": "blocked",
@@ -1713,22 +1711,19 @@
     "blockedBy": null
   },
   "tests.test_assembly:::test_point_on_line__simple_assy2": {
-    "status": "blocked",
+    "status": "ported",
     "source": "tests.test_assembly:::test_point_on_line",
-    "blockedBy": "op:assembly-solve",
-    "manual": true
+    "blockedBy": null
   },
   "tests.test_assembly:::test_point_on_line__assy": {
-    "status": "blocked",
+    "status": "ported",
     "source": "tests.test_assembly:::test_point_on_line",
-    "blockedBy": "op:assembly-solve",
-    "manual": true
+    "blockedBy": null
   },
   "tests.test_assembly:::test_point_on_line__w": {
-    "status": "blocked",
+    "status": "ported",
     "source": "tests.test_assembly:::test_point_on_line",
-    "blockedBy": "op:assembly-solve",
-    "manual": true
+    "blockedBy": null
   },
   "tests.test_assembly:::test_axis_constraint__simple_assy2": {
     "status": "ported",

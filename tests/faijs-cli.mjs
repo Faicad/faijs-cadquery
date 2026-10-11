@@ -15,6 +15,13 @@
  */
 import { cliCheck, cliRun, parseArgs } from '@faicad/faijs/node'
 import { createApiNamespace } from '@faicad/faijs'
+import * as cqa from '@faicad/faijs-cadquery/assembly'
+// Host 0.31.2 regression (X-5): autoLoadLibsFromImports resolves subpath imports
+// through `imp.packageName`, which metadata-extractor strips to the first two
+// segments — `import * as cqa from '@faicad/faijs-cadquery/assembly'` loads the
+// ROOT package into `cqa`, so every assembly mirror dies with
+// "__ns.cqa.constraint is not a function". Register the subpath namespace
+// explicitly here until the host passes the full specifier through.
 
 const { command, file, out, mode, assetsDir, fontsDir, projectRoot, includeHidden, include2D } = parseArgs(process.argv)
 
@@ -29,7 +36,7 @@ if (!file) {
   process.exit(1)
 }
 
-const libs = { cad: createApiNamespace() }
+const libs = { cad: createApiNamespace(), cqa }
 const filePath = file
 const outPath = out
 

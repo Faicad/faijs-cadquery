@@ -388,10 +388,11 @@ export async function constraintEx(
       // case 'angle'：axis 成本、无点项），value 单位 deg�?80 = 反平行）�?      return [{ type: 'angle', value: 180, a, b } as AssemblyConstraint]
     }
     case 'Point': {
-      const pa = parseCoords(aSelector)
-      const pb = parseCoords(bSelector)
-      if (!pa || !pb) throw new Error(`constraintEx Point: selectors must be coords "x,y,z"`)
-      return [{ type: 'coincident', a: pointRef(aPart, pa), b: pointRef(bPart, pb) } as AssemblyConstraint]
+      // CQ 语义：两侧 Shape.Center()（可以是字面坐标、面选择器或整件）。
+      // 此前只吃字面坐标 "x,y,z"，test_constrain 的 (face, face, "Point") 形态直接抛错。
+      const a = await resolvePointRef(aPart, aSelector, aShape)
+      const b = await resolvePointRef(bPart, bSelector, bShape)
+      return [{ type: 'coincident', a, b } as AssemblyConstraint]
     }
     case 'Cylinder': {
       if (!aShape || !bShape) throw new Error(`constraintEx Cylinder: shapes required`)
@@ -675,6 +676,23 @@ function memberToNode(m: CqAssemblyMember, fallbackName: string, parentWorld: Cq
  * @param members - Array<{ name: string; shape: Shape | CqAssembly; color?: RGB; loc?: CqLoc }>
  * @param constraints - AssemblyConstraint[]（已解析约束；CQ DSL �?constrain() 异步解析并入�? * @param opts - optional: { solver?, subshapes?, root?: { shape, loc? } }；默�?'global'（CQ 语义�? * @returns CqAssembly
  */
+/**
+ * concatConstraints — 合并 constraintEx 产出的约束数组（变参）。
+ *
+ * 专为受限 `.fai.js` 子集而生：该子集不允许数组字面量接收者方法调用 / 多参
+ * `concat` / spread 实参，镜像无法用原生 JS 合并多条约束；本 op 让镜像写
+ * `let cons = await cqa.concatConstraints(c1, c2, c3)`（注意返回值不被 await
+ * 破坏——同步函数在 direct-executor 下按 op 语句求值）。
+ */
+export function concatConstraints(...groups: Array<AssemblyConstraint | AssemblyConstraint[]>): AssemblyConstraint[] {
+  const out: AssemblyConstraint[] = []
+  for (const g of groups) {
+    if (Array.isArray(g)) out.push(...g)
+    else out.push(g)
+  }
+  return out
+}
+
 export function buildAssembly(
   name: string,
   members: Array<{ name: string; shape: Shape | CqAssembly; color?: RGB; loc?: CqLoc }>,
@@ -737,6 +755,9 @@ export function buildAssembly(
         const root: AssemblyNode = {
           name: this.name,
           translate: [0, 0, 0],
+          // N3 修复：solveAssemblyTree 的 flattenTree 会收集 root.constraints ——
+          // 不挂载的话嵌套子装配的约束会被静默丢弃（求解器只看到自由成员）。
+          constraints: this.constraints,
           children: this.members.map((m) =>
             memberToNode(m, m.name, this.rootLoc),
           ),
@@ -809,10 +830,15 @@ export function buildAssembly(
       // CQ 语义对齐：无约束成员（如 assemb.py 里仅 .add �?slide_top）在 CQ 求解�?      // 中固定在初始位姿（不被拉入最小化）；我方 global 求解器会给自由成员漂移解�?      // 烘焙前按「是否被约束引用」过滤，未引用成员保持恒等�?      const referenced = new Set<string>()
       for (const c of constraints) {
         // StructuralConstraint 形态是 { a: EntityRef, b: EntityRef }（EntityRef.part
-        // = 成员名）；cq-compat �?constraint() 只产出该形态。FaceMateConstraint �?        // a/b，用 in 收窄跳过�?        if ('a' in c && 'b' in c) {
-          for (const ref of [c.a, c.b] as Array<{ part?: string }>) {
-            if (ref && typeof ref.part === 'string') referenced.add(ref.part)
-          }
+        // = 成员名）；cq-compat 的 constraint() 只产出该形态。FaceMateConstraint 无
+        // a/b，用 in 收窄跳过。N3 修复：FixedPoint/FixedAxis 等单侧锚定约束只有 a
+        //（此前只收 {a,b} 双侧 → 被锚定成员没进 referenced，烘焙被过滤，位姿丢失）。
+        const refs = 'a' in c && 'b' in c ? [c.a, c.b] : 'a' in c ? [c.a] : []
+        for (const ref of refs as Array<{ part?: string }>) {
+          if (ref && typeof ref.part === 'string') referenced.add(ref.part)
+        }
+        if ('part' in c && typeof (c as { part?: unknown }).part === 'string') {
+          referenced.add((c as unknown as { part: string }).part)
         }
       }
       const baked = result.transforms.filter((t) => referenced.has(behavior?.memberNames?.[t.index] ?? ''))

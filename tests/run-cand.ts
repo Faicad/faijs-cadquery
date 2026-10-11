@@ -51,7 +51,20 @@ const CLI = join(HERE, 'faijs-cli.mjs')
 // that is already `ported` (because the self-hosted exporter makes it pass)
 // still routes here on the next sweep. Add the mirror basename whenever a new
 // floating-face case is mirrored.
-const SELF_HOSTED_EXPORT_CASES = new Set(['test_sewing__res3'])
+const SELF_HOSTED_EXPORT_CASES = new Set([
+  'test_sewing__res3',
+  // N3 solved-assembly mirrors: asm.toCompound() carries no BREP slot of its own
+  // (members are baked in place by solve()), and the 0.31.2 host CLI's
+  // writeAssemblyStep gate rejects the slotless compound — self-hosted XCAF
+  // export walks the baked children instead.
+  'test_unary_constraints__simple_assy2',
+  'test_unary_constraints__assy',
+  'test_unary_constraints__w',
+  'test_point_on_line__simple_assy2',
+  'test_point_on_line__assy',
+  'test_point_on_line__w',
+  'test_PointInPlane_constraint__box_and_vertex',
+])
 const EXPORT_CAND_STEP = join(HERE, 'export-cand-step.mjs')
 
 // NOTE: do not resolve the faijs package root here. @faicad/faijs publishes a

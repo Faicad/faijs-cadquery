@@ -446,12 +446,12 @@ const BY_KEY: Record<string, string> = {
   // Assembly solver cases: solved placements need the constraint solver
   // (PointOnLine / Point via expression grammar / tag-based selection), same
   // class as the existing op:assembly-solve entries.
+  // N3 收口（2026-10-11）：以下 5 条已写镜像并逐位 PASS（parity compare cen/bbox
+  // ~1e-10 / 0，变异测试 src/assembly-n3-mutation.test.ts 5/5 红→绿），BY_KEY 移除，
+  // gen-manifest 重扫即翻 ported：
+  //   - point_on_line ×3（FixedAxis×2 + PointOnLine 边约束）
+  //   - constrain_with_tags / expression_grammar（未求解装配初始位姿链）
   'tests.test_assembly:::test_PointInPlane_constraint__box_and_vertex': 'op:assembly-solve',
-  'tests.test_assembly:::test_point_on_line__assy': 'op:assembly-solve',
-  'tests.test_assembly:::test_point_on_line__simple_assy2': 'op:assembly-solve',
-  'tests.test_assembly:::test_point_on_line__w': 'op:assembly-solve',
-  'tests.test_assembly:::test_expression_grammar__nested_assy': 'op:assembly-solve',
-  'tests.test_assembly:::test_constrain_with_tags__nested_assy': 'op:assembly-solve',
   // CLOSED (found 2026-10-05 while flipping the free-function `text` spine
   //   overload): the five pytest.raises error-path cases (duplicate name /
   //   empty solve / invalid constraint kind / unary-with-solve / save-raises)

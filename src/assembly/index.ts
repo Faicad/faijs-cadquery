@@ -24,6 +24,7 @@ export {
   axisRef,
   constraint,
   constraintEx,
+  concatConstraints,
   buildAssembly,
   Color,
 } from './assembly'
