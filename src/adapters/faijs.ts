@@ -61,7 +61,7 @@ export type { AssemblyTransform } from '@faicad/faijs/runtime-state'
 // ── api surface ────────────────────────────────────────────────────────────
 export { createApiNamespace } from '@faicad/faijs/api/api-namespace'
 export type { AssemblyConstraint, EntityRef } from '@faicad/faijs/api/assembly/types'
-export { applyMatrixBrep } from '@faicad/faijs/api/brep-mirror/topologyFns'
+export { applyMatrixBrep } from '@faicad/faijs/api/brep-operations/topologyFns'
 export {
   resolveEdgeSelection,
   resolveFaceEdgeSelection,

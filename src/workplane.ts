@@ -4717,7 +4717,9 @@ function selectOnStack(wp: Workplane, kind: 'face' | 'edge' | 'vertex', sel: str
     ? ((makeCompound(src as never) as unknown as { handle: ShapeHandle }).handle as ShapeHandle)
     : src[0]
   try {
-    return resolveSelection(owner as never, [{ kind, sel }]).handles
+    // faijs 选择器返回引擎中立 BrepHandle（与 occt-wasm ShapeHandle 运行时同构，
+    // 但 brand 不同——这里显式断言；faijs-cadquery 保持 occt-only）。
+    return resolveSelection(owner as never, [{ kind, sel }]).handles as unknown as ShapeHandle[]
   } catch {
     return []
   } finally {
