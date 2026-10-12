@@ -1524,7 +1524,10 @@
     "status": "blocked",
     "source": "tests.test_assembly:::test_constrain",
     "blockedBy": "op:assembly-solve",
-    "manual": true
+    "manual": true,
+    "poseMode": "canonical-pose",
+    "poseFreeAxis": [1, 0, -1],
+    "reason": "underdetermined (dof=2, freeDirs = b2/b3 twisting about (1,0,-1)/sqrt2) BUT canonical channel does NOT converge: ref/cand differ by 0.035-3.5mm including TRANSLATION components (2.5mm), while the free DOFs are pure rotations (translation components ~1e-10) — the pose gap lies OFF the underdetermined manifold, not in it; verdict: blocked, canonical path exhausted (2026-10-12 compare evidence), requires upstream solver/ref investigation"
   },
   "tests.test_assembly:::test_constrain__nested_assy": {
     "status": "blocked",
@@ -1536,13 +1539,19 @@
     "status": "blocked",
     "source": "tests.test_assembly:::test_constrain",
     "blockedBy": "op:assembly-solve",
-    "manual": true
+    "manual": true,
+    "poseMode": "canonical-pose",
+    "poseFreeAxis": [1, 0, -1],
+    "reason": "underdetermined (dof=2, freeDirs = b2/b3 twisting about (1,0,-1)/sqrt2) BUT canonical channel does NOT converge: ref/cand differ by 0.035-3.5mm including TRANSLATION components (2.5mm), while the free DOFs are pure rotations (translation components ~1e-10) — the pose gap lies OFF the underdetermined manifold, not in it; verdict: blocked, canonical path exhausted (2026-10-12 compare evidence), requires upstream solver/ref investigation"
   },
   "tests.test_assembly:::test_constrain__subassy2": {
     "status": "blocked",
     "source": "tests.test_assembly:::test_constrain",
     "blockedBy": "op:assembly-solve",
-    "manual": true
+    "manual": true,
+    "poseMode": "canonical-pose",
+    "poseFreeAxis": [1, 0, -1],
+    "reason": "underdetermined (dof=2, freeDirs = b2/b3 twisting about (1,0,-1)/sqrt2) BUT canonical channel does NOT converge: ref/cand differ by 0.035-3.5mm including TRANSLATION components (2.5mm), while the free DOFs are pure rotations (translation components ~1e-10) — the pose gap lies OFF the underdetermined manifold, not in it; verdict: blocked, canonical path exhausted (2026-10-12 compare evidence), requires upstream solver/ref investigation"
   },
   "tests.test_assembly:::test_constrain__b1": {
     "status": "ported",
