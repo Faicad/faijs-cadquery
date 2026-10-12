@@ -40,6 +40,8 @@ interface SmokeCase {
   name: string
   /** 入库 ref fixture 文件名（tests/fixtures/ref/ 下）。 */
   refFile: string
+  /** 2D-only fixture（edge compound）：显式传 --include-2d 放行 STEP 导出。 */
+  include2D?: boolean
 }
 
 const CASES: SmokeCase[] = [
@@ -63,7 +65,9 @@ const CASES: SmokeCase[] = [
   { moduleDir: 'test_cadquery', name: 'TestCadQuery__testRevolveCut__box', refFile: 'tests.test_cadquery__TestCadQuery__testRevolveCut__box.step' },
   { moduleDir: 'test_cadquery', name: 'TestCadQuery__testTwistedLoft__s', refFile: 'tests.test_cadquery__TestCadQuery__testTwistedLoft__s.step' },
   // ── test_selectors：边 compound（STEP 导出 edge 分派锚点）──
-  { moduleDir: 'test_selectors', name: 'TestCQSelectors__testShape__res4', refFile: 'tests.test_selectors__TestCQSelectors__testShape__res4.step' },
+  // include2D：faijs 默认不导出 2D 终端（主项目策略），edge compound 属 2D-only，
+  // 显式放行走 STEP 规范形态（GEOMETRIC_CURVE_SET）。
+  { moduleDir: 'test_selectors', name: 'TestCQSelectors__testShape__res4', refFile: 'tests.test_selectors__TestCQSelectors__testShape__res4.step', include2D: true },
   // ── test_shapes：Shape 域自由函数 ──
   { moduleDir: 'test_shapes', name: 'test_isSolid__s', refFile: 'tests.test_shapes___test_isSolid__s.step' },
   { moduleDir: 'test_shapes', name: 'test_shells__s', refFile: 'tests.test_shapes___test_shells__s.step' },
@@ -81,11 +85,12 @@ const CASES: SmokeCase[] = [
 ]
 
 /** 导出候选 STEP（多导出变量时 CLI 产生 `<name>.step_N_<var>.step`，取第一个）。 */
-async function exportCandStep(mirror: string, outBase: string): Promise<string> {
+async function exportCandStep(mirror: string, outBase: string, include2D = false): Promise<string> {
   // 异步 spawn：同步 execFile 会阻塞 vitest worker 的 RPC 心跳（onTaskUpdate 超时）。
+  const extra = include2D ? ['--include-2d'] : []
   await execFileAsync(
     'npx',
-    ['tsx', CLI, 'run', mirror, '--out', outBase, '--mode', 'brep'],
+    ['tsx', CLI, 'run', mirror, '--out', outBase, '--mode', 'brep', ...extra],
     { cwd: PKG, shell: IS_WIN, maxBuffer: 16 * 1024 * 1024 },
   )
   const dir = dirname(outBase)
@@ -119,7 +124,7 @@ describe('parity smoke (阶段 D：30 个稳定 PASS 用例 vs 入库 ref fixtur
       mkdirSync(OUT_SMOKE, { recursive: true })
       const mirror = join(PKG, 'tests', c.moduleDir, `${c.name}.fai.js`)
       const outBase = join(OUT_SMOKE, `${c.name}.step`)
-      const candStep = await exportCandStep(mirror, outBase)
+      const candStep = await exportCandStep(mirror, outBase, c.include2D ?? false)
       const result = await compareStepFiles(candStep, join(FIXTURES, c.refFile), COMPARE_OPTIONS)
       const summary = {
         bbox: result.bbox.maxDiff,

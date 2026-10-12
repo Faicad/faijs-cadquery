@@ -16,7 +16,7 @@
 import { cliCheck, cliRun, parseArgs } from '@faicad/faijs/node'
 import { createApiNamespace } from '@faicad/faijs'
 
-const { command, file, out, mode, assetsDir, fontsDir, projectRoot, includeHidden } = parseArgs(process.argv)
+const { command, file, out, mode, assetsDir, fontsDir, projectRoot, includeHidden, include2D } = parseArgs(process.argv)
 
 const defaultFontPath = process.env.FAIJS_DEFAULT_FONT
 
@@ -55,6 +55,7 @@ if (command === 'run') {
     projectRoot,
     libs,
     includeHidden,
+    include2D,
     defaultFontPath,
   })
   if (result.ok) {

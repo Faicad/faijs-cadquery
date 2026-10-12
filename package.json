@@ -1,6 +1,6 @@
 {
   "name": "@faicad/faijs-cadquery",
-  "version": "0.29.5",
+  "version": "0.33.1",
   "type": "module",
   "license": "AGPL-3.0-only",
   "repository": {
@@ -48,17 +48,17 @@
     "autoLift": false
   },
   "peerDependencies": {
-    "@faicad/faijs": "^0.32.0",
-    "@faicad/faijs-extra": "^0.32.0",
-    "@faicad/faijs-sketch": "^0.32.0",
+    "@faicad/faijs": "^0.33.0",
+    "@faicad/faijs-extra": "^0.33.0",
+    "@faicad/faijs-sketch": "^0.33.0",
     "occt-wasm": "^5.6.0"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@faicad/cq-compat-compare": "^0.29.0",
-    "@faicad/faijs": "^0.32.0",
+    "@faicad/cq-compat-compare": "^0.33.0",
+    "@faicad/faijs": "^0.33.0",
     "@faicad/faijs-cadquery": "file:.",
-    "@faicad/faijs-extra": "^0.32.0",
+    "@faicad/faijs-extra": "^0.33.0",
     "@types/node": "^26.2.0",
     "@types/opentype.js": "^1.3.4",
     "eslint": "^10.8.1",
