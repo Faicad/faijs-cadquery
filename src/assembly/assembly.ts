@@ -29,9 +29,9 @@ import type { AssemblyConstraint, AssemblyTransform, BrepEngineApi, BrepHandle, 
 // the extension library — import it directly instead of probing `cad.assembly`
 // (which no longer exists on `createApiNamespace()`).
 import { assembly as assemblyOp } from '@faicad/faijs-extra/editor-ops'
-import { solveAssemblyTree } from '@faicad/faijs/api/assembly/solve-tree'
-import type { AssemblyNode } from '@faicad/faijs/api/assembly/solvers/assembly-tree'
-import { compound as compoundOp } from '@faicad/faijs/shape'
+import { solveAssemblyTree } from '../adapters/faijs'
+import type { AssemblyNode } from '../adapters/faijs'
+import { compound as compoundOp } from '../adapters/faijs'
 import { applyTransform, applyTransformBrep, brepOf, ensureSlot, getBackends, getSlot } from '../adapters/faijs'
 import type { RGB } from '../workplane'
 import { resolveFaceSelector, asBrepShape } from '../workplane'

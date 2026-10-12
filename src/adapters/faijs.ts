@@ -44,7 +44,7 @@ export {
 } from '@faicad/faijs'
 
 // ── shape / topology carriers ──────────────────────────────────────────────
-export { brepOf, ensureSlot, fromBrep, getSlot, isShape } from '@faicad/faijs/shape'
+export { brepOf, compound, ensureSlot, fromBrep, getSlot, isShape } from '@faicad/faijs/shape'
 export type { CompoundShape } from '@faicad/faijs/shape'
 export { fromHandle } from '@faicad/faijs/sdk'
 export type { BrepBoundingBox, BrepHandle } from '@faicad/faijs/brep/engine/types'
@@ -61,6 +61,8 @@ export type { AssemblyTransform } from '@faicad/faijs/runtime-state'
 // ── api surface ────────────────────────────────────────────────────────────
 export { createApiNamespace } from '@faicad/faijs/api/api-namespace'
 export type { AssemblyConstraint, EntityRef } from '@faicad/faijs/api/assembly/types'
+export { solveAssemblyTree } from '@faicad/faijs/api/assembly/solve-tree'
+export type { AssemblyNode } from '@faicad/faijs/api/assembly/solvers/assembly-tree'
 export { applyMatrixBrep } from '@faicad/faijs/api/brep-operations/topologyFns'
 export {
   resolveEdgeSelection,
