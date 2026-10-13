@@ -1567,7 +1567,8 @@
     "status": "blocked",
     "source": "tests.test_assembly:::test_constrain",
     "blockedBy": "op:assembly-solve",
-    "manual": true
+    "manual": true,
+    "reason": "two-layer diagnosis (2026-10-12 round 8): (1) recompose dropped the subassembly's root part — bake only descended into members, rootObj never entered leaves (CAND exported 3 solids vs ref 4); FIXED in assembly.ts bake (sub-assembly root shape now baked with the sub-assembly's own transform key and pushed to leaves) — after the fix CAND exports 4 solids. (2) REMAINING: solved pose gap — residuals=0 and nodeTransforms ≈ identity while ref moves SECOND from (0,4,0) to (2,-4,0.75); CQ test_assembly.py:1904 pins constraint sublocs[1] = the MEMBER's loc (constraint faces anchored per-member), our world-init prebake + direct shape entity resolution treats the init pose as already-satisfied → solver outputs identity. NOT the underdetermined family (dof=0, pose is uniquely determined) — needs the faijs solver-side sublocs semantics fix (separate specialty). Sibling test_constrain_with_tags__nested_assy PASSES after fix (bbox 0)."
   },
   "tests.test_assembly:::test_constrain__subassy1": {
     "status": "ported",

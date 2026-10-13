@@ -829,7 +829,25 @@ export function buildAssembly(
           const t = result.transforms[q]
           if (t) this.nodeTransforms[q] = t
           if (isCqAssembly(m.shape)) {
-            for (const cm of m.shape.members) bake(cm, q)
+            const sub = m.shape as CqAssembly
+            for (const cm of sub.members) bake(cm, q)
+            // 子装配的 root 几何件同样进 leaves —— 此前只下钻 members，rootObj
+            // 被丢弃（nested_assy 实测：toCompound 少 SECOND 的 root 件 b2，
+            // ref 有 4 solids、cand 只出 3）。root 件变换用子装配自身的键 q
+            // （recompose 已把父变换 ∘ 求解器变换合并进该节点）。
+            if (sub.rootObj) {
+              const rootShape = resolveAssemblyShape(sub.rootObj as Shape)
+              if (t) {
+                Object.assign(rootShape, applyTransform(rootShape, t.quaternion, t.pivot, t.translation, t.rotationMatrix))
+                if (kernel) {
+                  const solid = brepOf(rootShape) as BrepHandle | undefined
+                  if (solid) {
+                    ensureSlot(rootShape).solid = applyTransformBrep(kernel, solid, t.quaternion, t.pivot, t.translation)
+                  }
+                }
+              }
+              leaves.push(rootShape)
+            }
             return
           }
           const shape = resolveAssemblyShape(m.shape as Shape)
