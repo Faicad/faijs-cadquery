@@ -117,7 +117,41 @@ solveGlobal 内部：成员初值状态、resolveMarker 输出的 marker 坐标�
 W1 →（W2 → W3 → W4）串行；总量 **2.5-3.5 天**。W1 判决若指向方案 B，
 则 W2/W3 缩为纯本仓改动（不发版），排期减半。
 
-## 附录：W1 探针结论（待填）
+## 附录：W1 探针结论（2026-10-12 实测）
 
-- [ ] 判决：方案 A / B / 其他
-- [ ] marker 坐标 vs CQ sublocs 对照表
+探针：`.tmp-frame/probe-w1-sublocs.mts`（dist 导入路径变体 `.tmp-frame/probe-w1-dist.mts`
+——GOTCHA：tsx/vitest 直读 src/sketch.ts:1715 会触发其自带 esbuild 的 `Unexpected "..."`
+转译错误（字节级检查该文件本身无损伤、git 干净，属 tsx esbuild 版本问题）；探针类
+临时脚本一律改从 `dist/index.js` / `dist/assembly/index.js` 导入）。
+
+**最小复现**：root b1（fixed 锚）+ 成员 b2 带 loc (0,4,0)，仅 1 条 Plane 约束
+（TOP '>Z' vs SECOND.BOTTOM '<Z'——b2 的 <Z 面初始在 z=4，root 顶面 z=0.5，
+CQ 语义下 b2 必须移动 t_z≈-4）。
+
+**结果**：converged=true，residuals=[0,0]，SECOND: t=[0,0,0] q≈恒等——
+求解器认为约束已满足，零移动。
+
+### 判决：方案 A（faijs 求解器侧 sublocs 显式化）
+
+- 方案 B（本仓去预烘焙）被证伪：预烘焙同时服务实体解析（约束面引用按世界坐标
+  快照取自预烘焙几何）——去掉预烘焙则 marker 全部错位，问题搬家而非解决。
+- 方案 A 的注入点（W2 实施指引）：
+  1. `resolveMarker` 的 env 需携带成员 init loc；face/edge marker 几何减去
+     init loc（等价于把状态变量初值从恒等改为 init loc 的逆）。
+  2. `solveGlobal` 状态初值：成员 i 的初值 = init loc（而非恒等）——把烘焙掉
+     的那部分还给状态变量，残差恢复"待满足性"。
+  3. 输出 transforms 语义不变（仍是"相对初值的增量"或"绝对位姿"——按现有
+     composePose 约定，recompose 侧不动）。
+
+### marker vs CQ sublocs 对照表
+
+| 项 | CQ 基准 | 我方现状 | 修正后（方案 A） |
+|---|---|---|---|
+| sublocs 存储 | 约束对象记录成员 loc（test_assembly.py:1904 断言） | 无——loc 烘进 shape | env 携带成员 init loc |
+| 面 marker 坐标系 | 成员本地坐标 ∘ 面局部 | 预烘焙世界坐标 | 成员本地坐标（减 init loc） |
+| 状态变量初值 | identity（CQ solver 初值） | 恒等（= 预烘焙世界系） | 成员 init loc |
+| residual 初值 | 非零（b2 顶面 z=4 vs 0.5） | 0（假已满足） | 非零（恢复） |
+| nested_assy 解 | SECOND → (2,-4,0.75) | 恒等（FAIL） | 待 W4 实证 |
+
+- [x] 判决：方案 A
+- [x] marker 坐标 vs CQ sublocs 对照表
