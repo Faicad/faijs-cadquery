@@ -104,6 +104,9 @@ function main() {
         // P7/D2-3: human poseMode annotations (canonical-pose + free axis +
         // DOF evidence reason) survive regeneration — losing them would flip
         // underdetermined cases back to bitwise comparison (silent FAIL).
+        // P7/D5: carry the FULL annotation block (member pivots, rigid
+        // groups, reason, manual) — partial carries silently dropped
+        // poseMemberPivots/poseRigidGroups on regeneration.
         const poseMode = prior?.poseMode
         out[manifestKey] = {
           status: 'ported',
@@ -114,6 +117,10 @@ function main() {
                 poseMode,
                 ...(prior?.poseFreeAxis ? { poseFreeAxis: prior.poseFreeAxis } : {}),
                 ...(prior?.poseFreePivot ? { poseFreePivot: prior.poseFreePivot } : {}),
+                ...(prior?.poseMemberPivots ? { poseMemberPivots: prior.poseMemberPivots } : {}),
+                ...(prior?.poseRigidGroups ? { poseRigidGroups: prior.poseRigidGroups } : {}),
+                ...(prior?.reason ? { reason: prior.reason } : {}),
+                ...(prior?.manual ? { manual: prior.manual } : {}),
               }
             : {}),
         }

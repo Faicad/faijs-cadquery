@@ -70,8 +70,18 @@ async function main() {
     terminals.find((t) => (t.meta?.name ?? '') === 'result' || String(t.id).endsWith('result')) ??
     terminals[terminals.length - 1]
   if (!term) throw new Error('no terminal captured from mirror')
-  const handle =
-    execResult.brepSolids?.get(term.id)?.solid ?? brepOf(execResult.outputs.get(term.id))
+  // Prefer the LIVE shape slot (brepOf reads ensureSlot(...).solid, which
+  // asm.solve() bakes in place) over the runtime's captured brepSolids record:
+  // the record can hold the PRE-bake handle when the value was brep-converted
+  // before solve() ran (observed on subassy2: exported STEP stayed in the
+  // local frame at (0,0,0) while ref sits in the solved frame at x[-5,-2]).
+  let handle
+  try {
+    handle = brepOf(execResult.outputs.get(term.id))
+  } catch {
+    // not a shape wrapper (plain record) — fall through to the captured handle
+  }
+  handle = handle ?? execResult.brepSolids?.get(term.id)?.solid
   const raw = await initOcctWasm()
   const doc = raw.createXCAFDocument()
   try {

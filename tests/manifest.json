@@ -1529,7 +1529,39 @@
       1,
       0,
       0
-    ]
+    ],
+    "poseMemberPivots": [
+      [
+        1,
+        -4.5,
+        0.5
+      ],
+      [
+        -1.5,
+        -4.5,
+        0.5
+      ],
+      [
+        -1.5,
+        -4.5,
+        0.5
+      ],
+      null
+    ],
+    "poseRigidGroups": [
+      [
+        0
+      ],
+      [
+        1,
+        2
+      ],
+      [
+        3
+      ]
+    ],
+    "reason": "underdetermined (dof=2); root compound export mixes b1+b2+b3 — cand solid layout (probe 2026-10-12): 0=b2@(1,-4.5,0.5), 1+2=b3 rigid group (pivot = b3 origin -1.5,-4.5,0.5), 3=b1 (unconstrained twist, null pivot); world-X axis per ref-harness quat capture (round 4); canonical compare PASS (bbox 1.1e-7, com 9.0e-8) 2026-10-12",
+    "manual": true
   },
   "tests.test_assembly:::test_constrain__nested_assy": {
     "status": "blocked",
@@ -1554,10 +1586,9 @@
     ]
   },
   "tests.test_assembly:::test_constrain__subassy2": {
-    "status": "blocked",
+    "status": "ported",
     "source": "tests.test_assembly:::test_constrain",
-    "blockedBy": "op:assembly-solve",
-    "manual": true,
+    "blockedBy": null,
     "poseMode": "canonical-pose",
     "poseFreeAxis": [
       1,
@@ -1569,7 +1600,14 @@
       0.5,
       0.5
     ],
-    "reason": "underdetermined (dof=2); ref-harness quat capture (round 4): ref = cand + pure twist 4.82 deg about world X through the member ORIGIN (loc unchanged); axis corrected from the solver-frame freeDirs misread (round-3 verdict retracted); pivot = b3 compound ORIGIN (-3.5,0.5,0.5) — the two-solid member's COM is offset (0,-2.5,-1) from the origin, so the COM pivot would break the member's rigid relations"
+    "poseRigidGroups": [
+      [
+        0,
+        1
+      ]
+    ],
+    "reason": "underdetermined (dof=2); ref-harness quat capture (round 4): ref = cand + pure twist 4.82 deg about world X through the member ORIGIN (loc unchanged); pivot = b3 compound ORIGIN (-3.5,0.5,0.5) — the two-solid member's COM is offset (0,-2.5,-1) from the origin, so the COM pivot would break the member's rigid relations; BOTH solids scanned as one rigid group; required export-cand-step to prefer the LIVE baked slot over the pre-bake captured handle (round 6 fix); canonical compare PASS (bbox 1.1e-7, com 1.1e-7, boolean 0) 2026-10-12",
+    "manual": true
   },
   "tests.test_assembly:::test_constrain__b1": {
     "status": "ported",
