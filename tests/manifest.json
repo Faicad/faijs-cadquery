@@ -1521,22 +1521,15 @@
     "blockedBy": null
   },
   "tests.test_assembly:::test_constrain__simple_assy": {
-    "status": "blocked",
+    "status": "ported",
     "source": "tests.test_assembly:::test_constrain",
-    "blockedBy": "op:assembly-solve",
-    "manual": true,
+    "blockedBy": null,
     "poseMode": "canonical-pose",
     "poseFreeAxis": [
       1,
       0,
       0
-    ],
-    "poseFreePivot": [
-      -1,
-      0.5,
-      0.5
-    ],
-    "reason": "underdetermined (dof=2); ref-harness quat capture (round 4): ref = cand + pure twist 9.31 deg about world X through the member origin (loc unchanged); axis corrected from the solver-frame freeDirs misread (round-3 verdict retracted); pivot = b2 origin = COM (centered box)"
+    ]
   },
   "tests.test_assembly:::test_constrain__nested_assy": {
     "status": "blocked",

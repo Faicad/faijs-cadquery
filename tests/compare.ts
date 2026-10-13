@@ -68,6 +68,8 @@ interface PoseAnnotation {
   poseMode: string
   poseFreeAxis?: number[]
   poseFreePivot?: number[]
+  poseMemberPivots?: Array<number[] | null>
+  poseRigidGroups?: number[][]
 }
 
 function poseAnnotations(): Map<string, PoseAnnotation> {
@@ -76,7 +78,7 @@ function poseAnnotations(): Map<string, PoseAnnotation> {
   if (!existsSync(mpath)) return map
   const manifest = JSON.parse(readFileSync(mpath, 'utf-8')) as Record<
     string,
-    { status?: string; poseMode?: string; poseFreeAxis?: number[]; poseFreePivot?: number[] }
+    { status?: string; poseMode?: string; poseFreeAxis?: number[]; poseFreePivot?: number[]; poseMemberPivots?: Array<number[] | null>; poseRigidGroups?: number[][] }
   >
   for (const [key, entry] of Object.entries(manifest)) {
     if (entry.poseMode !== 'canonical-pose') continue
@@ -88,6 +90,8 @@ function poseAnnotations(): Map<string, PoseAnnotation> {
       poseMode: entry.poseMode,
       poseFreeAxis: entry.poseFreeAxis,
       poseFreePivot: entry.poseFreePivot,
+      poseMemberPivots: entry.poseMemberPivots,
+      poseRigidGroups: entry.poseRigidGroups,
     })
   }
   return map
@@ -157,6 +161,15 @@ async function main() {
           throw new Error(`[compare] ${candBase}: poseFreePivot must be a 3-component point on the free twist axis`)
         }
         poseOpts.canonicalPivot = { x: pose.poseFreePivot[0], y: pose.poseFreePivot[1], z: pose.poseFreePivot[2] }
+      }
+      if (pose.poseMemberPivots) {
+        // Per-solid pivots (null = fall back to that solid's COM).
+        poseOpts.canonicalMemberPivots = pose.poseMemberPivots.map((p) =>
+          p ? { x: p[0], y: p[1], z: p[2] } : null,
+        )
+      }
+      if (pose.poseRigidGroups) {
+        poseOpts.canonicalRigidGroups = pose.poseRigidGroups
       }
     }
     try {
