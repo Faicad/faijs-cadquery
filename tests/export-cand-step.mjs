@@ -46,13 +46,15 @@ async function main() {
     options: { autoLift: false, autoLiftFor: () => false },
   }
   const runtime = createRuntime(ports, 'brep')
-  runtime.registerLib('cad', createApiNamespace(), { default: true, packageName: '@faicad/faijs' })
+  // 0.33.6 reserves the `cad` namespace for the engine (E_CAD_RESERVED) — bind
+  // the API namespace under `cqx` instead (only the warmup references it).
+  runtime.registerLib('cqx', createApiNamespace(), { default: true, packageName: '@faicad/faijs' })
   // X-5: the host strips subpaths from import specifiers, so auto-load would
   // bind `cqa` to the cq ROOT package (no assembly exports). Pre-register the
   // real subpath namespace under its mirror binding name — autoLoad skips
   // bindings that already exist.
   runtime.registerLib('cqa', cqa, { autoLift: false, packageName: '@faicad/faijs-cadquery/assembly' })
-  const warm = await runtime.execute('let a = cad.box(1, 1, 1, { centered: true })')
+  const warm = await runtime.execute('let a = cqx.box(1, 1, 1, { centered: true })')
   if (warm.failedAt) throw new Error(`warmup failed: ${JSON.stringify(warm.failedAt)}`)
   const code = readFileSync(mirrorPath, 'utf-8')
   const entryKey = mirrorPath

@@ -1,5 +1,5 @@
 /**
- * Sketch �?CadQuery `Sketch.py` geometry-container parity (non-planegcs part).
+ * Sketch �?CadQuery `Sketch.py` geometry-container parity (non-planegcs part).
  *
  * Phase 2 of the cq-compat max-cadquery plan: expose a public Sketch API whose
  * geometry-declaration segment (rect/circle/ellipse/polygon + modes a/s/i/c/r +
@@ -20,7 +20,8 @@ import { getCqKernel } from './kernel'
 import { fromHandle } from './adapters/faijs'
 import {
   solveSketch, type SolveSketchOptions,
-  // 形状坐标数学的唯一实现（库面）——本兼容层只�?CadQuery 语法适配，不再自己算一套�?  regularPolygonVertices, slotOutline, trapezoidCorners, arcPoints, clampedUniformKnots,
+  // 形状坐标数学的唯一实现（库面）——本兼容层只�?CadQuery 语法适配，不再自己算一套�?
+  regularPolygonVertices, slotOutline, trapezoidCorners, arcPoints, clampedUniformKnots,
   CADQUERY_TO_CONSTRAINT_KIND, constraintKindFromCadQuery,
 } from '@faicad/faijs/sketch'
 import type {
@@ -229,7 +230,7 @@ function applyMode(
         k.release(all[i])
         acc = merged
       }
-      // GOTCHA: do NOT unifySameDomain here �?probed on cadquery 2.8.0, the
+      // GOTCHA: do NOT unifySameDomain here �?probed on cadquery 2.8.0, the
       // kernel fuse already matches upstream additive semantics exactly
       // (crossing slots: area 4.5708 over 5 subfaces), and unifying would
       // DESTROY the nested-face semantics (upstream rect(2,2)+rect(1,1)
@@ -291,10 +292,10 @@ function applyMode(
  * pushed locations; identity when no loci are pushed). Fresh faces released
  * on a/s/i/r paths.
  *
- * `applyLoci=false` skips the placement pass �?for derived declarations whose
+ * `applyLoci=false` skips the placement pass �?for derived declarations whose
  * fresh faces are ALREADY positioned in sketch coordinates (e.g. `offset`
  * offsets the selected wires in place; re-applying the loci would shift them
- * again �?GOTCHA: without this, circle(loc).wires().offset(-0.1) cut an
+ * again �?GOTCHA: without this, circle(loc).wires().offset(-0.1) cut an
  * offset face shifted to 2×loc instead of subtracting the in-place ring).
  */
 function commit(
@@ -333,13 +334,13 @@ function commit(
   const { faces, tagOut } = applyMode(k, sk.faces, placed, mode, tag)
   const tags = new Map(sk.tags)
   for (const [t, fs] of tagOut) tags.set(t, fs)
-  // `plane` (Workplane-layer binding) must survive the round-trip �?the
+  // `plane` (Workplane-layer binding) must survive the round-trip �?the
   // materializer in workplane.ts reads it at sketchFinish/placeSketch time.
   return { faces, tags, selected: sk.selected, locs: sk.locs, edges: sk.edges, constraints: sk.constraints, plane: sk.plane }
 }
 
 /**
- * rect �?CadQuery `Sketch.rect(w, h, angle, mode, tag)` parity.
+ * rect �?CadQuery `Sketch.rect(w, h, angle, mode, tag)` parity.
  * @param sk - Sketch
  * @param w - width along X
  * @param h - height along Y
@@ -354,7 +355,7 @@ export function rect(sk: Sketch, w: number, h: number, opts?: SketchOpts): Sketc
 }
 
 /**
- * circle �?CadQuery `Sketch.circle(r, mode, tag)` parity.
+ * circle �?CadQuery `Sketch.circle(r, mode, tag)` parity.
  * @param sk - Sketch
  * @param r - radius
  * @param opts - mode/tag
@@ -368,7 +369,7 @@ export function circle(sk: Sketch, r: number, opts?: SketchOpts): Sketch {
 }
 
 /**
- * ellipse �?CadQuery `Sketch.ellipse(a1, a2, angle, mode, tag)` parity.
+ * ellipse �?CadQuery `Sketch.ellipse(a1, a2, angle, mode, tag)` parity.
  * @param sk - Sketch
  * @param a1 - radius along X
  * @param a2 - radius along Y
@@ -383,7 +384,7 @@ export function ellipse(sk: Sketch, a1: number, a2: number, opts?: SketchOpts): 
 }
 
 /**
- * polygon �?CadQuery `Sketch.polygon(pts, angle, mode, tag)` parity.
+ * polygon �?CadQuery `Sketch.polygon(pts, angle, mode, tag)` parity.
  * @param sk - Sketch
  * @param pts - closed point list [[x,y],...]
  * @param opts - mode/tag/angle
@@ -397,7 +398,7 @@ export function polygon(sk: Sketch, pts: Array<[number, number]>, opts?: SketchO
 }
 
 /**
- * regularPolygon �?CadQuery `Sketch.regularPolygon(r, n, angle, mode, tag)`
+ * regularPolygon �?CadQuery `Sketch.regularPolygon(r, n, angle, mode, tag)`
  * parity: n-gon inscribed in radius r, first vertex at the +Y direction.
  * @param sk - Sketch
  * @param r - circumradius
@@ -406,13 +407,16 @@ export function polygon(sk: Sketch, pts: Array<[number, number]>, opts?: SketchO
  * @returns Sketch
  */
 export function regularPolygon(sk: Sketch, r: number, n: number, opts?: SketchOpts): Sketch {
-  // CadQuery �?regularPolygon 是「首顶点�?+Y、顺时针」——正是库�?  // `regularPolygonVertices(r, n, π/2, ccw=false)` 的约定（公式只在库面写一次）�?  const verts = regularPolygonVertices(r, n, Math.PI / 2, false)
-  const pts: Array<[number, number]> = verts.map(([x, y]) => [x, y])
-  pts.push(pts[0]!) // 闭合环（makePolygonFace 会丢掉重复点�?  return polygon(sk, pts, opts)
+  // CadQuery �?regularPolygon 是「首顶点�?+Y、顺时针」——正是库�?
+  // `regularPolygonVertices(r, n, π/2, ccw=false)` 的约定（公式只在库面写一次）�?
+  const verts = regularPolygonVertices(r, n, Math.PI / 2, false)
+  const pts: Array<[number, number]> = verts.map(([x, y]: [number, number]) => [x, y] as [number, number])
+  pts.push(pts[0]!) // 闭合环（makePolygonFace 会丢掉重复点�?
+  return polygon(sk, pts, opts)
 }
 
 /**
- * slot �?CadQuery `Sketch.slot(w, h, angle, mode, tag)` parity: stadium / long
+ * slot �?CadQuery `Sketch.slot(w, h, angle, mode, tag)` parity: stadium / long
  * slot face of length w and width h, centred at origin.
  * @param sk - Sketch
  * @param w - slot length along X
@@ -423,13 +427,15 @@ export function regularPolygon(sk: Sketch, r: number, n: number, opts?: SketchOp
 export function slot(sk: Sketch, w: number, h: number, opts?: SketchOpts): Sketch {
   const k = kernel()
   const mode = opts?.mode ?? 'a'
-  // 直边与端半圆的坐标全部来自库�?`slotOutline`（它�?`d` 就是 CQ �?`h`）；本层
-  // 只把结果接成与既有链序一致的四条边：上直�?�?右端�?�?下直�?�?左端弧�?  const o = slotOutline(w, h)
+  // 直边与端半圆的坐标全部来自库�?`slotOutline`（它�?`d` 就是 CQ �?`h`）；本层
+  // 只把结果接成与既有链序一致的四条边：上直�?�?右端�?�?下直�?�?左端弧�?
+  const o = slotOutline(w, h)
   const lineOf = (a: [number, number], b: [number, number]): ShapeHandle =>
     k.makeLineEdge(v3(a[0], a[1], 0), v3(b[0], b[1], 0))
   const arcOf = (arc: { c: [number, number]; r: number; a0: number; a1: number }): ShapeHandle => {
-    // 库面给的是逆时�?a0→a1；本容器的链序要顺着走同一条弧的反向，三点取反即可
-    // （同一段弧反向走，半程点是同一个点）�?    const p = arcPoints(arc.c, arc.r, arc.a0, arc.a1, true)
+    // 库面给的是逆时�?a0→a1；本容器的链序要顺着走同一条弧的反向，三点取反即可
+    // （同一段弧反向走，半程点是同一个点）�?
+    const p = arcPoints(arc.c, arc.r, arc.a0, arc.a1, true)
     return k.makeArcEdge(
       v3(p.end[0], p.end[1], 0), v3(p.mid[0], p.mid[1], 0), v3(p.start[0], p.start[1], 0),
     )
@@ -446,7 +452,7 @@ export function slot(sk: Sketch, w: number, h: number, opts?: SketchOpts): Sketc
 }
 
 /**
- * trapezoid �?CadQuery `Sketch.trapezoid(w, h, a1, a2, angle, mode, tag)`
+ * trapezoid �?CadQuery `Sketch.trapezoid(w, h, a1, a2, angle, mode, tag)`
  * parity: isosceles-or-not trapezoid; a1/a2 are the base angles in degrees.
  * @param sk - Sketch
  * @param w - bottom width
@@ -458,14 +464,15 @@ export function slot(sk: Sketch, w: number, h: number, opts?: SketchOpts): Sketc
  */
 export function trapezoid(sk: Sketch, w: number, h: number, a1: number, a2?: number, opts?: SketchOpts): Sketch {
   const a2v = a2 ?? a1
-  // CQ �?a1/a2 �?*�?*，库�?`trapezoidCorners` 是弧度（�?canonical 同单位）—�?  // 度→弧度�?CadQuery 边界的事，角点数学只在库面写一次�?  const corners = trapezoidCorners(w, h, (a1 * Math.PI) / 180, (a2v * Math.PI) / 180)
-  const ring: Array<[number, number]> = corners.map(([x, y]) => [x, y])
+  // CQ �?a1/a2 �?*�?*，库�?`trapezoidCorners` 是弧度（�?canonical 同单位）—�?  // 度→弧度�?CadQuery 边界的事，角点数学只在库面写一次�?
+  const corners = trapezoidCorners(w, h, (a1 * Math.PI) / 180, (a2v * Math.PI) / 180)
+  const ring: Array<[number, number]> = corners.map(([x, y]: [number, number]) => [x, y] as [number, number])
   ring.push(ring[0]!)
   return polygon(sk, ring, opts)
 }
 
 /**
- * offset �?CadQuery `Sketch.offset(d, mode, tag)` parity: offset each selected
+ * offset �?CadQuery `Sketch.offset(d, mode, tag)` parity: offset each selected
  * wire by d and feed the resulting faces through the given mode. Requires a
  * selection (wires()/edges()).
  * @param sk - Sketch
@@ -485,17 +492,17 @@ export function offset(sk: Sketch, d: number, opts?: SketchOpts): Sketch {
     fresh.push(f)
   }
   // The offset faces are derived from the SELECTED wires (already placed in
-  // sketch coordinates), so the mode pass must NOT re-apply the loci �?  // otherwise an offset face at loc would be shifted again (see commit JSDoc).
+  // sketch coordinates), so the mode pass must NOT re-apply the loci �?  // otherwise an offset face at loc would be shifted again (see commit JSDoc).
   return commit(sk, mode, opts?.tag, fresh, false)
 }
 
 /**
- * faces �?CadQuery `Sketch.faces()` selector parity: select current faces.
+ * faces �?CadQuery `Sketch.faces()` selector parity: select current faces.
  * @param sk - Sketch
  * @returns Sketch (selected faces feed the next geometric declaration)
  */
 /**
- * Upstream `_NthSelector` cluster tolerance �?`DirectionMinMaxSelector` (the
+ * Upstream `_NthSelector` cluster tolerance �?`DirectionMinMaxSelector` (the
  * `>X` / `<X` string forms) inherits it, so near-ties inside 1e-4 collapse into
  * ONE cluster and are all returned together.
  */
@@ -507,7 +514,7 @@ const NTH_TOLERANCE = 1e-4
  * selectors use), limited to the direction-extreme subset plus boolean
  * composition. Two things upstream and only upstream decides:
  *
- *  - the ordering key is `Center()` �?the TYPE-DISPATCHED mass centre (see
+ *  - the ordering key is `Center()` �?the TYPE-DISPATCHED mass centre (see
  *    `centerOf`), not the bbox centre. For a triangle face / L-shaped wire /
  *    circular arc the two differ by millimetres, which flips which element
  *    `>X` picks (probe-verified, `sketch-selectors.test.ts`);
@@ -558,7 +565,7 @@ function applyStringSelector(els: ShapeHandle[], expr: string): ShapeHandle[] {
   const evalTerm = (els: ShapeHandle[], term: string): ShapeHandle[] => {
     const trimmed = term.trim()
     if (trimmed.startsWith('not ')) {
-      // upstream: SubtractSelector(Selector(), term) �?complement over the SAME
+      // upstream: SubtractSelector(Selector(), term) �?complement over the SAME
       // full candidate list (set difference, so output order is not meaningful).
       const excluded = new Set(evalCond(els, trimmed.slice(4).trim()))
       return els.filter((el) => !excluded.has(el))
@@ -566,7 +573,7 @@ function applyStringSelector(els: ShapeHandle[], expr: string): ShapeHandle[] {
     const parts = trimmed.split(' and ').map((p) => p.trim())
     if (parts.length === 1) return evalCond(els, parts[0])
     // upstream AndSelector: EVERY operand is applied to the SAME full list and
-    // the results are intersected �?they do not chain into one another.
+    // the results are intersected �?they do not chain into one another.
     let out: ShapeHandle[] | null = null
     for (const p of parts) {
       const hit = new Set(evalCond(els, p))
@@ -619,7 +626,7 @@ function selectCore(sk: Sketch, kind: 'face' | 'wire' | 'edge' | 'vertex', sel?:
 }
 
 /**
- * faces �?CadQuery `Sketch.faces(selector)` parity: keep only faces.
+ * faces �?CadQuery `Sketch.faces(selector)` parity: keep only faces.
  * @param sk - Sketch
  * @param sel - string-selector expression applied to the raw face selection
  * @param tag - select from a named tag's payload instead
@@ -630,7 +637,7 @@ export function faces(sk: Sketch, sel?: string, tag?: string): Sketch {
 }
 
 /**
- * wires �?CadQuery `Sketch.wires(selector)` parity: keep only wires.
+ * wires �?CadQuery `Sketch.wires(selector)` parity: keep only wires.
  * @param sk - Sketch
  * @param sel - string-selector expression applied to the raw wire selection
  * @param tag - select from a named tag's payload instead
@@ -643,7 +650,7 @@ export function wires(sk: Sketch, sel?: string, tag?: string): Sketch {
 }
 
 /**
- * edges �?CadQuery `Sketch.edges(selector)` parity: keep only edges.
+ * edges �?CadQuery `Sketch.edges(selector)` parity: keep only edges.
  * @param sk - Sketch
  * @param sel - string-selector expression applied to the raw edge selection
  * @param tag - select from a named tag's payload instead
@@ -654,7 +661,7 @@ export function edges(sk: Sketch, sel?: string, tag?: string): Sketch {
 }
 
 /**
- * vertices �?CadQuery `Sketch.vertices(selector)` parity: keep only vertices.
+ * vertices �?CadQuery `Sketch.vertices(selector)` parity: keep only vertices.
  * @param sk - Sketch
  * @param sel - string-selector expression applied to the raw vertex selection
  * @param tag - select from a named tag's payload instead
@@ -671,7 +678,7 @@ function filterSel(els: ShapeHandle[], sel?: string): ShapeHandle[] {
 }
 
 /**
- * reset �?CadQuery `Sketch.reset()` parity: clear the selection.
+ * reset �?CadQuery `Sketch.reset()` parity: clear the selection.
  * @param sk - Sketch
  * @returns Sketch with no selection and no placement loci
  * @remarks Upstream loci mirror the selection-locations, so clearing the
@@ -682,7 +689,7 @@ export function reset(sk: Sketch): Sketch {
 }
 
 /**
- * val �?CadQuery `Sketch.val()` parity: first effective face as a Shape.
+ * val �?CadQuery `Sketch.val()` parity: first effective face as a Shape.
  * @param sk - Sketch
  * @returns Shape
  */
@@ -693,7 +700,7 @@ export function val(sk: Sketch): ShapeHandle {
 }
 
 /**
- * vals �?CadQuery `Sketch.vals()` parity: the current selection, or the
+ * vals �?CadQuery `Sketch.vals()` parity: the current selection, or the
  * flattened topological faces when nothing is selected (upstream returns the
  * `_faces` faces; a fused handle may hold several).
  * @param sk - Sketch
@@ -711,7 +718,7 @@ export function vals(sk: Sketch): ShapeHandle[] {
 }
 
 /**
- * tag �?CadQuery `Sketch.tag(name)` parity: store the current selection (or all
+ * tag �?CadQuery `Sketch.tag(name)` parity: store the current selection (or all
  * faces when nothing selected) under a name for later `.select()`.
  * @param sk - Sketch
  * @param name - tag name
@@ -725,7 +732,7 @@ export function tag(sk: Sketch, name: string): Sketch {
 }
 
 /**
- * select �?CadQuery `Sketch.select(tag)` parity: select the faces stored under
+ * select �?CadQuery `Sketch.select(tag)` parity: select the faces stored under
  * a tag.
  * @param sk - Sketch
  * @param name - tag name
@@ -738,7 +745,7 @@ export function select(sk: Sketch, name: string): Sketch {
 }
 
 /**
- * area �?total surface area of the effective faces (upstream `_faces.Area()`).
+ * area �?total surface area of the effective faces (upstream `_faces.Area()`).
  * @param sk - Sketch
  * @returns number
  */
@@ -750,7 +757,7 @@ export function area(sk: Sketch): number {
 }
 
 /**
- * faceCount �?number of effective faces (upstream `_faces.Faces()` length).
+ * faceCount �?number of effective faces (upstream `_faces.Faces()` length).
  * @param sk - Sketch
  * @returns number
  */
@@ -762,8 +769,8 @@ export function faceCount(sk: Sketch): number {
 }
 
 /**
- * extrude �?CadQuery `Sketch` �?solid via extrusion along +Z. Phase 2 action 3:
- * sketch �?extrude/revolve dual-chain outlet. This is the brep side
+ * extrude �?CadQuery `Sketch` �?solid via extrusion along +Z. Phase 2 action 3:
+ * sketch �?extrude/revolve dual-chain outlet. This is the brep side
  * (kernel.extrude on each effective face, fused into one solid).
  * @param sk - Sketch
  * @param height - extrusion height
@@ -793,7 +800,7 @@ export function extrude(sk: Sketch, height: number): ShapeHandle {
 }
 
 /**
- * face �?CadQuery `Sketch.face(b, angle, mode, tag)` parity: build a face from
+ * face �?CadQuery `Sketch.face(b, angle, mode, tag)` parity: build a face from
  * a wire handle, a list of edge handles, or an existing face handle, rotate by
  * `angle` degrees about Z, then feed through the mode at the current loci.
  * @param sk - Sketch
@@ -883,7 +890,7 @@ function chainEdgesToWires(k: OcctKernel, edges: ShapeHandle[]): ShapeHandle[] {
     if (samePt(start, end) && chain.length >= 1) {
       wires.push(k.makeWire(chain))
     } else if (chain.length) {
-      // open chain �?release nothing, drop it (upstream raises; the caller
+      // open chain �?release nothing, drop it (upstream raises; the caller
       // surfaces "Edges do not form closed wires" when nothing closed remains)
       for (const c of chain) k.release(c)
     }
@@ -917,7 +924,7 @@ function samePt(a: Pt2, b: Pt2): boolean {
 }
 
 /**
- * push �?CadQuery `Sketch.push(locs, tag)` parity: set the current selection to
+ * push �?CadQuery `Sketch.push(locs, tag)` parity: set the current selection to
  * the given locations (2D points).
  * @param sk - Sketch
  * @param locs - 2D points
@@ -936,7 +943,7 @@ export function push(sk: Sketch, locs: Array<Pt2 | { x: number; y: number }>, ta
 }
 
 /**
- * edge �?CadQuery `Sketch.edge(val, tag, forConstruction)` parity: add a
+ * edge �?CadQuery `Sketch.edge(val, tag, forConstruction)` parity: add a
  * pre-built edge handle to the pending edge list.
  * @param sk - Sketch
  * @param val - edge handle (1D kernel shape)
@@ -951,8 +958,8 @@ export function edge(sk: Sketch, val: ShapeHandle, tag?: string, forConstruction
 }
 
 /**
- * segment �?CadQuery `Sketch.segment` parity with the three upstream overloads:
- * (p1, p2), (p2 only �?continues from the current end point), (length, angle).
+ * segment �?CadQuery `Sketch.segment` parity with the three upstream overloads:
+ * (p1, p2), (p2 only �?continues from the current end point), (length, angle).
  * @param sk - Sketch
  * @param aOrP1 - p2 point (1st overload), p1 point, or segment length
  * @param bOrP2 - p2 point, angle (deg), or opts
@@ -980,7 +987,7 @@ export function segment(
     p1 = aOrP1
     p2 = bOrP2
   } else if (isPt(aOrP1)) {
-    // (p2 [, opts]) �?continue from the current end point. GOTCHA: an options
+    // (p2 [, opts]) �?continue from the current end point. GOTCHA: an options
     // object in the SECOND position must not be read as a point; upstream
     // dispatches on types (`@multimethod`), and `segment([0,1], tag='e')` means
     // "to (0,1) from the current end point", NOT "from (0,1) to the tag object".
@@ -995,7 +1002,7 @@ export function segment(
 }
 
 /**
- * arc �?CadQuery `Sketch.arc` parity with the three upstream overloads:
+ * arc �?CadQuery `Sketch.arc` parity with the three upstream overloads:
  * (p1, p2, p3) three-point arc, (p2, p3) continuing from the current end point,
  * (c, r, a, da) center/radius/start-angle/sweep. `da` >= 360 yields a full circle.
  * @param sk - Sketch
@@ -1028,7 +1035,8 @@ export function arc(
       canon = { kind: 'circle', cx, cy, r }
       e = start
     } else {
-      // 三点弧的取点走库�?`arcPoints`（deg→rad �?CadQuery 边界的事）�?      const p = arcPoints([cx, cy], r, (a0 * Math.PI) / 180, ((a0 + da) * Math.PI) / 180, da > 0)
+      // 三点弧的取点走库�?`arcPoints`（deg→rad �?CadQuery 边界的事）�?
+      const p = arcPoints([cx, cy], r, (a0 * Math.PI) / 180, ((a0 + da) * Math.PI) / 180, da > 0)
       e = k.makeArcEdge(
         v3(p.start[0], p.start[1], 0), v3(p.mid[0], p.mid[1], 0), v3(p.end[0], p.end[1], 0),
       )
@@ -1055,7 +1063,7 @@ export function arc(
 }
 
 /**
- * spline �?CadQuery `Sketch.spline(pts, tangents?, periodic?, tag?, forConstruction?)`
+ * spline �?CadQuery `Sketch.spline(pts, tangents?, periodic?, tag?, forConstruction?)`
  * parity: interpolating B-spline edge through the given points.
  * @param sk - Sketch
  * @param pts - interpolation points
@@ -1066,14 +1074,15 @@ export function spline(sk: Sketch, pts: Pt2[], opts?: SketchEdgeOpts & { periodi
   const k = kernel()
   if (pts.length < 2) throw new Error('spline needs at least 2 points')
   // Interpolating spline via BSpline poles is not directly exposed; approximate
-  // with a C2 BSpline built from the points as poles is wrong �?use the kernel's
+  // with a C2 BSpline built from the points as poles is wrong �?use the kernel's
   // makeBSplineEdge with a uniform knot vector over the given points (control
   // polygon approximation is NOT upstream-exact; documented in the Agent Note).
   const flat: number[] = []
   for (const p of pts) flat.push(p[0], p[1], 0)
   const n = pts.length
   const degree = Math.min(3, n - 1)
-  // 钳位均匀节点向量由库面给出（�?canonical bspline 载荷同一实现）�?  // 下面�?*方言换算**而非几何数学：OCCT �?makeBSplineEdge 要「去重�?+ 多重度�?  // 两个平行数组，库面给的是展开后的整条向量 —�?只做 run-length 拆分�?  const knots = clampedUniformKnots(n, degree)
+  // 钳位均匀节点向量由库面给出（�?canonical bspline 载荷同一实现）�?  // 下面�?*方言换算**而非几何数学：OCCT �?makeBSplineEdge 要「去重�?+ 多重度�?  // 两个平行数组，库面给的是展开后的整条向量 —�?只做 run-length 拆分�?
+  const knots = clampedUniformKnots(n, degree)
   const uniq: number[] = []
   const uniqMults: number[] = []
   for (const t of knots) {
@@ -1088,7 +1097,7 @@ export function spline(sk: Sketch, pts: Pt2[], opts?: SketchEdgeOpts & { periodi
 }
 
 /**
- * bezier �?CadQuery `Sketch.bezier(pts, tag, forConstruction)` parity: the edge
+ * bezier �?CadQuery `Sketch.bezier(pts, tag, forConstruction)` parity: the edge
  * passes through the last point; inner points are control points.
  * @param sk - Sketch
  * @param pts - control points (edge ends at the last one)
@@ -1104,7 +1113,7 @@ export function bezier(sk: Sketch, pts: Pt2[], opts?: SketchEdgeOpts): Sketch {
 }
 
 /**
- * close �?CadQuery `Sketch.close(tag)` parity: connect the last edge back to
+ * close �?CadQuery `Sketch.close(tag)` parity: connect the last edge back to
  * the first one with a straight segment.
  * @param sk - Sketch
  * @param tag - optional tag for the closing segment
@@ -1115,8 +1124,8 @@ export function close(sk: Sketch, tag?: string): Sketch {
 }
 
 /**
- * assemble �?CadQuery `Sketch.assemble(mode, tag)` parity: build faces from the
- * pending non-construction edges (edges �?wires �?face with holes). Edges are
+ * assemble �?CadQuery `Sketch.assemble(mode, tag)` parity: build faces from the
+ * pending non-construction edges (edges �?wires �?face with holes). Edges are
  * chained by their endpoints; the longest closed wire is the outer boundary,
  * the rest become holes. Non-closed edge sets throw (upstream ValueError).
  * @param sk - Sketch
@@ -1148,7 +1157,7 @@ export function assemble(sk: Sketch, opts?: SketchOpts): Sketch {
 }
 
 /**
- * add �?CadQuery `Sketch.add()` parity: fuse the selected faces into the
+ * add �?CadQuery `Sketch.add()` parity: fuse the selected faces into the
  * underlying faces (no-op without a selection).
  * @param sk - Sketch
  * @returns Sketch
@@ -1171,7 +1180,7 @@ export function add(sk: Sketch): Sketch {
 }
 
 /**
- * subtract �?CadQuery `Sketch.subtract()` parity: cut the selected faces from
+ * subtract �?CadQuery `Sketch.subtract()` parity: cut the selected faces from
  * the underlying faces (no-op without a selection).
  * @param sk - Sketch
  * @returns Sketch
@@ -1194,7 +1203,7 @@ export function subtract(sk: Sketch): Sketch {
 // ---------------------------------------------------------------------------
 
 /**
- * rarray �?CadQuery `Sketch.rarray(xs, ys, nx, ny)` parity: rectangular array
+ * rarray �?CadQuery `Sketch.rarray(xs, ys, nx, ny)` parity: rectangular array
  * of locations; the array is centred so the overall bounding box is symmetric.
  * @param sk - Sketch
  * @param xs - x spacing
@@ -1223,14 +1232,14 @@ export function rarray(sk: Sketch, xs: number, ys: number, nx: number, ny: numbe
   return push(sk, locs.map((p) => [p.x, p.y] as Pt2))
 }
 
-/** 2D placement centre of a selection element (bbox centre �?vertices have no COM). */
+/** 2D placement centre of a selection element (bbox centre �?vertices have no COM). */
 function centreOf(k: OcctKernel, h: ShapeHandle): Loc2 {
   const bb = k.getBoundingBox(h)
   return { x: (bb.xmin + bb.xmax) / 2, y: (bb.ymin + bb.ymax) / 2 }
 }
 
 /**
- * parray �?CadQuery `Sketch.parray(r, a1, da, n, rotate)` parity: polar array
+ * parray �?CadQuery `Sketch.parray(r, a1, da, n, rotate)` parity: polar array
  * of locations on a circle of radius r from angle a1 sweeping da degrees
  * (full-circle sweep divides evenly), each optionally rotated to face outward.
  * @param sk - Sketch
@@ -1259,7 +1268,7 @@ export function parray(sk: Sketch, r: number, a1: number, da: number, n: number,
     const x = r * Math.cos((phi * Math.PI) / 180)
     const y = r * Math.sin((phi * Math.PI) / 180)
     for (const b of base) {
-      // loc = translate(r,phi) �?rotate(phi if rotate) �?element centre
+      // loc = translate(r,phi) �?rotate(phi if rotate) �?element centre
       const rad = (phi * Math.PI) / 180
       const bx = rotate ? b.x * Math.cos(rad) - b.y * Math.sin(rad) : b.x
       const by = rotate ? b.x * Math.sin(rad) + b.y * Math.cos(rad) : b.y
@@ -1270,7 +1279,7 @@ export function parray(sk: Sketch, r: number, a1: number, da: number, n: number,
 }
 
 /**
- * distribute �?CadQuery `Sketch.distribute(n, start, stop, rotate)` parity:
+ * distribute �?CadQuery `Sketch.distribute(n, start, stop, rotate)` parity:
  * place n locations along the selected edges/wires at parameters start..stop
  * (evenly for closed selections, including both endpoints for open ones).
  * @param sk - Sketch
@@ -1315,7 +1324,7 @@ export function distribute(sk: Sketch, n: number, start = 0, stop = 1, rotate = 
 // ---------------------------------------------------------------------------
 
 /**
- * moved �?CadQuery `Sketch.moved(x, y, rx?, ry?, rz?)` parity (vector overload):
+ * moved �?CadQuery `Sketch.moved(x, y, rx?, ry?, rz?)` parity (vector overload):
  * partial copy with all faces translated by (x, y) (z ignored for 2D sketches)
  * and optionally rotated about Z.
  * @param sk - Sketch
@@ -1339,7 +1348,7 @@ export function moved(sk: Sketch, x: number, y: number, rz = 0, dz = 0): Sketch 
 }
 
 /**
- * located �?CadQuery `Sketch.located(loc)` parity: partial copy whose faces are
+ * located �?CadQuery `Sketch.located(loc)` parity: partial copy whose faces are
  * placed at the given location (2D translation + optional Z rotation).
  * @param sk - Sketch
  * @param x - translation along X
@@ -1359,7 +1368,7 @@ export function located(sk: Sketch, x: number, y: number, angle = 0): Sketch {
 }
 
 /**
- * copy �?CadQuery `Sketch.copy()` parity: partial copy of the faces (edges and
+ * copy �?CadQuery `Sketch.copy()` parity: partial copy of the faces (edges and
  * constraints are not copied).
  * @param sk - Sketch
  * @returns Sketch
@@ -1371,7 +1380,7 @@ export function copy(sk: Sketch): Sketch {
 }
 
 /**
- * delete �?CadQuery `Sketch.delete()` parity: remove the selected faces or
+ * delete �?CadQuery `Sketch.delete()` parity: remove the selected faces or
  * edges from the sketch (faces are matched by identity of their topological
  * sub-faces; the selection is reset).
  * @param sk - Sketch
@@ -1422,7 +1431,7 @@ function sameHandle(k: OcctKernel, a: ShapeHandle, b: ShapeHandle): boolean {
 }
 
 /**
- * replace �?CadQuery `Sketch.replace()` parity: replace the underlying faces
+ * replace �?CadQuery `Sketch.replace()` parity: replace the underlying faces
  * with the selected faces.
  * @param sk - Sketch
  * @returns Sketch
@@ -1436,7 +1445,7 @@ export function replace(sk: Sketch): Sketch {
 }
 
 /**
- * fillet �?CadQuery `Sketch.fillet(d)` parity: 2D fillet at the selected
+ * fillet �?CadQuery `Sketch.fillet(d)` parity: 2D fillet at the selected
  * vertices. The kernel does not expose BRepFilletAPI_MakeFillet2d, so this is
  * implemented by rebuilding the affected faces: each selected vertex is
  * replaced by an arc of radius d tangent to its two adjacent edges.
@@ -1449,7 +1458,7 @@ export function fillet(sk: Sketch, d: number): Sketch {
 }
 
 /**
- * chamfer �?CadQuery `Sketch.chamfer(d)` parity: 2D chamfer at the selected
+ * chamfer �?CadQuery `Sketch.chamfer(d)` parity: 2D chamfer at the selected
  * vertices (straight cut of length d along each adjacent edge).
  * @param sk - Sketch
  * @param d - chamfer distance
@@ -1508,7 +1517,7 @@ function rebuildFaceWithCorners(
       const bb = k.getBoundingBox(v)
       return Math.hypot(bb.xmin - p[0], bb.ymin - p[1]) < 1e-7
     })
-  // walk the ring: each edge start→end; order edges so end[i] �?start[i+1]
+  // walk the ring: each edge start→end; order edges so end[i] �?start[i+1]
   const ring: Array<{ a: Pt2; b: Pt2; arcMid?: Pt2 }> = []
   const remaining = [...edges]
   const cur = remaining.shift()!
@@ -1572,7 +1581,7 @@ function rebuildFaceWithCorners(
       newEdges.push(k.makeLineEdge(v3(c.prev[0], c.prev[1], 0), v3(c.next[0], c.next[1], 0)))
     } else {
       // Tangent fillet arc: the mid point sits on the angle bisector at depth
-      // d*(1/sin(θ/2) �?1) from the corner �?exact for a radius-d tangent arc.
+      // d*(1/sin(θ/2) �?1) from the corner �?exact for a radius-d tangent arc.
       const mx = (c.prev[0] + c.next[0]) / 2
       const my = (c.prev[1] + c.next[1]) / 2
       const vx = mx - c.at[0]
@@ -1607,7 +1616,7 @@ function trimPoint(a: Pt2, b: Pt2, dist: number): Pt2 {
 }
 
 /**
- * clean �?CadQuery `Sketch.clean()` parity: unify same-domain faces to remove
+ * clean �?CadQuery `Sketch.clean()` parity: unify same-domain faces to remove
  * internal wires left over from fuses (upstream `_faces.clean()`).
  * @param sk - Sketch
  * @returns Sketch
@@ -1619,7 +1628,7 @@ export function clean(sk: Sketch): Sketch {
 }
 
 /**
- * hull �?CadQuery `Sketch.hull(mode, tag)` parity: convex hull of the selected
+ * hull �?CadQuery `Sketch.hull(mode, tag)` parity: convex hull of the selected
  * edges' endpoints (or of all face edges when nothing is selected), built as
  * a face and fed through the mode.
  * @param sk - Sketch
@@ -1630,7 +1639,7 @@ export function hull(sk: Sketch, opts?: SketchOpts): Sketch {
   const k = kernel()
   let edges: ShapeHandle[]
   if (sk.selected.length) {
-    // selection may hold faces, wires, edges or vertices �?flatten to edges
+    // selection may hold faces, wires, edges or vertices �?flatten to edges
     edges = []
     for (const h of sk.selected) {
       const es = k.getSubShapes(h, 'edge') as unknown as ShapeHandle[]
@@ -1656,7 +1665,7 @@ export function hull(sk: Sketch, opts?: SketchOpts): Sketch {
 }
 
 /**
- * hullFromPoints �?CadQuery `Sketch.hullFromPoints(points, mode, tag)` parity:
+ * hullFromPoints �?CadQuery `Sketch.hullFromPoints(points, mode, tag)` parity:
  * convex hull face from a 2D point cloud, fed through the mode.
  * @param sk - Sketch
  * @param points - 2D points
@@ -1686,7 +1695,7 @@ export function hullFromPoints(sk: Sketch, points: Pt2[], opts?: SketchOpts): Sk
 }
 
 // ---------------------------------------------------------------------------
-// Constraint segment (upstream constrain/solve/finalize) �?planegcs via
+// Constraint segment (upstream constrain/solve/finalize) �?planegcs via
 // @faicad/faijs/sketch. Under-/over-constraint surface as explicit statuses;
 // conflicting constraints throw (no silent baking, feasibility §10.6).
 // ---------------------------------------------------------------------------
@@ -1702,7 +1711,7 @@ export interface SketchConstrainSpec {
 }
 
 /**
- * constrain �?CadQuery `Sketch.constrain(...)` parity: declare a constraint
+ * constrain �?CadQuery `Sketch.constrain(...)` parity: declare a constraint
  * between tagged entities. Validation mirrors upstream: unknown tags and
  * unknown constraint kinds throw immediately.
  * @param sk - Sketch
@@ -1711,7 +1720,8 @@ export interface SketchConstrainSpec {
  */
 export function constrain(sk: Sketch, spec: SketchConstrainSpec): Sketch {
   // 名字表来自库面（`CADQUERY_TO_CONSTRAINT_KIND` = planegcs 桥能表达的那 8 种，
-  // �?`fixed` 的两�?CadQuery 拼法）；上游还接受但桥不支持的名字在下面补齐�?  // 这样"名字是否合法"�?能否桥接"两个判断不各写一份表�?  const KNOWN = new Set([
+  // 这样"名字是否合法"与"能否桥接"两个判断不各写一份表。
+  const KNOWN = new Set([
     ...Object.keys(CADQUERY_TO_CONSTRAINT_KIND),
     'Horizontal', 'Vertical', 'Parallel', 'Perpendicular', 'Tangent',
     'DistanceX', 'DistanceY', 'Diameter', 'Equal',
@@ -1770,8 +1780,10 @@ function toCanonical(sk: Sketch): { geoms: SketchGeom[]; constraints: CanonicalC
   for (const c of sk.constraints) {
     const [t1, t2] = c.tags
     const ref = (t: string) => ({ tag: t, index: 0 })
-    // CadQuery �?�?canonical kind 只有库面一份表（`Fixed`/`FixedPoint` 两个拼法都认）；
-    // 本层只做 CQ �?*参数方言**：Distance �?3 维向量、Orientation �?2 维方向向量�?    // Angle/ArcAngle �?*�?*（canonical 一律弧度）�?    let kind: SketchConstraintKind
+    // CadQuery �?�?canonical kind 只有库面一份表（`Fixed`/`FixedPoint` 两个拼法都认）；
+    // 本层只做 CQ �?*参数方言**：Distance �?3 维向量、Orientation �?2 维方向向量�?
+    // Angle/ArcAngle �?*�?*（canonical 一律弧度）�?
+    let kind: SketchConstraintKind
     try {
       kind = constraintKindFromCadQuery(c.kind)
     } catch {
@@ -1844,7 +1856,7 @@ function arcFromPoints(p0: Pt2, pm: Pt2, p1: Pt2): [number, number, number, numb
 }
 
 /**
- * solve �?CadQuery `Sketch.solve()` parity: run the planegcs pipeline over the
+ * solve �?CadQuery `Sketch.solve()` parity: run the planegcs pipeline over the
  * pending edges + declared constraints and rebuild the edge handles from the
  * solved geometry. Conflicting constraints throw explicitly (no silent
  * baking); under/redundant constraints are allowed and reported on the sketch.
@@ -1886,7 +1898,7 @@ function geomToEdge(k: OcctKernel, g: SketchGeom): ShapeHandle {
 }
 
 /**
- * finalize �?CadQuery `Sketch.finalize()` parity: return the parent object the
+ * finalize �?CadQuery `Sketch.finalize()` parity: return the parent object the
  * sketch was created from (identity when no parent was given).
  * @param sk - Sketch
  * @param parent - parent object passed at creation

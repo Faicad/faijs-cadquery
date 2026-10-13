@@ -22,7 +22,7 @@ let second = await cqa.buildAssemblyRoot('SECOND', [
 let c1 = await cqa.constraintEx('TOP', '>Z', b1, 'SECOND.BOTTOM', '<Z', b3, 'Plane')
 let c2 = await cqa.constraintEx('TOP', '>X', b1, 'SECOND.BOTTOM', '<X', b3, 'Axis')
 let cons = await cqa.concatConstraints(c1, c2)
-let asm = await cqa.buildAssemblyRoot('nested_assy', [
+let asm = await cqa.buildAssemblyRoot('TOP', [
   { name: 'SECOND', shape: second },
 ], cons, b1)
 asm.solve()
