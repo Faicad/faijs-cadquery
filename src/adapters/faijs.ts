@@ -1,5 +1,5 @@
 /**
- * faijs host adapter â€” the ONLY module in `src/` that names a `@faicad/faijs`
+ * faijs host adapter â€?the ONLY module in `src/` that names a `@faicad/faijs`
  * specifier, with one deliberate exception: `../kernel/` owns the
  * `@faicad/faijs/occt-kernel/occtKernel` module and the `occt-wasm` types
  * (see that file's header for why the geometry engine gets its own boundary).
@@ -7,22 +7,22 @@
  * ## Why this file exists
  *
  * `@faicad/faijs` resolves its deep subpaths through wildcard `exports` maps
- * (`./api/*`, `./brep/*`, `./occt-kernel/*`, â€¦). That is great for the host
+ * (`./api/*`, `./brep/*`, `./occt-kernel/*`, â€?. That is great for the host
  * (it can reorganise freely) and bad for us: every reorganisation is a
  * repo-wide import rewrite here. Funnelling them through one re-export module
- * means a host re-layout touches exactly this file â€” the same discipline the
+ * means a host re-layout touches exactly this file â€?the same discipline the
  * faijs-gears template applies (`src/kernel/gears.ts`).
  *
  * This module is a **pure re-export**. It deliberately contains no logic, so
  * that it can never become a place where bugs hide and so that bundlers can
- * fully tree-shake it (`export â€¦ from` is a live binding, not a copy).
+ * fully tree-shake it (`export â€?from` is a live binding, not a copy).
  *
  * ## Scope
  *
- * Only `@faicad/faijs`. The sibling packages (`@faicad/faijs-sketch`,
- * `@faicad/faijs-extra`) version independently and are NOT re-exported here.
+ * Only `@faicad/faijs`. The sibling packages (`@faicad/faijs/sketch`,
+ * `@faicad/faijs/extra`) version independently and are NOT re-exported here.
  *
- * `occt-wasm` is likewise out of scope â€” the raw geometry engine lives in
+ * `occt-wasm` is likewise out of scope â€?the raw geometry engine lives in
  * `../kernel/` (see that module's header for the split rationale).
  *
  * ## How to add an import

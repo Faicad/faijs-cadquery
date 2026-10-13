@@ -1,9 +1,9 @@
 /**
- * text â€” cq-compat's self-contained CadQuery `Workplane.text`.
+ * text â€?cq-compat's self-contained CadQuery `Workplane.text`.
  *
- * Verifies the native text builder (no `@faicad/faijs-extra` dependency):
+ * Verifies the native text builder (no `@faicad/faijs/extra` dependency):
  * CadQuery alignment semantics (`halign`/`valign`), `distance` (a positive
- * extrude, and `0` â‡’ flat faces, as `testTextAlignment` uses), and the three
+ * extrude, and `0` â‡?flat faces, as `testTextAlignment` uses), and the three
  * `combine` modes ("cut" default / `true` fuse / `false` separate) against a
  * context solid. Mirrors upstream `tests/test_cadquery.py::testText` /
  * `testTextAlignment` (cadquery 2.8.0).
@@ -91,7 +91,7 @@ describe('cq-compat Workplane.text (self-contained)', () => {
     const lb = bboxOf(
       await cq.text(cq.Workplane('XY'), 'I', 10, 0, 'cut', { halign: 'left', valign: 'bottom' }),
     )
-    // pen x=0, baseline y=0 â‡’ ink starts at the glyph's side bearing.
+    // pen x=0, baseline y=0 â‡?ink starts at the glyph's side bearing.
     expect(lb.xmin).toBeCloseTo(0.98145, 2)
     expect(lb.ymin).toBeCloseTo(0, 3)
     // Upstream's loose assertions still hold.
@@ -127,13 +127,13 @@ describe('cq-compat Workplane.text (self-contained)', () => {
     )
     expect(bare.xmin).toBeCloseTo(-0.4126, 2)
     expect(spaced.xmin).toBeCloseTo(-1.71143, 2)
-    // Same ink width â€” the glyph did not change, only the alignment origin.
+    // Same ink width â€?the glyph did not change, only the alignment origin.
     expect(spaced.xmax - spaced.xmin).toBeCloseTo(bare.xmax - bare.xmin, 3)
   }, 120000)
 
   it('valign is purely font-metric: the shift is constant across strings', async () => {
-    // top â‡’ baseline = -hheaAscender, center â‡’ baseline = -(asc - desc)/2.
-    // For OpenSans asc=2189/2048em, desc=600/2048em â‡’ @size 10: -10.68848 / -3.87939.
+    // top â‡?baseline = -hheaAscender, center â‡?baseline = -(asc - desc)/2.
+    // For OpenSans asc=2189/2048em, desc=600/2048em â‡?@size 10: -10.68848 / -3.87939.
     const v = async (valign: cq.VAlign) =>
       bboxOf(await cq.text(cq.Workplane('XY'), 'I', 10, 0, 'cut', { halign: 'left', valign }))
     const bottom = await v('bottom')
@@ -164,15 +164,14 @@ describe('cq-compat Workplane.text (self-contained)', () => {
     const boxVol = volumeOf(base)
     const top = await cq.workplane(cq.faces(base, '>Z'))
     const res = await cq.text(top, 'CQ', 0.5, 0.05, false)
-    // The context box is NOT part of the result â€” only the (tiny) text remains.
+    // The context box is NOT part of the result â€?only the (tiny) text remains.
     expect(volumeOf(res)).toBeLessThan(boxVol * 0.1)
   }, 120000)
 
-  it('keeps glyph counters as holes â€” "CQ 2.0" is 5 parts (upstream parity)', async () => {
+  it('keeps glyph counters as holes â€?"CQ 2.0" is 5 parts (upstream parity)', async () => {
     const wp = await cq.text(cq.Workplane('XY'), 'CQ 2.0', 0.5, 0.05, false)
     const kernel = getBrepApi() as unknown as BrepEngineApi
-    // Upstream `Compound.makeText` yields 5 solids for "CQ 2.0" (C, Q, 2, ., 0 â€”
-    // the space emits nothing) with the Q/0 counters kept as holes; a per-wire
+    // Upstream `Compound.makeText` yields 5 solids for "CQ 2.0" (C, Q, 2, ., 0 â€?    // the space emits nothing) with the Q/0 counters kept as holes; a per-wire
     // makeFace would instead yield 7 filled faces.
     const solids = kernel.getSubShapes(brepOf(wp.shape!) as BrepHandle, 'solid')
     expect(solids.length).toBe(5)
@@ -184,7 +183,7 @@ describe('cq-compat Workplane.text (self-contained)', () => {
   it('GOTCHA: the valign descent includes hhea.lineGap', () => {
     // Measured against cadquery 2.8.0: OCC's vertical box bottom is
     // (|hhea.descender| + hhea.lineGap) below the baseline, NOT just the
-    // descender. OpenSans has lineGap=0 so both readings agree â€” which is
+    // descender. OpenSans has lineGap=0 so both readings agree â€?which is
     // exactly why the missing term survives every OpenSans-based test. Arial
     // (lineGap=67/2048) exposes it: at size 10 the descent is 2.44629, and
     // using 2.11914 instead puts the text 0.164 units too low.
@@ -208,7 +207,7 @@ describe('cq-compat Workplane.text (self-contained)', () => {
     expect(openSans.ascent).toBeCloseTo(10.68848, 4)
     expect(openSans.descent).toBeCloseTo(2.92969, 4)
 
-    // A font whose hhea table is absent must not explode â€” lineGap reads as 0.
+    // A font whose hhea table is absent must not explode â€?lineGap reads as 0.
     const noHhea = { unitsPerEm: 1000, ascender: 800, descender: -200 } as unknown as Font
     expect(verticalMetrics(noHhea, 10).descent).toBeCloseTo(2, 4)
   })
@@ -231,7 +230,7 @@ describe('cq-compat Workplane.text (self-contained)', () => {
     const viaDefault = bboxOf(await cq.text(cq.Workplane('XY'), 'CQ', 10, 0, 'cut', {}))
     expect(viaPath.xmin).toBeCloseTo(viaDefault.xmin, 6)
     expect(viaPath.ymax).toBeCloseTo(viaDefault.ymax, 6)
-    // `fontPath` wins over `font` (upstream precedence) â€” a bogus family name
+    // `fontPath` wins over `font` (upstream precedence) â€?a bogus family name
     // alongside a valid path must not change the outcome.
     const both = bboxOf(
       await cq.text(cq.Workplane('XY'), 'CQ', 10, 0, 'cut', {

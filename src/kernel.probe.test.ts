@@ -3,23 +3,23 @@
  *
  * `src/kernel/index.ts` claims to be the single place where `src/` touches the
  * raw occt-wasm kernel, and `CqKernel` claims to be the surface `cq.*` may
- * call. Both claims are load-bearing on a kernel bump â€” `occt-wasm` adds and
+ * call. Both claims are load-bearing on a kernel bump â€?`occt-wasm` adds and
  * renames WASM bindings freely, and a renamed binding fails at RUNTIME with
  * `undefined is not a function` in the middle of a geometry op, not at build
  * time. This test turns that into a red suite.
  *
  * It pins three separate things:
  *
- *  1. **Runtime surface** â€” every raw binding `cq.*` (today) or the N2 batch
+ *  1. **Runtime surface** â€?every raw binding `cq.*` (today) or the N2 batch
  *     (next) reaches for exists as a function on the live instance. The list is
  *     curated, not the whole 211-method platform surface: asserting 211 names
  *     would go red on every unrelated kernel addition, which trains people to
  *     ignore the failure.
- *  2. **Semantics that already bit us** â€” `curveParameters` returns
+ *  2. **Semantics that already bit us** â€?`curveParameters` returns
  *     `{ first, last }` (NOT an array, the shape the name suggests), and a
  *     rigid `rotate` keeps an analytic curve analytic. Both were discovered the
  *     expensive way (see `ellipse-axis.probe.test.ts`).
- *  3. **The boundary itself** â€” statically, no module under `src/` outside the
+ *  3. **The boundary itself** â€?statically, no module under `src/` outside the
  *     two boundary files names a host or engine specifier. This is what stops
  *     the funnel from rotting back into 18 scattered deep imports.
  */
@@ -128,14 +128,14 @@ describe('boundary: src/ funnels host + engine imports', () => {
       const allowed = BOUNDARY[rel]
       for (const m of text.matchAll(IMPORT_RE)) {
         const spec = m[1]!
-        // Only the faijs FAMILY and the engine are gated; `@faicad/faijs-sketch`,
+        // Only the faijs FAMILY and the engine are gated; `@faicad/faijs/sketch`,
         // `-extra`, `-compare` and self-imports are independent packages.
         const gated =
           spec === 'occt-wasm' ||
           spec === '@faicad/faijs' ||
           spec.startsWith('@faicad/faijs/')
         if (!gated) continue
-        if (!allowed || !allowed.test(spec)) offenders.push(`${rel} â†’ ${spec}`)
+        if (!allowed || !allowed.test(spec)) offenders.push(`${rel} â†?${spec}`)
       }
     }
     expect(offenders, `boundary leaks:\n${offenders.join('\n')}`).toEqual([])
