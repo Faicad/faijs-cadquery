@@ -78,7 +78,7 @@ function poseAnnotations(): Map<string, PoseAnnotation> {
   if (!existsSync(mpath)) return map
   const manifest = JSON.parse(readFileSync(mpath, 'utf-8')) as Record<
     string,
-    { status?: string; poseMode?: string; poseFreeAxis?: number[]; poseFreePivot?: number[]; poseMemberPivots?: Array<number[] | null>; poseRigidGroups?: number[][] }
+    { status?: string; poseMode?: string; poseFreeAxis?: number[]; poseFreeTranslation?: number[]; poseFreePivot?: number[]; poseMemberPivots?: Array<number[] | null>; poseRigidGroups?: number[][] }
   >
   for (const [key, entry] of Object.entries(manifest)) {
     if (entry.poseMode !== 'canonical-pose') continue
@@ -89,6 +89,7 @@ function poseAnnotations(): Map<string, PoseAnnotation> {
     map.set(key.slice(idx + 3), {
       poseMode: entry.poseMode,
       poseFreeAxis: entry.poseFreeAxis,
+      poseFreeTranslation: entry.poseFreeTranslation,
       poseFreePivot: entry.poseFreePivot,
       poseMemberPivots: entry.poseMemberPivots,
       poseRigidGroups: entry.poseRigidGroups,
@@ -151,11 +152,20 @@ async function main() {
     const pose = poseByBase.get(candBase)
     const poseOpts: Record<string, unknown> = {}
     if (pose) {
-      if (!pose.poseFreeAxis || pose.poseFreeAxis.length !== 3) {
-        throw new Error(`[compare] ${candBase}: poseMode 'canonical-pose' requires a 3-component poseFreeAxis in tests/manifest.json`)
+      if (pose.poseFreeTranslation) {
+        // P8: sliding DOF — translate-scan mode; no twist axis required.
+        if (pose.poseFreeTranslation.length !== 3) {
+          throw new Error(`[compare] ${candBase}: poseFreeTranslation must be a 3-component direction`)
+        }
+        poseOpts.poseMode = 'canonical-pose'
+        poseOpts.canonicalFreeTranslation = { x: pose.poseFreeTranslation[0], y: pose.poseFreeTranslation[1], z: pose.poseFreeTranslation[2] }
+      } else {
+        if (!pose.poseFreeAxis || pose.poseFreeAxis.length !== 3) {
+          throw new Error(`[compare] ${candBase}: poseMode 'canonical-pose' requires a 3-component poseFreeAxis (or poseFreeTranslation) in tests/manifest.json`)
+        }
+        poseOpts.poseMode = 'canonical-pose'
+        poseOpts.canonicalFreeAxis = { x: pose.poseFreeAxis[0], y: pose.poseFreeAxis[1], z: pose.poseFreeAxis[2] }
       }
-      poseOpts.poseMode = 'canonical-pose'
-      poseOpts.canonicalFreeAxis = { x: pose.poseFreeAxis[0], y: pose.poseFreeAxis[1], z: pose.poseFreeAxis[2] }
       if (pose.poseFreePivot) {
         if (pose.poseFreePivot.length !== 3) {
           throw new Error(`[compare] ${candBase}: poseFreePivot must be a 3-component point on the free twist axis`)

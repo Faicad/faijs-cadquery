@@ -1564,11 +1564,17 @@
     "manual": true
   },
   "tests.test_assembly:::test_constrain__nested_assy": {
-    "status": "blocked",
+    "status": "ported",
     "source": "tests.test_assembly:::test_constrain",
-    "blockedBy": "op:assembly-solve",
-    "manual": true,
-    "reason": "two-layer diagnosis (2026-10-12 round 8): (1) recompose dropped the subassembly's root part — bake only descended into members, rootObj never entered leaves (CAND exported 3 solids vs ref 4); FIXED in assembly.ts bake (sub-assembly root shape now baked with the sub-assembly's own transform key and pushed to leaves) — after the fix CAND exports 4 solids. (2) REMAINING: solved pose gap — residuals=0 and nodeTransforms ≈ identity while ref moves SECOND from (0,4,0) to (2,-4,0.75); CQ test_assembly.py:1904 pins constraint sublocs[1] = the MEMBER's loc (constraint faces anchored per-member), our world-init prebake + direct shape entity resolution treats the init pose as already-satisfied → solver outputs identity. NOT the underdetermined family (dof=0, pose is uniquely determined) — needs the faijs solver-side sublocs semantics fix (separate specialty). Sibling test_constrain_with_tags__nested_assy PASSES after fix (bbox 0)."
+    "blockedBy": null,
+    "poseMode": "canonical-pose",
+    "poseFreeTranslation": [
+      0,
+      1,
+      0
+    ],
+    "reason": "P8 plan A SOLVED 2026-10-12: (1) faijs core solveGlobal now folds member accumulated locs into the solve state as INITIAL poses (CQ sublocs semantics, SolveOptions.initialPoses; absolute = initial o delta) + rigid groups for sub-assemblies (SolveOptions.rigidGroups; members share one 6-dof block) — faijs core tests solve-tree-rigid-groups.test.ts 1/1, solve-tree.test.ts 20/20 (one legacy expectation re-anchored to the new sublocs semantics, documented in-test). (2) comparator: canonical-pose translate-scan channel (canonicalFreeTranslation) with per-group BEST-SLIDE pairing (nearest-COM pairing fails under a sliding DOF: cand b2 sits 2.3 from ref b1 but 4 from its true partner). Solver residuals [0,0] — y translation is a genuine underdetermined DOF (Plane locks z, Axis locks x); ref = cand + pure translation (0,-4,0); canonical scan PASS bbox 5.2e-8, boolean 0.58e-7 volume match. Mirror root name fixed earlier (TOP). poseFreeTranslation=[0,1,0].",
+    "manual": true
   },
   "tests.test_assembly:::test_constrain__subassy1": {
     "status": "ported",

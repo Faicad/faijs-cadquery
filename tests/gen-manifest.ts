@@ -83,7 +83,7 @@ function main() {
       // cannot contain ':' and the on-disk layout is "<module>/<test>__<var>".
       const fileKey = `${mod}/${rest.join('__').replace(/^:+/, '')}`
       const prior = prev[manifestKey] as
-        | { status?: string; blockedBy?: string | null; manual?: boolean; poseMode?: string; poseFreeAxis?: number[]; poseFreePivot?: number[] }
+        | { status?: string; blockedBy?: string | null; manual?: boolean; poseMode?: string; poseFreeAxis?: number[]; poseFreeTranslation?: number[]; poseFreePivot?: number[] }
         | undefined
       if (prior?.status === 'skipped') {
         out[manifestKey] = prior
@@ -116,6 +116,7 @@ function main() {
             ? {
                 poseMode,
                 ...(prior?.poseFreeAxis ? { poseFreeAxis: prior.poseFreeAxis } : {}),
+                ...(prior?.poseFreeTranslation ? { poseFreeTranslation: prior.poseFreeTranslation } : {}),
                 ...(prior?.poseFreePivot ? { poseFreePivot: prior.poseFreePivot } : {}),
                 ...(prior?.poseMemberPivots ? { poseMemberPivots: prior.poseMemberPivots } : {}),
                 ...(prior?.poseRigidGroups ? { poseRigidGroups: prior.poseRigidGroups } : {}),
