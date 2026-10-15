@@ -14,7 +14,6 @@
  * and injects `defaultFontPath` (FAIJS_DEFAULT_FONT env, resolved by run-cand.ts).
  */
 import { cliCheck, cliRun, parseArgs } from '@faicad/faijs/node'
-import { createApiNamespace } from '@faicad/faijs'
 import * as cqa from '@faicad/faijs-cadquery/assembly'
 // Host 0.31.2 regression (X-5): autoLoadLibsFromImports resolves subpath imports
 // through `imp.packageName`, which metadata-extractor strips to the first two
@@ -36,7 +35,11 @@ if (!file) {
   process.exit(1)
 }
 
-const libs = { cad: createApiNamespace(), cqa }
+// 0.35.2 reserves `cad` as an engine-built-in namespace: createRuntime
+// auto-registers it as the default and throws E_CAD_RESERVED on any
+// libs.cad entry. Omit it and keep only the assembly subpath namespace
+// (pre-registered for X-5, see above). Same dodge as export-cand-step.mjs:51.
+const libs = { cqa }
 const filePath = file
 const outPath = out
 

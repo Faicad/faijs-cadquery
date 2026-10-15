@@ -14,7 +14,7 @@
  * src/shell-from-faces.test.ts; this test guards the EXPORT step only.
  */
 import { describe, it, expect, beforeAll } from 'vitest'
-import { registerOcctBrepEngine, createApiNamespace } from '@faicad/faijs'
+import { registerOcctBrepEngine } from '@faicad/faijs'
 import { createRuntime, createNodePorts } from '@faicad/faijs/node'
 import { brepOf } from '@faicad/faijs/shape'
 import { initOcctWasm } from '@faicad/faijs/occt-kernel/occtKernel'
@@ -25,10 +25,11 @@ let runtime: ReturnType<typeof createRuntime>
 beforeAll(async () => {
   await registerOcctBrepEngine()
   runtime = createRuntime(createNodePorts(), 'brep')
-  // Mirror the proven warmup from export-cand-step.mjs: registering the default
-  // 'cad' lib and executing a no-op box establishes the brep engine context
-  // that the directly-invoked cq.* functions need (getBrepApi availability).
-  runtime.registerLib('cad', createApiNamespace(), { default: true, packageName: '@faicad/faijs' })
+  // Mirror the proven warmup from export-cand-step.mjs: executing a no-op box
+  // establishes the brep engine context that the directly-invoked cq.*
+  // functions need (getBrepApi availability). No registerLib('cad') here —
+  // 0.35.2 createRuntime auto-registers `cad` as the default namespace and
+  // rejects host overrides with E_CAD_RESERVED.
   const warm = await runtime.execute('let a = cad.box(1, 1, 1, { centered: true })')
   if (warm.failedAt) throw new Error(`runtime warmup failed: ${JSON.stringify(warm.failedAt)}`)
 })

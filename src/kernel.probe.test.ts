@@ -94,9 +94,11 @@ describe('probe: raw kernel surface (CqKernel)', () => {
  * Static boundary guard.
  *
  * `src/kernel/index.ts` owns `occt-wasm` + `@faicad/faijs/occt-kernel/occtKernel`;
- * `src/adapters/faijs.ts` owns every other `@faicad/faijs` specifier. Any other
- * module under `src/` that names one of them has bypassed the funnel and will
- * silently miss the next host re-layout.
+ * `src/adapters/faijs.ts` owns every other main-package `@faicad/faijs`
+ * specifier. The lockstep-family subpaths (`@faicad/faijs/sketch`,
+ * `@faicad/faijs/extra`) are separately published packages and deliberately
+ * exempt. Any other module under `src/` that names a main-package specifier
+ * has bypassed the funnel and will silently miss the next host re-layout.
  */
 describe('boundary: src/ funnels host + engine imports', () => {
   const SRC = fileURLToPath(new URL('.', import.meta.url))
@@ -119,6 +121,14 @@ describe('boundary: src/ funnels host + engine imports', () => {
 
   const IMPORT_RE = /(?:from|import\s*\()\s*['"]([^'"]+)['"]/g
 
+  /**
+   * Separately published lockstep-family packages that ship as subpaths of the
+   * faijs tarball (`@faicad/faijs-sketch` / `@faicad/faijs-extra` are their
+   * standalone names). They have their own release cycle, so a host re-layout
+   * of the MAIN package does not silently break them â€” exempt from the gate.
+   */
+  const FAMILY_SUBPATHS = ['@faicad/faijs/sketch', '@faicad/faijs/extra']
+
   it('no module outside the two boundary files imports the host or the engine', () => {
     const offenders: string[] = []
     const root = join(SRC, '..')
@@ -128,12 +138,15 @@ describe('boundary: src/ funnels host + engine imports', () => {
       const allowed = BOUNDARY[rel]
       for (const m of text.matchAll(IMPORT_RE)) {
         const spec = m[1]!
-        // Only the faijs FAMILY and the engine are gated; `@faicad/faijs/sketch`,
-        // `-extra`, `-compare` and self-imports are independent packages.
+        // Only the faijs main package (and its subpaths) and the engine are
+        // gated; family subpaths (`@faicad/faijs/sketch`, `@faicad/faijs/extra`)
+        // and self-imports (`@faicad/faijs-cadquery...`, a different name) are
+        // independent packages.
         const gated =
           spec === 'occt-wasm' ||
           spec === '@faicad/faijs' ||
-          spec.startsWith('@faicad/faijs/')
+          (spec.startsWith('@faicad/faijs/') &&
+            !FAMILY_SUBPATHS.some((p) => spec === p || spec.startsWith(`${p}/`)))
         if (!gated) continue
         if (!allowed || !allowed.test(spec)) offenders.push(`${rel} â†?${spec}`)
       }
