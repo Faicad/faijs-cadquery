@@ -17,7 +17,7 @@
  * turn this file red.
  */
 import { describe, it, expect, beforeAll } from 'vitest'
-import { getKernel } from '@faicad/faijs'
+import { getKernel } from '@faicad/faijs/occt-kernel/occtKernel'
 import { getBrepApi } from '@faicad/faijs/brep/handle-bridge'
 import { brepOf } from '@faicad/faijs/shape'
 import { fromHandle } from '@faicad/faijs/sdk'

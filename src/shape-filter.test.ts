@@ -211,19 +211,25 @@ describe('mirror source under the CLI loader settings (autoLift:false)', () => {
 
   it('GOTCHA: an ARROW body cannot reference the `cq` namespace — declare a `function`', async () => {
     // Wrong: `let pick = (x) => cq.volumeOf(x) <= 1`.
-    // `transformVariable` lifts only ctx/declared names (`hoistText`,
-    // core/src/cad-runtime/direct-executor.ts:1287) and does NOT rewrite the
-    // namespace, so the arrow body keeps a free `cq` that is not in scope.
+    // The block-level rewrite (`hoistBlockText` step ③, node_modules/@faicad/faijs/
+    // dist/cad-runtime/direct-executor.js:1059) rewrites `cq.op(` → `await __ns.cq.op(`
+    // textually — including inside arrow bodies. The failure mode is host-version
+    // dependent (both verified by A/B against the installed host):
+    //   - 0.33.x: the arrow body kept the free `cq` → call-time ReferenceError
+    //     "cq is not defined" (thrown when filterByPredicate invokes pick).
+    //   - 0.35.2+: the arrow body becomes `(x) => await __ns.cq.volumeOf(x)`; the
+    //     non-async arrow's `await` reads as a bare identifier, so V8 (vm-backend's
+    //     `new Function`, sloppy mode) throws SyntaxError "Unexpected identifier
+    //     '__ns'" at compile time. Same GOTCHA — it now just fails earlier.
     const arrow = await runCli([
       'let pick = (x) => cq.volumeOf(x) <= 1',
       'let result = await cq.filterByPredicate(c, pick)',
     ])
-    expect(arrow.failedAt?.message).toMatch(/cq is not defined/)
+    expect(arrow.failedAt?.message).toMatch(/Unexpected identifier '__ns'|cq is not defined/)
 
     // Right: a `function` DECLARATION body gets `const cq = __ns.cq` injected
-    // (same file, :1010) — which is why this form works and the arrow does not.
-    // If the language layer ever lifts namespace references inside arrows too,
-    // the first assertion above should start failing and this note can go.
+    // (transformFunction, same file :1115) — which is why this form works and the
+    // arrow does not.
     const declared = await runCli([
       'function pick(x) { return cq.volumeOf(x) <= 1 }',
       'let result = await cq.filterByPredicate(c, pick)',
