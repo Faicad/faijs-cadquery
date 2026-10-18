@@ -5,3 +5,5 @@ out-publish-*.json
 out/
 ci.log
 .atomcode/
+.workbuddy
+.arts
