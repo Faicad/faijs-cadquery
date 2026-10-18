@@ -5,7 +5,7 @@ CadQuery 2.8.0 API-compatibility layer for faijs. Geometry runs on the `occt-was
 ## Repo shape
 
 - Standalone single-package repo (split out of the faijs monorepo on 2026-10-05). **No npm workspaces** — all source is under `src/`, unit tests are colocated as `src/**/*.test.ts`.
-- `dependencies` is empty; consumers supply the peers `@faicad/faijs`, `occt-wasm`, `@faicad/faijs-sketch`, `@faicad/faijs-extra`.
+- `dependencies` is empty; consumers supply the peers `@faicad/faijs` and `occt-wasm`. The former `@faicad/faijs-sketch` / `@faicad/faijs-extra` packages were merged into core, so sketch/editor surfaces are now core **subpath exports** (`@faicad/faijs/sketch`, `@faicad/faijs/extra`). Both peers are repeated in `devDependencies` so a fresh checkout can build and test.
 - Dev-only self-link `"@faicad/faijs-cadquery": "file:."` in `node_modules` resolves to `dist/`. The parity CLI subprocess depends on it; `npm install` recreates it.
 
 ## Commands (order matters)

@@ -25,9 +25,12 @@
 
 import type { AssemblyConstraint, AssemblyTransform, BrepEngineApi, BrepHandle, CompoundShape, EntityRef, Shape } from '../adapters/faijs'
 // D1 (2026-09-24) moved the `assembly` op out of core's platform namespace into
-// the extension library �?import it directly instead of probing `cad.assembly`
-// (which no longer exists on `createApiNamespace()`).
-import { assembly as assemblyOp } from '@faicad/faijs/extra/editor-ops'
+// the extension library — call it through the adapters funnel instead of
+// probing `cad.assembly` (which no longer exists on `createApiNamespace()`).
+// The op lives on the family subpath `@faicad/faijs/extra/editor-ops`; it is
+// re-exported through `../adapters/faijs` so a host re-layout touches only that
+// file.
+import { assembly as assemblyOp } from '../adapters/faijs'
 import { solveAssemblyTree } from '../adapters/faijs'
 import type { AssemblyNode } from '../adapters/faijs'
 import { compound as compoundOp } from '../adapters/faijs'

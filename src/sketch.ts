@@ -23,10 +23,10 @@ import {
   // 形状坐标数学的唯一实现（库面）——本兼容层只�?CadQuery 语法适配，不再自己算一套�?
   regularPolygonVertices, slotOutline, trapezoidCorners, arcPoints, clampedUniformKnots,
   CADQUERY_TO_CONSTRAINT_KIND, constraintKindFromCadQuery,
-} from '@faicad/faijs/sketch'
+} from './adapters/faijs'
 import type {
   SketchConstraint as CanonicalConstraint, SketchConstraintKind, SketchGeom,
-} from '@faicad/faijs/sketch'
+} from './adapters/faijs'
 import type { OcctKernel, ShapeHandle, Vec3 } from './kernel'
 import { centerOf } from './shape-class'
 

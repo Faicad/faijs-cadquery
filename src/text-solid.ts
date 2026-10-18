@@ -1,5 +1,5 @@
 /**
- * text-solid â€?self-contained CadQuery `Workplane.text` geometry builder.
+ * text-solid â€” self-contained CadQuery `Workplane.text` geometry builder.
  *
  * cq-compat owns its CadQuery-compatible API: this module renders glyph
  * outlines straight onto the OCCT kernel (via core's `textBlueprints`) and
@@ -7,35 +7,36 @@
  * dependency on the editor-oriented `@faicad/faijs/extra` package.
  *
  * Upstream reference (cadquery 2.8.0, `occ_impl/shapes.py::Compound.makeText`
- * â†?`Font_BRepTextBuilder::Perform(theHAlign, theVAlign)`):
+ * â†’ `Font_BRepTextBuilder::Perform(theHAlign, theVAlign)`):
  *
  * - alignment is applied to the LAYOUT ORIGIN (the pen), NOT to the ink
  *   bounding box (measured against cadquery 2.8.0 + OpenSans-Regular.ttf):
- *   `halign`: left â‡?pen x=0, center â‡?pen x=-W/2, right â‡?pen x=-W, where
- *   `W` is the string's total ADVANCE width (sum of glyph advances â€?a trailing
+ *   `halign`: left â‡’ pen x=0, center â‡’ pen x=-W/2, right â‡’ pen x=-W, where
+ *   `W` is the string's total ADVANCE width (sum of glyph advances â€” a trailing
  *   space still counts: W("I ")=W("I")+advance(" "));
- *   `valign`: bottom â‡?baseline y=0, center â‡?baseline y=-(A-D)/2, top â‡? *   baseline y=-A, where `A` = hhea ascender Ã— size/unitsPerEm and
+ *   `valign`: bottom â‡’ baseline y=0, center â‡’ baseline y=-(A-D)/2, top â‡’
+ *   baseline y=-A, where `A` = hhea ascender Ã— size/unitsPerEm and
  *   `D` = (|hhea descender| + hhea lineGap) Ã— size/unitsPerEm (OpenSans:
  *   A=1.0688em, D=0.2930em, lineGap=0; Arial: A=0.9053em, D=0.2446em,
- *   lineGap=67/2048 â€?see {@link verticalMetrics}). Because the
+ *   lineGap=67/2048 â€” see {@link verticalMetrics}). Because the
  *   reference is the pen/baseline (not the ink box), the ink bbox lands where
- *   its side bearings / descenders put it â€?e.g. halign="left" on "I" yields
- *   ink xminâ‰?.98 (the glyph's left side bearing), not 0;
+ *   its side bearings / descenders put it â€” e.g. halign="left" on "I" yields
+ *   ink xminâ‰ˆ0.98 (the glyph's left side bearing), not 0;
  * - when `height != 0` the flat faces are prisme'd by `height` along the local
- *   +Z (negative â‡?opposite); when `height == 0` the flat faces are kept as-is;
- * - `Compound.makeText` returns ONE compound holding every glyph â€?the glyphs
+ *   +Z (negative â‡’ opposite); when `height == 0` the flat faces are kept as-is;
+ * - `Compound.makeText` returns ONE compound holding every glyph â€” the glyphs
  *   are NOT fused into a single solid. `Workplane.text` then combines that
  *   compound with the context solid (`combine`: "cut" | "a" | false).
  * - each glyph face keeps its enclosed COUNTER (the hole in "0"/"Q"/"A"), i.e.
  *   the outline is a face-with-holes, not a filled disc.
  * - each glyph face's normal is **+Z** in the local frame, matching
  *   `Font_BRepTextBuilder` (upstream's own `test_text` asserts it for r8). The
- *   engine's raw contour winding gives -Z, so every contour is reoriented â€?see
+ *   engine's raw contour winding gives -Z, so every contour is reoriented â€” see
  *   {@link reverseWire} for the measured evidence, and for why it is not
  *   cosmetic;
  * - the face is chosen exactly as upstream does: `fontPath` (a font file) wins
  *   over `font` (a family name), and the name is resolved by the HOST the way
- *   OCC's font manager resolves it â€?see `options.font`/`options.fontPath`.
+ *   OCC's font manager resolves it â€” see `options.font`/`options.fontPath`.
  *
  * This module reproduces the geometry half (font choice, aligned, per-glyph
  * parts); the combine/placement half lives in `workplane.text`.
@@ -52,7 +53,7 @@ export type VAlign = 'center' | 'top' | 'bottom'
 
 /** Options for {@link buildTextSolid}. */
 export interface TextSolidOptions {
-  /** Font size in model units (glyph cap height â‰?fontSize). */
+  /** Font size in model units (glyph cap height â‰ˆ fontSize). */
   fontSize: number
   /** Extrusion distance along local +Z (negative = opposite the normal). `0` keeps flat faces. */
   distance: number
@@ -64,7 +65,7 @@ export interface TextSolidOptions {
    * Font family name, resolved by the host the way CadQuery resolves `font=`
    * (OCC `Font_FontMgr`). Node hosts look the name up among installed fonts;
    * browsers only know consumer-injected fonts. Unresolvable names fall back to
-   * the engine's default face, as OCC does â€?it never throws.
+   * the engine's default face, as OCC does â€” it never throws.
    */
   font?: string
   /** Path to a font file; takes precedence over {@link font} (CadQuery's `fontPath`). */
@@ -76,7 +77,7 @@ export interface TextSolidOptions {
  *
  * Measured against cadquery 2.8.0 (`text(...)` with halign/valign probes):
  *
- * - `ascent` = hhea ascender Ã— size / unitsPerEm  (valign="top" â‡?dy = -ascent);
+ * - `ascent` = hhea ascender Ã— size / unitsPerEm  (valign="top" â‡’ dy = -ascent);
  * - `descent` = (|hhea descender| + **hhea lineGap**) Ã— size / unitsPerEm.
  *
  * The lineGap term is easy to miss because it is 0 in many fonts (OpenSans),
@@ -125,22 +126,23 @@ function containsBox(outer: BrepBoundingBox, inner: BrepBoundingBox, eps = 1e-6)
  * the face built from its wire). CadQuery's are **+Z**:
  *
  * - the committed ref STEP of `text("CQ", 10)` reads back `normal=(0,0,1)`;
- * - upstream `tests/test_free_functions.py::test_text` asserts it directly â€? *   `(r8.faces("<<X").normalAt() - Vector(0, 0, 1)).Length == approx(0)`, i.e.
+ * - upstream `tests/test_free_functions.py::test_text` asserts it directly â€”
+ *   `(r8.faces("<<X").normalAt() - Vector(0, 0, 1)).Length == approx(0)`, i.e.
  *   the assertion is only satisfiable with a +Z face normal.
  *
  * The flip is invisible for the flat cases, because a face lying in `z = 0` has
- * `n = (0,0,1)` and the comparator's "volume" for an open shell â€?OCCT's
- * `âˆ?xÂ·n dA` â€?is then identically 0. It is NOT invisible once the faces leave
+ * `n = (0,0,1)` and the comparator's "volume" for an open shell â€” OCCT's
+ * `âˆ® xÂ·n dA` â€” is then identically 0. It is NOT invisible once the faces leave
  * the origin, which is exactly what the spine-placement overload does: before
  * this was fixed, `compare-one` read `volÎ” 212 %` / `comÎ” 0.16` on r7 while its
- * bbox matched to 5.5e-13 â€?the 212 % â‰?200 % + 12 % being the signature of a
+ * bbox matched to 5.5e-13 â€” the 212 % â‰ˆ 200 % + 12 % being the signature of a
  * sign flip, not of a geometry error.
  *
  * Reversing the WIRE (rather than flagging the finished face `REVERSED`) keeps
  * the face *properly* oriented, so a later `extrude` still builds an outward
  * solid. All contours are reversed, bodies and counters alike, which preserves
  * the relative orientation that makes a counter a hole (see the nesting pass
- * below â€?it reads bounding boxes, never orientation, so it is unaffected).
+ * below â€” it reads bounding boxes, never orientation, so it is unaffected).
  *
  * @param kernel - the brep engine
  * @param wire - the contour wire to reverse
@@ -152,12 +154,12 @@ function reverseWire(kernel: BrepEngineApi, wire: BrepHandle): BrepHandle {
 }
 
 /**
- * Build the text geometry in its own local frame â€?the XY plane, extruded along
- * local +Z â€?with CadQuery's `halign`/`valign` applied to the glyph box.
+ * Build the text geometry in its own local frame â€” the XY plane, extruded along
+ * local +Z â€” with CadQuery's `halign`/`valign` applied to the glyph box.
  *
  * Each glyph outline becomes its own part (face when `distance === 0`, otherwise
  * a prism); the parts are grouped into ONE compound, matching upstream's
- * `Compound.makeText` (glyphs stay separate â€?they are not fused).
+ * `Compound.makeText` (glyphs stay separate â€” they are not fused).
  *
  * @param txt - the string to render
  * @param options - font size, extrusion distance and alignment
@@ -178,7 +180,7 @@ export async function buildTextSolid(txt: string, options: TextSolidOptions): Pr
   if (raw.length === 0) {
     throw new Error('[cq-compat] text: no glyph outlines generated')
   }
-  // Match CadQuery's +Z glyph normal â€?see {@link reverseWire} for why this is
+  // Match CadQuery's +Z glyph normal â€” see {@link reverseWire} for why this is
   // load-bearing rather than cosmetic.
   const wires = raw.map((w) => {
     const oriented = reverseWire(kernel, w)
@@ -186,7 +188,7 @@ export async function buildTextSolid(txt: string, options: TextSolidOptions): Pr
     return oriented
   })
 
-  // `textBlueprints` returns every closed contour as its OWN wire â€?glyph bodies
+  // `textBlueprints` returns every closed contour as its OWN wire â€” glyph bodies
   // and their counters alike. Upstream `Compound.makeText` keeps the counter as
   // a hole, so re-group the contours by bounding-box nesting: a contour whose
   // box nests inside an odd number of larger boxes is a hole; an even depth is a
@@ -211,7 +213,7 @@ export async function buildTextSolid(txt: string, options: TextSolidOptions): Pr
 
   const parts: BrepHandle[] = []
   for (let i = 0; i < wires.length; i++) {
-    if (depthOf(i) % 2 !== 0) continue // a counter â€?consumed by its parent body
+    if (depthOf(i) % 2 !== 0) continue // a counter â€” consumed by its parent body
     const holes = wires.map((_, j) => j).filter((j) => parentOf[j] === i)
     try {
       let face = kernel.makeFace(wires[i]!)
@@ -228,7 +230,7 @@ export async function buildTextSolid(txt: string, options: TextSolidOptions): Pr
         parts.push(solid)
       }
     } catch {
-      // A degenerate / open contour cannot form a face â€?skip it, mirroring
+      // A degenerate / open contour cannot form a face â€” skip it, mirroring
       // core `textToSolid`'s tolerance for unbuildable wires.
     }
   }
@@ -238,7 +240,7 @@ export async function buildTextSolid(txt: string, options: TextSolidOptions): Pr
   }
 
   // CadQuery aligns the LAYOUT ORIGIN (pen/baseline) in the local frame, not the
-  // ink bbox â€?see the module header for the measured formula.
+  // ink bbox â€” see the module header for the measured formula.
   const advance = font.getAdvanceWidth(txt, fontSize)
   const { ascent, descent } = verticalMetrics(font, fontSize)
   const dx = halign === 'left' ? 0 : halign === 'right' ? -advance : -advance / 2
