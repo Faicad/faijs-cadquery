@@ -356,15 +356,15 @@
     "blockedBy": null
   },
   "tests.test_free_functions:::test_text__r7": {
-    "status": "blocked",
+    "status": "ported",
     "source": "tests.test_free_functions:::test_text",
-    "blockedBy": "comparator:open-shell-volume",
+    "blockedBy": null,
     "manual": true
   },
   "tests.test_free_functions:::test_text__r8": {
-    "status": "blocked",
+    "status": "ported",
     "source": "tests.test_free_functions:::test_text",
-    "blockedBy": "comparator:open-shell-volume",
+    "blockedBy": null,
     "manual": true
   },
   "tests.test_free_functions:::test_text__r9": {

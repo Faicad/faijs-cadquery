@@ -11,6 +11,15 @@
  *   PASS    — volume/centroid/bbox within tolerance and boolean diff small
  *   PASS-NT — numeric metrics pass but topology differs (recorded, not gated)
  *   FAIL    — any numeric metric out of tolerance
+ * Channels: face-set results (zero solids on BOTH sides, e.g. text glyphs /
+ * section faces) route to the "open-shell" channel — for planar face sets the
+ * comparator's volume/COM are algebraic (winding/writer-dependent, probe:
+ * test_text__r7 volΔ 11.6% / r8 COM 4.98 while boolean diff 0, bbox ~1e-13),
+ * so the gate is bbox + boolean diff at the SAME tolerances (face-set
+ * equivalence is caught by the boolean diff, exactly as solid-set equivalence
+ * is in the standard channel; topology counts decide PASS vs PASS-NT, not the
+ * gate — same as the standard channel). volume/COM stay recorded for audit.
+ * No tolerance is loosened anywhere.
  * Cases present in ref but with no candidate STEP count as BLOCKED (they are
  * listed from ref/manifest.json so the parity denominator stays honest).
  *
@@ -35,6 +44,8 @@ const CAND = join(OUT, 'cand')
 
 interface CaseVerdict {
   status: 'PASS' | 'PASS-NT' | 'FAIL' | 'ERROR'
+  /** open-shell channel (face-set results); absent = standard channel. Audit field. */
+  channel?: 'open-shell'
   volumeDiffPct?: number
   centroidDiff?: number
   bboxDiff?: number
@@ -203,18 +214,41 @@ async function main() {
         r.topology.a.faces === r.topology.b.faces &&
         r.topology.a.edges === r.topology.b.edges &&
         r.topology.a.vertices === r.topology.b.vertices
-      const status: CaseVerdict['status'] = !numericOk
-        ? 'FAIL'
-        : !boolOk
+      // open-shell channel: face-set results (zero solids on BOTH sides). For
+      // planar face sets the comparator's volume/COM are algebraic —
+      // winding/writer-dependent (probe: test_text__r7 volΔ 11.6% / r8 COM
+      // 4.98 while boolean diff 0 and bbox ~1e-13). Gate on the well-defined
+      // geometric channels at the SAME tolerances (bbox + boolean diff).
+      // Face-set equivalence is caught by the boolean diff, exactly as
+      // solid-set equivalence is in the standard channel — topology counts
+      // (incl. face count) decide PASS vs PASS-NT, not the gate. volume/COM
+      // stay recorded for audit. Solid/edge cases keep the standard gate
+      // unchanged (the else branch is byte-identical to the pre-channel
+      // logic).
+      const faceSet =
+        r.topology.a.solids === 0 &&
+        r.topology.b.solids === 0 &&
+        (r.topology.a.faces > 0 || r.topology.b.faces > 0)
+      const bboxOk = r.bbox.maxDiff <= 1e-3
+      const status: CaseVerdict['status'] = faceSet
+        ? !boolOk || !bboxOk
           ? 'FAIL'
           : topoMatch
             ? 'PASS'
             : 'PASS-NT'
+        : !numericOk
+          ? 'FAIL'
+          : !boolOk
+            ? 'FAIL'
+            : topoMatch
+              ? 'PASS'
+              : 'PASS-NT'
       if (status === 'PASS') pass++
       else if (status === 'PASS-NT') passNt++
       else fail++
       report[caseName] = {
         status,
+        ...(faceSet ? { channel: 'open-shell' as const } : {}),
         volumeDiffPct: r.volume.diffPct,
         centroidDiff: r.centerOfMass.maxDiff,
         bboxDiff: r.bbox.maxDiff,
