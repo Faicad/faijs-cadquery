@@ -53,8 +53,8 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@faicad/cq-compat-compare": "^0.35.0",
-    "@faicad/faijs": "^0.35.0",
+    "@faicad/cq-compat-compare": "^0.35.8",
+    "@faicad/faijs": "^0.35.8",
     "@faicad/faijs-cadquery": "file:.",
     "@types/node": "^26.2.0",
     "@types/opentype.js": "^1.3.4",
