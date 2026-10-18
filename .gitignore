@@ -4,3 +4,4 @@ dist/
 out-publish-*.json
 out/
 ci.log
+.atomcode/
