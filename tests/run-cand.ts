@@ -75,6 +75,55 @@ const SELF_HOSTED_EXPORT_CASES = new Set([
 ])
 const EXPORT_CAND_STEP = join(HERE, 'export-cand-step.mjs')
 
+// Cases whose only live terminals are 2D (section faces, text glyphs, sibling
+// faces, …). Since the host CLI's G0-D 2D-terminal filter (0.30.9+), the
+// default export skips them ("All N live terminal(s) are 2D (no solid) —
+// nothing to export as a 3D part"), so these mirrors produced no candidate
+// STEP and dropped out of grading (33 cases vs the 10-07 baseline; re-verified
+// 2026-10-18 under faijs 0.35.8). `--include-2d` (host parseArgs → cliRun
+// include2D) writes 2D-only terminals as STEP, restoring the pre-0.30.9
+// coverage. Keyed by mirror basename, independent of manifest status (same
+// rationale as SELF_HOSTED_EXPORT_CASES). Do NOT enable globally: for cases
+// mixing 2D and 3D terminals it would change the exported geometry and
+// disturb the currently-graded PASS set.
+const INCLUDE2D_CASES = new Set([
+  'TestCadQuery__testSection__s1',
+  'TestCadQuery__testSection__s2',
+  'TestCadQuery__testTextAlignment__centers',
+  'TestCadQuery__testTextAlignment__left_bottom',
+  'TestCadQuery__testTextAlignment__right_top',
+  'TestCadQuery__test_compound_faces_center__compound',
+  'TestCadQuery__test_extrude_face__c',
+  'TestCadQuery__test_iterators__fs',
+  'TestCadQuery__test_loft_face__c',
+  'test_constructors__c1',
+  'test_constructors__c2',
+  'test_history_offset__sides',
+  'test_sewing__sh',
+  'test_text__r1',
+  'test_text__r2',
+  'test_text__r3',
+  'test_text__r4',
+  'test_text__r5',
+  'test_text__r7',
+  'test_text__r8',
+  'TestCQSelectors__testShape__res4',
+  // No ref STEP (ungradeable), kept so its export is consistent with the rest:
+  'TestCQSelectors__test_single_ent_selector__fs',
+  'test_replace__f_top_split',
+  'test_siblings__level_1',
+  'test_siblings__level_123',
+  'test_siblings__level_2',
+  'test_siblings__level_3',
+  'test_siblings__siblings_1',
+  'test_siblings__siblings_12',
+  'test_siblings__siblings_2',
+  'test_siblings__siblings_cmp_12',
+  'test_siblings__siblings_cmp_2',
+  'test_siblings__siblings_cmp_edges_12',
+  'test_single_ent_selector__fs',
+])
+
 // NOTE: do not resolve the faijs package root here. @faicad/faijs publishes a
 // strict "exports" map with no "./package.json" subpath, so
 // `require.resolve('@faicad/faijs/package.json')` throws ERR_PACKAGE_PATH_NOT_EXPORTED
@@ -140,9 +189,11 @@ async function main() {
         // timeout: the observed healthy case costs ~6s, and a hung kernel call has
         // historically wedged whole overnight sweeps. Without a per-case ceiling a
         // single stuck case freezes the entire run with no output to diagnose from.
+        const cliArgs = [CLI, 'run', f, '--out', outStep, '--mode', 'brep']
+        if (INCLUDE2D_CASES.has(name)) cliArgs.push('--include-2d')
         execFileSync(
           process.execPath,
-          [CLI, 'run', f, '--out', outStep, '--mode', 'brep'],
+          cliArgs,
           {
             cwd: ROOT,
             stdio: ['ignore', 'pipe', 'pipe'],
