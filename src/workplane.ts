@@ -4233,6 +4233,16 @@ export async function cutBlind(
 ): Promise<Workplane> {
   const base = baseSolid(wp)
   if (!base) return wp
+  // The CQ DIRECT idiom `faces(sel).profile.cutBlind(n)` never calls
+  // workplane() — faceSel survives to here and the face plane must be applied
+  // NOW (base is captured first, per applyPendingFacePlane's type-note). The
+  // batch-1 until=face refactor accidentally dropped this call from the shared
+  // path (it only lived in the new until branch), which moved the numeric cut
+  // to the UN-LIFTED workplane: `faces(">Z").rect(1,.5).cutBlind(-0.2)` cut at
+  // z∈[0,0.2] instead of z∈[0.3,0.5] (CoM z 0.0111 vs -0.044444; a +0.2 cut
+  // that must miss the solid removed 0.1 of it). Probe on record:
+  // src/faces-idiom-cutblind.test.ts (2026-10-19).
+  wp = await applyPendingFacePlane(wp)
   // CadQuery cutBlind until=face (cq.py cutBlind:3559-3572): 'next'/'last' cut
   // inward to the Nth face along the workplane normal; a Face argument is the
   // limit directly. Same mechanism as the additive extrude until path, with
@@ -4241,7 +4251,6 @@ export async function cutBlind(
     if (typeof depth === 'string' && depth !== 'next' && depth !== 'last') {
       throw new Error(`[cq-compat] cutBlind: Do not know how to handle until argument of type ${typeof depth}`)
     }
-    wp = await applyPendingFacePlane(wp)
     const upToFace: UntilFaceSpec =
       typeof depth === 'string'
         ? { kind: 'index', index: depth === 'next' ? 0 : -1 }
