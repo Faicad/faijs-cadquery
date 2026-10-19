@@ -89,6 +89,7 @@ const EXPORT_CAND_STEP = join(HERE, 'export-cand-step.mjs')
 const INCLUDE2D_CASES = new Set([
   'TestCadQuery__testSection__s1',
   'TestCadQuery__testSection__s2',
+  'TestCadQuery__testExtrudeUntilFace__part_section',
   'TestCadQuery__testTextAlignment__centers',
   'TestCadQuery__testTextAlignment__left_bottom',
   'TestCadQuery__testTextAlignment__right_top',

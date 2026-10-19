@@ -1,0 +1,15 @@
+// source: test_cadquery.py::TestCadQuery::testCutBlindUntilFace (var wp_last, FINAL value)
+// wp_ref = Workplane("XY").box(40,10,2).pushPoints([(-20,0,5),(0,0,5),(20,0,5)]).box(10,10,10)
+//   (the 3D pushPoints z=5 is expressed as workplane({offset:5}) + 2D points —
+//    the same world positions; pushPoints 3D off-plane is rejected in TS)
+// wp_last = wp_ref.faces(">X[4]").workplane(centerOption="CenterOfMass").rect(2,2).cutBlind("last")
+import * as cq from '@faicad/faijs-cadquery'
+let bar = await cq.box(cq.Workplane('XY'), 40, 10, 2)
+let up = await cq.workplane(bar, { offset: 5 })
+let pp = cq.pushPoints(up, [[-20, 0], [0, 0], [20, 0]])
+let wp_ref = await cq.box(pp, 10, 10, 10)
+let f4 = cq.faces(wp_ref, '>X[4]')
+let w = await cq.workplane(f4, { centerOption: 'CenterOfMass' })
+let r = cq.rect(w, 2, 2)
+let wp_last = await cq.cutBlind(r, 'last')
+let result = cq.val(wp_last)

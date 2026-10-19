@@ -112,6 +112,11 @@ function main() {
           status: 'ported',
           source: caseId,
           blockedBy: null,
+          // P7/D5 follow-up: `manual` is carried at TOP LEVEL — inside the
+          // poseMode ternary it was silently stripped from ported entries
+          // without pose annotations (hit: test_text__r7/r8 lost their
+          // manual:true provenance on a 2026-10-19 regeneration).
+          ...(prior?.manual ? { manual: prior.manual } : {}),
           ...(poseMode
             ? {
                 poseMode,
@@ -121,7 +126,6 @@ function main() {
                 ...(prior?.poseMemberPivots ? { poseMemberPivots: prior.poseMemberPivots } : {}),
                 ...(prior?.poseRigidGroups ? { poseRigidGroups: prior.poseRigidGroups } : {}),
                 ...(prior?.reason ? { reason: prior.reason } : {}),
-                ...(prior?.manual ? { manual: prior.manual } : {}),
               }
             : {}),
         }

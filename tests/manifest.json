@@ -1524,6 +1524,7 @@
     "status": "ported",
     "source": "tests.test_assembly:::test_constrain",
     "blockedBy": null,
+    "manual": true,
     "poseMode": "canonical-pose",
     "poseFreeAxis": [
       1,
@@ -1560,21 +1561,20 @@
         3
       ]
     ],
-    "reason": "underdetermined (dof=2); root compound export mixes b1+b2+b3 — cand solid layout (probe 2026-10-12): 0=b2@(1,-4.5,0.5), 1+2=b3 rigid group (pivot = b3 origin -1.5,-4.5,0.5), 3=b1 (unconstrained twist, null pivot); world-X axis per ref-harness quat capture (round 4); canonical compare PASS (bbox 1.1e-7, com 9.0e-8) 2026-10-12",
-    "manual": true
+    "reason": "underdetermined (dof=2); root compound export mixes b1+b2+b3 — cand solid layout (probe 2026-10-12): 0=b2@(1,-4.5,0.5), 1+2=b3 rigid group (pivot = b3 origin -1.5,-4.5,0.5), 3=b1 (unconstrained twist, null pivot); world-X axis per ref-harness quat capture (round 4); canonical compare PASS (bbox 1.1e-7, com 9.0e-8) 2026-10-12"
   },
   "tests.test_assembly:::test_constrain__nested_assy": {
     "status": "ported",
     "source": "tests.test_assembly:::test_constrain",
     "blockedBy": null,
+    "manual": true,
     "poseMode": "canonical-pose",
     "poseFreeTranslation": [
       0,
       1,
       0
     ],
-    "reason": "P8 plan A SOLVED 2026-10-12: (1) faijs core solveGlobal now folds member accumulated locs into the solve state as INITIAL poses (CQ sublocs semantics, SolveOptions.initialPoses; absolute = initial o delta) + rigid groups for sub-assemblies (SolveOptions.rigidGroups; members share one 6-dof block) — faijs core tests solve-tree-rigid-groups.test.ts 1/1, solve-tree.test.ts 20/20 (one legacy expectation re-anchored to the new sublocs semantics, documented in-test). (2) comparator: canonical-pose translate-scan channel (canonicalFreeTranslation) with per-group BEST-SLIDE pairing (nearest-COM pairing fails under a sliding DOF: cand b2 sits 2.3 from ref b1 but 4 from its true partner). Solver residuals [0,0] — y translation is a genuine underdetermined DOF (Plane locks z, Axis locks x); ref = cand + pure translation (0,-4,0); canonical scan PASS bbox 5.2e-8, boolean 0.58e-7 volume match. Mirror root name fixed earlier (TOP). poseFreeTranslation=[0,1,0].",
-    "manual": true
+    "reason": "P8 plan A SOLVED 2026-10-12: (1) faijs core solveGlobal now folds member accumulated locs into the solve state as INITIAL poses (CQ sublocs semantics, SolveOptions.initialPoses; absolute = initial o delta) + rigid groups for sub-assemblies (SolveOptions.rigidGroups; members share one 6-dof block) — faijs core tests solve-tree-rigid-groups.test.ts 1/1, solve-tree.test.ts 20/20 (one legacy expectation re-anchored to the new sublocs semantics, documented in-test). (2) comparator: canonical-pose translate-scan channel (canonicalFreeTranslation) with per-group BEST-SLIDE pairing (nearest-COM pairing fails under a sliding DOF: cand b2 sits 2.3 from ref b1 but 4 from its true partner). Solver residuals [0,0] — y translation is a genuine underdetermined DOF (Plane locks z, Axis locks x); ref = cand + pure translation (0,-4,0); canonical scan PASS bbox 5.2e-8, boolean 0.58e-7 volume match. Mirror root name fixed earlier (TOP). poseFreeTranslation=[0,1,0]."
   },
   "tests.test_assembly:::test_constrain__subassy1": {
     "status": "ported",
@@ -1596,6 +1596,7 @@
     "status": "ported",
     "source": "tests.test_assembly:::test_constrain",
     "blockedBy": null,
+    "manual": true,
     "poseMode": "canonical-pose",
     "poseFreeAxis": [
       1,
@@ -1613,8 +1614,7 @@
         1
       ]
     ],
-    "reason": "underdetermined (dof=2); ref-harness quat capture (round 4): ref = cand + pure twist 4.82 deg about world X through the member ORIGIN (loc unchanged); pivot = b3 compound ORIGIN (-3.5,0.5,0.5) — the two-solid member's COM is offset (0,-2.5,-1) from the origin, so the COM pivot would break the member's rigid relations; BOTH solids scanned as one rigid group; required export-cand-step to prefer the LIVE baked slot over the pre-bake captured handle (round 6 fix); canonical compare PASS (bbox 1.1e-7, com 1.1e-7, boolean 0) 2026-10-12",
-    "manual": true
+    "reason": "underdetermined (dof=2); ref-harness quat capture (round 4): ref = cand + pure twist 4.82 deg about world X through the member ORIGIN (loc unchanged); pivot = b3 compound ORIGIN (-3.5,0.5,0.5) — the two-solid member's COM is offset (0,-2.5,-1) from the origin, so the COM pivot would break the member's rigid relations; BOTH solids scanned as one rigid group; required export-cand-step to prefer the LIVE baked slot over the pre-bake captured handle (round 6 fix); canonical compare PASS (bbox 1.1e-7, com 1.1e-7, boolean 0) 2026-10-12"
   },
   "tests.test_assembly:::test_constrain__b1": {
     "status": "ported",

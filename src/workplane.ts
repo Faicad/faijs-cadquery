@@ -704,6 +704,367 @@ function faceNormalAndPoint(face: BrepHandle): {
 }
 
 /**
+ * Plane of a planar face (normal + a point on it), sampled from the uv
+ * centre; null for curved faces (normal rotates across the uv bounds).
+ * The kernel binds no curve-surface intersection primitive, so the
+ * until-face machinery composes from per-face plane sampling — exact for the
+ * all-planar until-face test family (curved limit faces: kernel-side gap).
+ */
+function facePlaneOf(
+  fh: BrepHandle,
+): { n: [number, number, number]; p: [number, number, number] } | null {
+  const k = kern()
+  try {
+    const b = k.uvBounds(fh)
+    const um = (b.uMin + b.uMax) / 2
+    const vm = (b.vMin + b.vMax) / 2
+    const n1 = k.surfaceNormal(fh, um, vm) as unknown as { x: number; y: number; z: number }
+    const n2 = k.surfaceNormal(fh, b.uMin, b.vMin) as unknown as { x: number; y: number; z: number }
+    if (Math.abs(n1.x - n2.x) + Math.abs(n1.y - n2.y) + Math.abs(n1.z - n2.z) > 1e-6) return null
+    const p = k.pointOnSurface(fh, um, vm) as unknown as { x: number; y: number; z: number }
+    return { n: [n1.x, n1.y, n1.z], p: [p.x, p.y, p.z] }
+  } catch {
+    return null
+  }
+}
+
+function faceBBox(
+  fh: BrepHandle,
+): { xmin: number; xmax: number; ymin: number; ymax: number; zmin: number; zmax: number } | null {
+  try {
+    return kern().getBoundingBox(fh) as unknown as {
+      xmin: number; xmax: number; ymin: number; ymax: number; zmin: number; zmax: number
+    }
+  } catch {
+    return null
+  }
+}
+
+/**
+ * facesIntersectedByLine — port of CadQuery Shape.facesIntersectedByLine
+ * (occ_impl/shapes.py:1492; upstream uses BRepIntCurveSurface_Inter). Returns
+ * the faces of `shape` a ray from `point` along unit `dir` crosses, sorted by
+ * distance. `mode` filters by side: 'along' keeps crossings on the +dir side,
+ * 'opposite' on the -dir side (tol 1e-4, matching upstream). Planar faces
+ * only (see facePlaneOf).
+ */
+function facesIntersectedByLine(
+  shape: Shape,
+  point: [number, number, number],
+  dir: [number, number, number],
+  mode: 'along' | 'opposite',
+): { face: BrepHandle; dist: number }[] {
+  const k = kern()
+  const TOL = 1e-4
+  const faces = k.getSubShapes(ownHandle(shape) as never, 'face') as unknown as BrepHandle[]
+  const out: { face: BrepHandle; dist: number }[] = []
+  for (const fh of faces) {
+    const fp = facePlaneOf(fh)
+    if (!fp) continue
+    const denom = dir[0] * fp.n[0] + dir[1] * fp.n[1] + dir[2] * fp.n[2]
+    if (Math.abs(denom) < 1e-9) continue // parallel to the face plane
+    const s =
+      (
+        (fp.p[0] - point[0]) * fp.n[0] +
+        (fp.p[1] - point[1]) * fp.n[1] +
+        (fp.p[2] - point[2]) * fp.n[2]
+      ) / denom
+    if (mode === 'along' ? s <= TOL : s >= -TOL) continue
+    const rx = point[0] + dir[0] * s
+    const ry = point[1] + dir[1] * s
+    const rz = point[2] + dir[2] * s
+    const bb = faceBBox(fh)
+    if (!bb) continue
+    const M = 1e-3
+    if (
+      rx < bb.xmin - M || rx > bb.xmax + M ||
+      ry < bb.ymin - M || ry > bb.ymax + M ||
+      rz < bb.zmin - M || rz > bb.zmax + M
+    ) {
+      continue
+    }
+    out.push({ face: fh, dist: Math.abs(s) })
+  }
+  out.sort((a, z) => a.dist - z.dist)
+  return out
+}
+
+/**
+ * Is `c` on the boundary of `shape` (on any face plane, within the face
+ * extent)? Upstream CQ `isInside()` (BRepClass3d_SolidClassifier) returns
+ * FALSE for a point exactly on a face — verified empirically: upstream
+ * testExtrudeUntilFace's bridging case (profile ON the x=5 face) does NOT
+ * trigger the in-solid skip, so the skip must not fire for boundary points
+ * either (a naive ray parity is direction-dependent exactly there).
+ */
+function onSolidBoundary(shape: Shape, c: [number, number, number]): boolean {
+  const faces = kern().getSubShapes(ownHandle(shape) as never, 'face') as unknown as BrepHandle[]
+  const TOL = 1e-3
+  const M = 1e-2
+  for (const fh of faces) {
+    const fp = facePlaneOf(fh)
+    if (!fp) continue
+    const d =
+      Math.abs(
+        c[0] * fp.n[0] + c[1] * fp.n[1] + c[2] * fp.n[2] -
+          (fp.p[0] * fp.n[0] + fp.p[1] * fp.n[1] + fp.p[2] * fp.n[2]),
+      )
+    if (d > TOL) continue
+    const bb = faceBBox(fh)
+    if (!bb) continue
+    if (
+      c[0] >= bb.xmin - M && c[0] <= bb.xmax + M &&
+      c[1] >= bb.ymin - M && c[1] <= bb.ymax + M &&
+      c[2] >= bb.zmin - M && c[2] <= bb.zmax + M
+    ) {
+      return true
+    }
+  }
+  return false
+}
+
+/**
+ * Outward-normal orientation for the until-face machinery. The core
+ * resolveFaceSelector normal for a direction-INDEXED face (core
+ * cadquery-selectors/face.js, DirectionMinMaxSelector branch) compares the
+ * face centre against the SHAPE's bbox centre — which is wrong for shapes
+ * whose bbox centre is not in the material (disjoint boxes, L-shapes): the
+ * "outward" normal comes back INWARD (e.g. the x=5 face of two boxes at
+ * x∈[-5,5]∪[15,25] gets normal -x, since 5 < bbox-centre 10). Upstream CQ
+ * always has outward face normals, so the until-face port assumes outward;
+ * flip here when the profile point sits on a face and the material is on
+ * the +n side of it.
+ */
+function orientOutwardNormal(
+  base: Shape,
+  c: [number, number, number],
+  n: [number, number, number],
+): [number, number, number] {
+  const faces = kern().getSubShapes(ownHandle(base) as never, 'face') as unknown as BrepHandle[]
+  const TOL = 1e-3
+  const M = 1e-2
+  for (const fh of faces) {
+    const fp = facePlaneOf(fh)
+    if (!fp) continue
+    const denom = n[0] * fp.n[0] + n[1] * fp.n[1] + n[2] * fp.n[2]
+    if (Math.abs(denom) < 1e-9) continue
+    const s =
+      (
+        (fp.p[0] - c[0]) * fp.n[0] +
+        (fp.p[1] - c[1]) * fp.n[1] +
+        (fp.p[2] - c[2]) * fp.n[2]
+      ) / denom
+    if (Math.abs(s) > TOL) continue // c not on this face's plane
+    const bb = faceBBox(fh)
+    if (!bb) continue
+    if (
+      c[0] < bb.xmin - M || c[0] > bb.xmax + M ||
+      c[1] < bb.ymin - M || c[1] > bb.ymax + M ||
+      c[2] < bb.zmin - M || c[2] > bb.zmax + M
+    ) {
+      continue
+    }
+    // c is on this face: probe slightly along n — material on the +n side
+    // means n points INTO the solid → flip.
+    if (
+      pointInSolidByParity(base, [c[0] + n[0] * 1e-3, c[1] + n[1] * 1e-3, c[2] + n[2] * 1e-3], n)
+    ) {
+      return [-n[0], -n[1], -n[2]]
+    }
+  }
+  return n
+}
+
+/**
+ * Point-in-solid test by even-odd ray parity (the kernel does not bind
+ * BRepClass3d_SolidClassifier). `facesIntersectedByLine(shape, p, dir,
+ * 'along')` returns ODD crossings iff `p` is inside a closed solid (degenerate
+ * on-boundary hits are excluded by the 1e-4 tolerance, same as upstream).
+ */
+function pointInSolidByParity(
+  shape: Shape,
+  point: [number, number, number],
+  dir: [number, number, number],
+): boolean {
+  return facesIntersectedByLine(shape, point, dir, 'along').length % 2 === 1
+}
+
+type UntilFaceSpec = { kind: 'index'; index: 0 | -1 } | { kind: 'face'; face: Shape }
+
+/**
+ * Distance from `profileCenter` to the limit face along `searchDir` — the
+ * depth the until-face prism travels. Port of the upstream
+ * getFacesList + facesList[index] logic (cq.py _extrude:3711-3784), with the
+ * limit reached by PLANE DISTANCE instead of BRepFeat_MakeDPrism.Perform(face)
+ * (TKFeat is not in the occt-wasm build): for a planar limit face the dprism
+ * depth is exactly that signed distance.
+ */
+function distToLimitFace(
+  base: Shape,
+  profileCenter: [number, number, number],
+  searchDir: [number, number, number],
+  upToFace: UntilFaceSpec,
+  additive: boolean,
+  both: boolean,
+): number {
+  if (upToFace.kind === 'face') {
+    const fh = ownHandle(upToFace.face) as unknown as BrepHandle
+    const b = kern().uvBounds(fh)
+    const um = (b.uMin + b.uMax) / 2
+    const vm = (b.vMin + b.vMax) / 2
+    const n = kern().surfaceNormal(fh, um, vm) as unknown as { x: number; y: number; z: number }
+    const p = kern().pointOnSurface(fh, um, vm) as unknown as { x: number; y: number; z: number }
+    const denom = searchDir[0] * n.x + searchDir[1] * n.y + searchDir[2] * n.z
+    if (Math.abs(denom) < 1e-9) {
+      throw new Error('[cq-compat] until=face: the target face is parallel to the extrusion direction')
+    }
+    const s = ((p.x - profileCenter[0]) * n.x + (p.y - profileCenter[1]) * n.y + (p.z - profileCenter[2]) * n.z) / denom
+    if (s <= 1e-4) {
+      throw new Error('[cq-compat] until=face: no face found in the extrusion/cut direction')
+    }
+    return s
+  }
+  let list = facesIntersectedByLine(base, profileCenter, searchDir, 'along')
+  let flipped = false
+  if (list.length === 0) {
+    // Upstream getFacesList (cq.py:3719): with `both`, an empty direction
+    // errors IMMEDIATELY — no flip retry (both directions must have faces).
+    if (both) {
+      throw new Error(
+        "Couldn't find a face to extrude/cut to for at least one of the two required directions of extrusion/cut.",
+      )
+    }
+    // Otherwise retry the opposite direction (workplane may be oriented the
+    // "wrong" way) before giving up.
+    list = facesIntersectedByLine(
+      base,
+      profileCenter,
+      [-searchDir[0], -searchDir[1], -searchDir[2]],
+      'along',
+    )
+    flipped = true
+  }
+  if (list.length === 0) {
+    throw new Error("Couldn't find a face to extrude/cut to. Check your workplane orientation.")
+  }
+  let index: number = upToFace.index
+  // Upstream cq.py:3758: a profile whose centre sits INSIDE the solid skips
+  // the immediate exit face (index 0 -> 1) on additive 'next' extrusions.
+  // Boundary points do NOT skip (upstream isInside is false on a face — see
+  // onSolidBoundary), and after a flip the first hit is already the far side.
+  if (
+    additive &&
+    upToFace.index === 0 &&
+    !flipped &&
+    !onSolidBoundary(base, profileCenter) &&
+    pointInSolidByParity(base, profileCenter, searchDir)
+  ) {
+    index = 1
+  }
+  if (index >= list.length) {
+    throw new Error("[cq-compat] until='next': no face beyond the profile inside the solid")
+  }
+  return list[index < 0 ? list.length + index : index].dist
+}
+
+/**
+ * Build the additive/subtractive tool of an until=face extrude/cutBlind: one
+ * prism per stack point (each at its own limit depth), optionally mirrored to
+ * the opposite direction when `both`. The caller fuses (additive) or cuts
+ * (subtractive) the tool with the base solid.
+ */
+async function buildUntilFaceTool(
+  wp: Workplane,
+  base: Shape,
+  n: [number, number, number],
+  upToFace: UntilFaceSpec,
+  additive: boolean,
+  both: boolean,
+  taper: number,
+): Promise<Shape> {
+  if (taper) {
+    throw new Error(
+      '[cq-compat] until=face with taper is not implemented (needs the kernel tapered-prism-to-face; ' +
+        'no mirrored case exercises it)',
+    )
+  }
+  const pts = eachPoints(wp)
+  // The core face-normal heuristic can come back INWARD (see
+  // orientOutwardNormal); a face workplane has one face, so orient once from
+  // the first stack point and use the outward normal everywhere below.
+  const c0 = localToWorld(wp, pts[0]![0], pts[0]![1])
+  const nOut = orientOutwardNormal(base, c0, n)
+  const sdir: [number, number, number] = additive ? nOut : [-nOut[0], -nOut[1], -nOut[2]]
+  let tool: Shape | null = null
+  for (const [px, py] of pts) {
+    const c = localToWorld(wp, px, py)
+    const depth = distToLimitFace(base, c, sdir, upToFace, additive, both)
+    const piece = await untilPieceAt(wp, c, [sdir[0] * depth, sdir[1] * depth, sdir[2] * depth])
+    tool = tool ? await fuseShapes(tool, piece) : piece
+    if (both) {
+      const depth2 = distToLimitFace(base, c, [-sdir[0], -sdir[1], -sdir[2]], upToFace, additive, both)
+      const piece2 = await untilPieceAt(wp, c, [-sdir[0] * depth2, -sdir[1] * depth2, -sdir[2] * depth2])
+      tool = tool ? await fuseShapes(tool, piece2) : piece2
+    }
+  }
+  if (!tool) throw new Error('[cq-compat] until=face: no pending profile to extrude/cut')
+  return tool
+}
+
+/** One until-face prism piece at world point `c`, extruded by vector `vec`. */
+async function untilPieceAt(
+  wp: Workplane,
+  c: [number, number, number],
+  vec: [number, number, number],
+): Promise<Shape> {
+  const len = Math.hypot(vec[0], vec[1], vec[2])
+  if (!(len > 0)) throw new Error('[cq-compat] until=face: zero extrusion depth')
+  // One uniform path for EVERY profile kind (buildProfileWire covers
+  // rect/circle/ellipse/polygon/path): build the profile wire on the
+  // workplane moved to `c`, make its face, and kernel-extrude by the exact
+  // vector — any direction, no origin-offset/translate acrobatics.
+  const wires: PendingWire[] = (wp.pendingWires ?? []).filter((w) => !w.construction)
+  if (wp.pendingRect) {
+    wires.push({
+      kind: 'rect',
+      w: wp.pendingRect.w,
+      d: wp.pendingRect.d,
+      cx: 0,
+      cy: 0,
+      construction: false,
+    })
+  }
+  if (wp.pendingCircle) {
+    wires.push({ kind: 'circle', radius: wp.pendingCircle.radius, cx: 0, cy: 0, construction: false })
+  }
+  if (wp.pendingPolygon) {
+    wires.push({
+      kind: 'polygon',
+      n: wp.pendingPolygon.n,
+      d: wp.pendingPolygon.d,
+      cx: 0,
+      cy: 0,
+      construction: false,
+    })
+  }
+  const k = kern()
+  const wpAt = clone(wp, { origin: c })
+  let piece: Shape | null = null
+  for (const w of wires) {
+    const wire = await buildProfileWire(wpAt, w)
+    const face = toShape(k.makeFace(wire as BrepHandle))
+    const s = toShape(k.extrude(ownHandle(face) as never, vec[0], vec[1], vec[2]))
+    piece = piece ? await fuseShapes(piece, s) : s
+  }
+  if (!piece) {
+    throw new Error(
+      '[cq-compat] until=face: no pending profile (wire/rect/circle/polygon) to extrude/cut',
+    )
+  }
+  return piece
+}
+
+/**
  * Fuse two shapes into ONE solid via the vendored brepjs fuse.
  *
  * Rationale: `cad.union` (defineOp → booleanBrep → fromBrep repack) has been
@@ -3138,16 +3499,54 @@ function rawShapeId(shapeWrapper: unknown): number {
  */
 export async function extrude(
   wp: Workplane,
-  height: number,
+  height: number | 'next' | 'last' | Shape,
   combine: boolean | 'cut' | 's' = true,
   opts?: { taper?: number; both?: boolean },
 ): Promise<Workplane> {
   const taper = opts?.taper ?? 0
   const both = opts?.both ?? false
   // CadQuery: `combine in ("cut","s")` delegates to cutBlind (cq.py:3063-3065) —
-  // a subtractive extrude and cutBlind are the same op upstream.
+  // a subtractive extrude and cutBlind are the same op upstream (incl. the
+  // until='next'/'last'/Face forms, which forward straight through).
   if (combine === 'cut' || combine === 's') {
     return cutBlind(wp, height, { ...(taper ? { taper } : {}), both })
+  }
+  // CadQuery until=face extrusion (cq.py extrude:3067-3090 + _extrude:3753-3784):
+  // 'next'/'last' index the faces the solid presents along the workplane
+  // normal; a Face argument is the limit directly. combine=False is rejected
+  // (the result always merges into the context solid); unknown strings raise.
+  if (typeof height !== 'number') {
+    if (combine === false) {
+      throw new Error("[cq-compat] extrude: `combine` can't be set to False when extruding until a face")
+    }
+    if (typeof height === 'string' && height !== 'next' && height !== 'last') {
+      throw new Error(`[cq-compat] extrude: Do not know how to handle until argument of type ${typeof height}`)
+    }
+    const base = baseSolid(wp)
+    if (!base) {
+      throw new Error('[cq-compat] extrude: until=face requires a solid in the context')
+    }
+    wp = await applyPendingFacePlane(wp)
+    const upToFace: UntilFaceSpec =
+      typeof height === 'string'
+        ? { kind: 'index', index: height === 'next' ? 0 : -1 }
+        : { kind: 'face', face: height }
+    const n: [number, number, number] = Array.isArray(wp.normal) ? wp.normal : [0, 0, 1]
+    const tool = await buildUntilFaceTool(wp, base, n, upToFace, true, both, taper)
+    const shape = await fuseShapes(base, tool)
+    return clone(wp, {
+      objects: [shape],
+      pendingWires: [],
+      pendingPolygon: undefined,
+      pendingRect: undefined,
+      pendingCircle: undefined,
+      pendingFaces: undefined,
+      faceSel: null,
+      edgeSel: null,
+      vertexSel: null,
+      selChain: undefined,
+      pts: [],
+    })
   }
   // CadQuery `both=True`: extrude the profile ±height and fuse the two prisms
   // (cq.py:3788-3792, `s1.fuse(s2, glue=True)`). Implemented as two standalone
@@ -3822,7 +4221,7 @@ export async function loft(wp: Workplane, ...rest: (Workplane | LoftOptions)[]):
  */
 export async function cutBlind(
   wp: Workplane,
-  depth: number,
+  depth: number | 'next' | 'last' | Shape,
   opts?: {
     w?: number
     d?: number
@@ -3832,9 +4231,36 @@ export async function cutBlind(
     dir?: [number, number, number]
   },
 ): Promise<Workplane> {
-  if (!baseSolid(wp)) return wp
-  const base = baseSolid(wp)!
-  wp = await applyPendingFacePlane(wp)
+  const base = baseSolid(wp)
+  if (!base) return wp
+  // CadQuery cutBlind until=face (cq.py cutBlind:3559-3572): 'next'/'last' cut
+  // inward to the Nth face along the workplane normal; a Face argument is the
+  // limit directly. Same mechanism as the additive extrude until path, with
+  // additive=False (search direction reversed to cut INTO the solid).
+  if (typeof depth !== 'number') {
+    if (typeof depth === 'string' && depth !== 'next' && depth !== 'last') {
+      throw new Error(`[cq-compat] cutBlind: Do not know how to handle until argument of type ${typeof depth}`)
+    }
+    wp = await applyPendingFacePlane(wp)
+    const upToFace: UntilFaceSpec =
+      typeof depth === 'string'
+        ? { kind: 'index', index: depth === 'next' ? 0 : -1 }
+        : { kind: 'face', face: depth }
+    const n: [number, number, number] = Array.isArray(wp.normal) ? wp.normal : [0, 0, 1]
+    const tool = await buildUntilFaceTool(wp, base, n, upToFace, false, opts?.both ?? false, opts?.taper ?? 0)
+    const result = await cutShapes(base, tool)
+    return clone(wp, {
+      objects: [result],
+      faceSel: null,
+      edgeSel: null,
+      selChain: undefined,
+      pts: [],
+      pendingWires: [],
+      pendingRect: undefined,
+      pendingCircle: undefined,
+      pendingPolygon: undefined,
+    })
+  }
   const absDepth = Math.abs(depth)
   const both = opts?.both ?? false
   if (both && opts?.taper) {
@@ -5079,7 +5505,18 @@ export async function workplane(
   // base + selector is exactly what upstream's `workplane()` sees (it reads the
   // selected faces off `self.objects`, but the plane derivation is over the
   // face SET, which the selector re-creates).
-  const { center, normal: faceNormal } = await resolveFaceSelector(baseSolid(wp)!, wp.faceSel, opts?.centerOption)
+  const { center, normal: faceNormalIn } = await resolveFaceSelector(baseSolid(wp)!, wp.faceSel, opts?.centerOption)
+  // The core DirectionMinMaxSelector normal (face centre vs the SHAPE's bbox
+  // centre — core cadquery-selectors/face.js) comes back INWARD for faces on
+  // the near side of shapes whose bbox centre is not in the material
+  // (disjoint boxes, L-shapes): e.g. the x=5 face of two boxes at
+  // x∈[-5,5]∪[15,25] gets -x, since 5 < bbox-centre 10. CadQuery face
+  // workplanes always carry the OUTWARD face normal; orient here so every
+  // downstream op (extrude OVERLAP padding, cutBlind, section, until-face)
+  // sees the true outward normal. Verified defect (2026-10-19): a regular
+  // `extrude(10)` on that inward-normal face produced vol 2000.1 (the
+  // OVERLAP=0.1 padding pointing OUT of the material) instead of 2010.
+  const faceNormal = orientOutwardNormal(baseSolid(wp)!, center, faceNormalIn)
   // CadQuery default centerOption is "ProjectedOrigin": project the current
   // origin onto the face plane. "CenterOfBoundBox"/"CenterOfMass" keep the
   // face centroid returned by resolveFaceSelector.
@@ -5136,16 +5573,44 @@ export function center(wp: Workplane, x: number, y: number): Workplane {
 /**
  * pushPoints
  * @param wp - Workplane
- * @param pts - [number, number][]
+ * @param pts - [number, number][] and [number, number, number][]: 2D points are
+ *   workplane-local, 3D points are WORLD positions (upstream
+ *   `pushPoints([(x, y, z)])` creates a Location at that world point — e.g.
+ *   `testCutBlindUntilFace` stacks boxes on the XY plane at z=5 via 3D points).
  * @returns Workplane
  */
-export function pushPoints(wp: Workplane, pts: [number, number][]): Workplane {
+export function pushPoints(
+  wp: Workplane,
+  pts: ([number, number] | [number, number, number])[],
+): Workplane {
+  const local = pts.map((p): [number, number] => {
+    if (p.length === 3) {
+      // In-plane 3D world points place exactly like 2D local points. Off-plane
+      // points would silently drop the out-of-plane component — reject loudly
+      // instead (trap on record: upstream testCutBlindUntilFace builds its
+      // z=5 stack this way; mirrors express the same position via
+      // workplane({ offset: z }) instead).
+      const r = [p[0] - wp.origin[0], p[1] - wp.origin[1], p[2] - wp.origin[2]]
+      const off = r[0] * wp.normal[0] + r[1] * wp.normal[1] + r[2] * wp.normal[2]
+      if (Math.abs(off) > 1e-6) {
+        throw new Error(
+          '[cq-compat] pushPoints: 3D points off the workplane plane are not supported ' +
+            '(the out-of-plane component would be silently dropped); offset the workplane instead',
+        )
+      }
+      return [
+        r[0] * wp.xDir[0] + r[1] * wp.xDir[1] + r[2] * wp.xDir[2],
+        r[0] * wp.yDir[0] + r[1] * wp.yDir[1] + r[2] * wp.yDir[2],
+      ]
+    }
+    return p
+  })
   const existing = Array.isArray(wp.pts) ? wp.pts : []
   // Plain pushPoints carries no rotation: drop any ptsAngle left by a previous
   // polarArray so the parallel array stays index-aligned with pts.
   const existingAngles = wp.ptsAngle?.length === existing.length ? wp.ptsAngle : undefined
-  const angles = existingAngles ? [...existingAngles, ...pts.map(() => 0)] : undefined
-  return clone(wp, { pts: [...existing, ...pts], ptsAngle: angles })
+  const angles = existingAngles ? [...existingAngles, ...local.map(() => 0)] : undefined
+  return clone(wp, { pts: [...existing, ...local], ptsAngle: angles })
 }
 
 /**
